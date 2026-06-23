@@ -144,7 +144,7 @@ const Data={
     if(idx===-1)return null;
     STOPS[idx]={...STOPS[idx],...patch,updatedAt:Date.now()};
     await DB.saveStop(STOPS[idx]);
-    await DB.queueChange({action:'updateStop',id,patch});
+    Sync?.pushStop?.(STOPS[idx]);
     return STOPS[idx];
   },
   getStampStops:()=>STOPS.filter(s=>s.hasStamp),
@@ -152,7 +152,7 @@ const Data={
   async toggleStamp(id){
     const now=STAMPS_COLLECTED.has(id)?(STAMPS_COLLECTED.delete(id),false):(STAMPS_COLLECTED.add(id),true);
     await DB.saveStamp(id,now);
-    await DB.queueChange({action:'collectStamp',id,collected:now});
+    Sync?.pushStamp?.(id, now);
     return now;
   },
   getStampProgress(){
@@ -173,13 +173,13 @@ const Data={
     exp.id='exp_'+Date.now();exp.ts=Date.now();
     EXPENSES.push(exp);
     await DB.saveExpense(exp);
-    await DB.queueChange({action:'addExpense',expense:exp});
+    Sync?.pushExpense?.(exp);
     return exp;
   },
   async deleteExpense(id){
     EXPENSES=EXPENSES.filter(e=>e.id!==id);
     await DB.deleteExpense(id);
-    await DB.queueChange({action:'deleteExpense',id});
+    Sync?.removeExpense?.(id);
   },
   getTotalSpentJPY:()=>EXPENSES.reduce((s,e)=>s+(e.amountJPY||0),0),
   getPackingItems:()=>PACKING,
@@ -197,14 +197,12 @@ const Data={
   async addPackingItem({cat,item,essential=false}){
     const newItem={id:'pk_'+Date.now(),cat,item,checked:false,essential};
     PACKING.push(newItem);
-    await DB.saveExpense(newItem); // reuse expense store for now
-    await DB.queueChange({action:'addPacking',item:newItem});
+    Sync?.pushPacking?.(newItem);
     return newItem;
   },
   async deletePacking(id){
     PACKING=PACKING.filter(p=>p.id!==id);
-    await DB.togglePacking(id,false); // mark deleted via toggle
-    await DB.queueChange({action:'deletePacking',id});
+    Sync?.removePacking?.(id);
   },
   getBookingsList(){
     const order={urgent:0,pending:1,booked:2,open:3};
@@ -232,13 +230,13 @@ const Data={
     };
     STOPS.push(stop);
     await DB.saveStop(stop);
-    await DB.queueChange({action:'addStop',stop});
+    Sync?.pushStop?.(stop);
     return stop;
   },
 
   async deleteStop(id){
     STOPS=STOPS.filter(s=>s.id!==id);
-    await DB.queueChange({action:'deleteStop',id});
+    Sync?.removeStop?.(id);
   },
   getSOS:()=>SOS_DATA,
 };

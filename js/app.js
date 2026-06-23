@@ -193,13 +193,14 @@ const App = (() => {
       btn.addEventListener('click', () => switchTo(btn.dataset.screen));
     });
 
-    // Sync button
+    // Sync button — force re-push all data to InstantDB
     document.getElementById('sync-btn')?.addEventListener('click', async () => {
-      if (!Config.GAS_URL) { Toast.show('Set GAS_URL in js/config.js first', 'warning'); return; }
-      await Sync.sync();
-      renderStampBanner();
-      currentModule?.refresh?.();
-      updateUrgentBadge();
+      if (!Config.INSTANT_APP_ID) {
+        Toast.show('Add INSTANT_APP_ID to js/config.js — visit getadb.com/provision/<uuid>', 'warning');
+        return;
+      }
+      await Sync.pushAll();
+      Toast.show('All data pushed to InstantDB', 'success');
     });
 
     // Countdown
@@ -212,13 +213,8 @@ const App = (() => {
     try { start = sessionStorage.getItem('lastScreen') || 'itinerary'; } catch(_) {}
     switchTo(start);
 
-    // Background pull
-    if (navigator.onLine && Config.GAS_URL) {
-      setTimeout(() => Sync.pull().then(() => {
-        renderStampBanner();
-        currentModule?.refresh?.();
-      }), 1500);
-    }
+    // Initialise InstantDB sync (handles pull + live subscription)
+    await Sync.init();
   }
 
   return { init, switchTo, updateSyncStatus, updateUrgentBadge, showConflict, hideConflict, renderStampBanner };

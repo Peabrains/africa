@@ -14,6 +14,12 @@
   <link rel="stylesheet" href="css/print.css">
   <!-- NO external icon CDN — all icons are inline SVG via icons.js -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+  <!-- InstantDB real-time sync loader -->
+  <script type="module">
+    import { init, id, tx } from 'https://esm.sh/@instantdb/core@0.17.31';
+    window._IDB = { init, id, tx };
+    window.dispatchEvent(new CustomEvent('idb-ready'));
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>
 
   <style>
