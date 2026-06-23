@@ -18,7 +18,7 @@ const DAYS=[
 ];
 
 const SEED_STOPS=[
-  {id:'s01',dayId:'d-1',order:1,segment:'kumano',name:'KUL → KIX',activity:'Night flight to Osaka Kansai',transport:'MH714 · depart 23:00 MYT · arrive 06:30+1 JST',transportType:'plane',time:'23:00',timeZone:'MYT',accommodation:null,notes:'',lat:null,lng:null,hasStamp:false,isSanzan:false,trainDetail:{service:'MH714',jrPass:false},booking:{status:'booked',ref:'MH714',cost:null,deadline:null}},
+  {id:'s01',dayId:'d-1',order:1,segment:'kumano',name:'KUL → KIX',activity:'Night flight to Osaka Kansai',transport:'MH714 · depart 23:00 MYT · arrive 06:30+1 JST',transportType:'plane',time:'23:00',timeZone:'MYT',accommodation:null,notes:'',lat:null,lng:null,hasStamp:false,isSanzan:false,trainDetail:{service:'MH714'},booking:{status:'booked',ref:'MH714',cost:null,deadline:null}},
   {id:'s02',dayId:'d0',order:1,segment:'kumano',name:'KIX → Kii-Tanabe',activity:'Collect JR Pass · head south by limited express',transport:'Haruka (Kansai Airport → Shin-Osaka) then Kuroshio Ltd Express to Kii-Tanabe',transportType:'train',time:'~09:30',timeZone:'JST',accommodation:'Kii-Tanabe (TBD)',notes:'Total ~2.5 hrs',lat:33.7330,lng:135.3841,hasStamp:false,isSanzan:false,trainDetail:{service:'Kuroshio Ltd Express',jrPass:true,platform:'Check departure board at Shin-Osaka'},booking:{status:'open',ref:'',cost:null,deadline:null}},
   {id:'s03',dayId:'d0',order:2,segment:'kumano',name:'Kumano Kodo Kan',activity:'Collect stamp passport (¥100) · trail maps · last gear',transport:'Walking distance from Kii-Tanabe Station',transportType:'walk',time:'~12:00',timeZone:'JST',accommodation:null,notes:'Open 8:30–17:15',lat:33.7748,lng:135.5037,hasStamp:false,isSanzan:false,booking:{status:'open',ref:'',cost:null,deadline:null}},
   {id:'s04',dayId:'d1',order:1,segment:'kumano',name:'Takijiri-oji',activity:'Trailhead start · Tainai-kuguri womb-crawling rock',transport:'Bus from Kii-Tanabe Station (Ryujin Bus) · ~40 min · depart Platform 2',transportType:'bus',time:'~09:00',timeZone:'JST',accommodation:null,notes:'~3.6 km, 1.5–2 hrs to Takahara',lat:33.7757,lng:135.5037,hasStamp:true,stampKanji:'始点',stampRomaji:'Takijiri',isSanzan:false,booking:{status:'open',ref:'',cost:null,deadline:null}},
@@ -122,7 +122,9 @@ const Data={
   async init(){
     try{
       const dbStops=await DB.loadStops();
-      if(dbStops?.length) STOPS=dbStops; else await DB.saveStops(STOPS);
+      // Only use cached stops if count is reasonable vs seed (guards against stale partial cache)
+      if(dbStops?.length >= SEED_STOPS.length * 0.8) STOPS=dbStops;
+      else await DB.saveStops(STOPS);
       const stampIds=await DB.loadStamps();
       stampIds.forEach(id=>STAMPS_COLLECTED.add(id));
       const dbExp=await DB.loadExpenses();

@@ -105,8 +105,8 @@ const ItineraryScreen = (() => {
             ${Icons[iconKey] ? Icons[iconKey]() : ''}
             <span>${stop.transport}</span>
           </div>` : ''}
-        ${stop.trainDetail?.jrPass === false ? '<p class="tl-platform" style="color:var(--warning-text)">⚠ Not on JR Pass · buy separately</p>' :
-          stop.trainDetail?.jrPass ? '<p class="tl-platform">JR Pass ✓</p>' : ''}
+        ${stop.transportType === 'train' && stop.trainDetail?.jrPass === false ? '<p class="tl-platform" style="color:var(--warning-text)">⚠ Not on JR Pass · buy separately</p>' :
+          stop.transportType === 'train' && stop.trainDetail?.jrPass ? '<p class="tl-platform">JR Pass ✓</p>' : ''}
         ${stop.trainDetail?.platform ? `<p class="tl-platform">Platform: ${stop.trainDetail.platform}</p>` : ''}
         ${stop.notes ? `<p class="tl-note">${stop.notes}</p>` : ''}
         <div class="tl-footer">${badge(stop.booking.status)}</div>
