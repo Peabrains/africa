@@ -7,15 +7,32 @@ const BottomSheet = (() => {
   function build() {
     overlay = document.createElement('div');
     overlay.id = 'bs-overlay';
-    Object.assign(overlay.style, { position:'fixed',inset:'0',background:'rgba(28,26,24,0.55)',zIndex:'200',opacity:'0',transition:'opacity 0.25s ease',display:'none' });
+    Object.assign(overlay.style, {
+      position:'fixed', inset:'0',
+      background:'rgba(28,26,24,0.55)',
+      zIndex:'200', opacity:'0',
+      transition:'opacity 0.25s ease', display:'none',
+    });
     overlay.addEventListener('click', close);
 
     sheet = document.createElement('div');
     sheet.id = 'bs-sheet';
-    Object.assign(sheet.style, { position:'fixed',left:'0',right:'0',bottom:'0',background:'var(--surface)',borderRadius:'20px 20px 0 0',borderTop:'1.5px solid var(--border)',zIndex:'201',transform:'translateY(100%)',transition:'transform 0.3s cubic-bezier(0.32,0.72,0,1)',maxHeight:'88vh',overflowY:'auto' });
+    Object.assign(sheet.style, {
+      position:'fixed', left:'0', right:'0', bottom:'0',
+      background:'var(--surface)',
+      borderRadius:'20px 20px 0 0',
+      borderTop:'1.5px solid var(--border)',
+      zIndex:'201',
+      transform:'translateY(100%)',
+      transition:'transform 0.3s cubic-bezier(0.32,0.72,0,1)',
+      maxHeight:'88vh', overflowY:'auto',
+    });
 
     const handle = document.createElement('div');
-    Object.assign(handle.style, { width:'44px',height:'4px',background:'var(--border)',borderRadius:'var(--r-pill)',margin:'12px auto 0' });
+    Object.assign(handle.style, {
+      width:'44px', height:'4px', background:'var(--border)',
+      borderRadius:'var(--r-pill)', margin:'12px auto 0',
+    });
 
     body = document.createElement('div');
     body.id = 'bs-body';
@@ -53,7 +70,18 @@ const BottomSheet = (() => {
     setTimeout(() => { overlay.style.display='none'; document.body.style.overflow=''; }, 300);
   }
 
-  /* ─── Stop detail (view + edit) ──────────────────────────── */
+  /* ─── Detail row helper ──────────────────────────────────── */
+  function detailRow(iconFn, text, accentColor) {
+    if (!text) return '';
+    const color = accentColor ? `style="color:${accentColor}"` : '';
+    return `
+      <div class="bs-row">
+        <span ${color}>${iconFn('icon-sm')}</span>
+        <span ${color}>${text}</span>
+      </div>`;
+  }
+
+  /* ─── Stop detail view ───────────────────────────────────── */
   function openStop(stop, day, editMode = false) {
     if (!overlay) build();
     body.innerHTML = '';
@@ -63,7 +91,7 @@ const BottomSheet = (() => {
     const stampCollected = stop.hasStamp && Data.isStampCollected(stop.id);
 
     if (editMode) {
-      /* ── EDIT MODE ────────────────────────────────────────── */
+      /* ── EDIT MODE ───────────────────────────────────────── */
       body.innerHTML = `
         <div class="bs-detail">
           <div class="bs-tags">
@@ -71,7 +99,6 @@ const BottomSheet = (() => {
             <span class="badge ${statusCls[stop.booking.status]}">${statusLabel[stop.booking.status]}</span>
           </div>
           <p class="bs-name">${stop.name}</p>
-
           <div class="bs-edit-group">
             <label class="bs-edit-label">Notes</label>
             <textarea id="bs-notes" class="bs-textarea" rows="3" placeholder="Add notes…">${stop.notes || ''}</textarea>
@@ -84,7 +111,6 @@ const BottomSheet = (() => {
             <label class="bs-edit-label">Cost (¥)</label>
             <input id="bs-cost" class="bs-input" type="number" value="${stop.booking?.cost || ''}" placeholder="e.g. 18000">
           </div>
-
           <div class="bs-actions">
             <button class="btn btn-primary bs-full-btn" id="bs-save">Save changes</button>
             <button class="btn btn-ghost bs-full-btn" id="bs-cancel">Cancel</button>
@@ -104,7 +130,34 @@ const BottomSheet = (() => {
       body.querySelector('#bs-cancel').addEventListener('click', () => openStop(stop, day));
 
     } else {
-      /* ── VIEW MODE ────────────────────────────────────────── */
+      /* ── VIEW MODE ───────────────────────────────────────── */
+      const transportIconKey = {
+        plane:'plane', train:'train', bus:'bus',
+        walk:'walk', boat:'boat', cable:'cable',
+      }[stop.transportType] || 'route';
+
+      // Build transport block
+      let transportBlock = '';
+      if (stop.transport || stop.trainDetail) {
+        const rows = [];
+        if (stop.transport) {
+          rows.push(`<div class="bs-transport-row">${Icons[transportIconKey]('icon-sm')}<span>${stop.transport}</span></div>`);
+        }
+        if (stop.trainDetail?.platform) {
+          rows.push(`<div class="bs-transport-row">${Icons.info('icon-sm')}<span>Platform ${stop.trainDetail.platform}${stop.trainDetail.car ? ` · Car ${stop.trainDetail.car}` : ''}</span></div>`);
+        }
+        if (stop.trainDetail?.jrPass) {
+          rows.push(`<div class="bs-transport-row">${Icons.card('icon-sm')}<span>JR Pass valid ✓</span></div>`);
+        }
+        if (rows.length) {
+          transportBlock = `
+            <div class="bs-transport-card">
+              <p class="bs-transport-card-title">Transport</p>
+              ${rows.join('')}
+            </div>`;
+        }
+      }
+
       body.innerHTML = `
         <div class="bs-detail">
           <div class="bs-tags">
@@ -112,17 +165,17 @@ const BottomSheet = (() => {
             ${day ? `<span class="badge badge-open">${day.date}</span>` : ''}
             <span class="badge ${statusCls[stop.booking.status]}">${statusLabel[stop.booking.status]}</span>
           </div>
-
           <p class="bs-name">${stop.name}</p>
           <p class="bs-activity">${stop.activity}</p>
 
+          ${transportBlock}
+
           <div class="bs-rows">
-            ${stop.time ? `<div class="bs-row"><i class="ti ti-clock" style="font-size:16px;color:var(--text-muted);flex-shrink:0"></i><span>${stop.time}${stop.timeZone ? ' ' + stop.timeZone : ''}</span></div>` : ''}
-            ${stop.transport ? `<div class="bs-row"><i class="ti ti-route" style="font-size:16px;color:var(--text-muted);flex-shrink:0"></i><span>${stop.transport}</span></div>` : ''}
-            ${stop.accommodation ? `<div class="bs-row"><i class="ti ti-moon" style="font-size:16px;color:var(--text-muted);flex-shrink:0"></i><span>${stop.accommodation}</span></div>` : ''}
-            ${stop.booking?.ref ? `<div class="bs-row"><i class="ti ti-id" style="font-size:16px;color:var(--text-muted);flex-shrink:0"></i><span>Ref: ${stop.booking.ref}</span></div>` : ''}
-            ${stop.booking?.cost ? `<div class="bs-row"><i class="ti ti-currency-yen" style="font-size:16px;color:var(--text-muted);flex-shrink:0"></i><span>¥${stop.booking.cost.toLocaleString()}</span></div>` : ''}
-            ${stop.notes ? `<div class="bs-row"><i class="ti ti-info-circle" style="font-size:16px;color:var(--accent);flex-shrink:0"></i><span style="color:var(--accent)">${stop.notes}</span></div>` : ''}
+            ${detailRow(Icons.clock, stop.time ? `${stop.time}${stop.timeZone ? ' ' + stop.timeZone : ''}` : '')}
+            ${detailRow(Icons.moon, stop.accommodation)}
+            ${detailRow(Icons.card, stop.booking?.ref ? `Ref: ${stop.booking.ref}` : '')}
+            ${detailRow(Icons.yen, stop.booking?.cost ? `¥${stop.booking.cost.toLocaleString()}` : '')}
+            ${detailRow(Icons.info, stop.notes, 'var(--accent)')}
           </div>
 
           ${stop.hasStamp ? `
@@ -150,7 +203,6 @@ const BottomSheet = (() => {
           </div>
         </div>`;
 
-      /* Wire view buttons */
       body.querySelector('#bs-book-btn,#bs-unbook-btn')?.addEventListener('click', async () => {
         const newStatus = stop.booking.status !== 'booked' ? 'booked' : 'pending';
         await Data.updateStop(stop.id, { booking: { ...stop.booking, status: newStatus } });
@@ -169,12 +221,12 @@ const BottomSheet = (() => {
         } else {
           Toast.show(now ? `${stop.stampRomaji} stamp collected` : 'Stamp uncollected', now ? 'success' : 'info');
         }
+        App.renderStampBanner();
         close();
         window.ItineraryScreen?.refresh();
       });
 
       body.querySelector('#bs-edit-btn')?.addEventListener('click', () => openStop(stop, day, true));
-
       body.querySelector('#bs-remove-btn')?.addEventListener('click', () => {
         Toast.show(`${stop.name} removed`, 'warning');
         close();
