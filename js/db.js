@@ -110,6 +110,10 @@ const DB = (() => {
     loadQueue:    ()        => getAll('queue'),
     clearQueue:   ()        => clear('queue'),
 
+    /* Overnight */
+    loadOvernight: () => getMeta('overnight').then(v => v || null),
+    saveOvernight: (data) => setMeta('overnight', data),
+
     /* Meta */
     getLastSync:  ()    => getMeta('lastSync'),
     setLastSync:  (ts)  => setMeta('lastSync', ts),

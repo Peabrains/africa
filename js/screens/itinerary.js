@@ -4,7 +4,7 @@ const ItineraryScreen = (() => {
   let root;
 
   const SEG_COLOR = { kumano:'#2B41B0', alpine:'#2A7A4B', hakuba:'#1E6FA8', osaka:'#888888' };
-  const TRANSPORT_ICON = { plane:'plane',train:'train',bus:'bus',walk:'walk',boat:'boat',cable:'cable' };
+  const TRANSPORT_ICON = { plane:'plane', train:'train', bus:'bus', walk:'walk', boat:'boat', cable:'cable' };
 
   function badge(status) {
     const m = { booked:['badge-booked','✓ Booked'], pending:['badge-pending','Pending'], urgent:['badge-urgent','⚡ Urgent'], open:['badge-open','Open'] };
@@ -23,7 +23,6 @@ const ItineraryScreen = (() => {
       </div>
       <p class="tl-day-title-text">${day.title}</p>`;
 
-    // Weather
     const wxStop = stops.find(s => s.lat && s.lng);
     if (wxStop && navigator.onLine) {
       const wxEl = document.createElement('div');
@@ -32,17 +31,16 @@ const ItineraryScreen = (() => {
       wrap.appendChild(wxEl);
       Weather.renderStrip(wxEl, wxStop.lat, wxStop.lng, wxStop.name);
     }
-
     wrap.appendChild(Object.assign(document.createElement('div'), { className:'tl-day-divider' }));
     return wrap;
   }
 
-  /* ─── Overnight accommodation card ─────────────────────── */
-  function overnightCard(stops, dayId) {
-    // Find the stop with accommodation on this day
-    const accomStop = stops.slice().reverse().find(s => s.accommodation);
-    if (!accomStop) return null;
+  /* ─── Overnight card — from day level (not stop level) ─── */
+  function overnightCard(day) {
+    const o = Data.getOvernight(day.id);
+    if (!o?.name) return null;
 
+    const statusCls = { booked:'badge-booked', pending:'badge-pending', urgent:'badge-urgent', open:'badge-open' };
     const card = document.createElement('div');
     card.className = 'overnight-card';
     card.innerHTML = `
@@ -51,17 +49,12 @@ const ItineraryScreen = (() => {
           ${Icons.moon('icon-sm')}
           <div style="min-width:0">
             <p class="overnight-label">Overnight</p>
-            <p class="overnight-name">${accomStop.accommodation}</p>
+            <p class="overnight-name">${o.name}</p>
           </div>
         </div>
-        <span class="badge ${accomStop.booking.status === 'booked' ? 'badge-booked' : accomStop.booking.status === 'pending' ? 'badge-pending' : accomStop.booking.status === 'urgent' ? 'badge-urgent' : 'badge-open'}">
-          ${accomStop.booking.status === 'booked' ? '✓' : accomStop.booking.status === 'pending' ? 'Pending' : accomStop.booking.status === 'urgent' ? '⚡' : 'Open'}
-        </span>
+        <span class="badge ${statusCls[o.status] || 'badge-open'}">${o.status === 'booked' ? '✓' : o.status === 'pending' ? 'Pending' : o.status === 'urgent' ? '⚡' : 'Open'}</span>
       </div>`;
-    card.addEventListener('click', () => {
-      const day = Data.getDays().find(d => d.id === dayId);
-      BottomSheet.openStop(accomStop, day);
-    });
+    card.addEventListener('click', () => BottomSheet.openOvernight(day));
     return card;
   }
 
@@ -77,7 +70,8 @@ const ItineraryScreen = (() => {
   /* ─── Stop row ──────────────────────────────────────────── */
   function stopRow(stop, isLast) {
     const day = Data.getDays().find(d => d.id === stop.dayId);
-    const iconKey = TRANSPORT_ICON[stop.transportType] || 'info';
+    // Default to walk icon if no transport type set
+    const iconKey = TRANSPORT_ICON[stop.transportType] || 'walk';
     const stampCollected = stop.hasStamp && Data.isStampCollected(stop.id);
     const segColor = SEG_COLOR[stop.segment] || '#888';
 
@@ -90,7 +84,7 @@ const ItineraryScreen = (() => {
       </div>
       <div class="tl-connector">
         <div class="tl-icon-circle" style="border-color:${segColor};color:${segColor}">
-          ${Icons[iconKey] ? Icons[iconKey]() : Icons.info()}
+          ${Icons[iconKey] ? Icons[iconKey]() : Icons.walk()}
         </div>
         ${!isLast ? '<div class="tl-line"></div>' : ''}
       </div>
@@ -99,15 +93,18 @@ const ItineraryScreen = (() => {
           <p class="tl-name">${stop.name}</p>
           ${stop.hasStamp ? `<span class="tl-stamp-dot ${stampCollected ? 'tl-stamp-dot--on' : ''}">判</span>` : ''}
         </div>
-        <p class="tl-activity">${stop.activity}</p>
+        <p class="tl-activity">${stop.activity || ''}</p>
         ${stop.transport ? `
           <div class="tl-transport">
-            ${Icons[iconKey] ? Icons[iconKey]() : ''}
+            ${Icons[iconKey] ? Icons[iconKey]() : Icons.walk()}
             <span>${stop.transport}</span>
           </div>` : ''}
-        ${stop.transportType === 'train' && stop.trainDetail?.jrPass === false ? '<p class="tl-platform" style="color:var(--warning-text)">⚠ Not on JR Pass · buy separately</p>' :
-          stop.transportType === 'train' && stop.trainDetail?.jrPass ? '<p class="tl-platform">JR Pass ✓</p>' : ''}
-        ${stop.trainDetail?.platform ? `<p class="tl-platform">Platform: ${stop.trainDetail.platform}</p>` : ''}
+        ${stop.transportType === 'train' && stop.trainDetail?.jrPass === false
+          ? '<p class="tl-platform" style="color:var(--warning-text)">⚠ Not on JR Pass · buy separately</p>'
+          : stop.transportType === 'train' && stop.trainDetail?.jrPass
+            ? '<p class="tl-platform">JR Pass ✓</p>' : ''}
+        ${stop.transportType === 'train' && stop.trainDetail?.platform
+          ? `<p class="tl-platform">Platform: ${stop.trainDetail.platform}</p>` : ''}
         ${stop.notes ? `<p class="tl-note">${stop.notes}</p>` : ''}
         <div class="tl-footer">${badge(stop.booking.status)}</div>
       </div>`;
@@ -120,29 +117,13 @@ const ItineraryScreen = (() => {
   function render() {
     if (!root) return;
     root.innerHTML = '';
-
     Data.getDays().forEach(day => {
       const stops = Data.getStopsByDay(day.id);
-      if (!stops.length) {
-        // Even empty days show an add button
-        const emptyDay = dayHeader(day, []);
-        const addBtn = addStopBtn(day.id);
-        addBtn.style.margin = '0 var(--s4) var(--s4)';
-        emptyDay.appendChild(addBtn);
-        root.appendChild(emptyDay);
-        return;
-      }
-
       root.appendChild(dayHeader(day, stops));
       stops.forEach((s, i) => root.appendChild(stopRow(s, i === stops.length - 1)));
-
-      // Overnight accommodation card
-      const accom = overnightCard(stops, day.id);
+      const accom = overnightCard(day);
       if (accom) root.appendChild(accom);
-
-      // Add stop button
-      const addBtn = addStopBtn(day.id);
-      root.appendChild(addBtn);
+      root.appendChild(addStopBtn(day.id));
     });
   }
 
