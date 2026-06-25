@@ -110,6 +110,13 @@ const DB = (() => {
     loadQueue:    ()        => getAll('queue'),
     clearQueue:   ()        => clear('queue'),
 
+    /* Stops — delete */
+    deleteStop: (id) => del('stops', id),
+
+    /* Packing — save single item + delete */
+    savePackingItem: (item) => put('packing', item),
+    deletePacking:   (id)   => del('packing', id),
+
     /* Travelers */
     loadTravelers: () => getMeta('travelers').then(v => v || []),
     saveTravelers: (names) => setMeta('travelers', names),

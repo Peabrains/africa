@@ -80,8 +80,6 @@ const BookingsScreen = (() => {
     const nights = Data.getDays().map(d=>({day:d,o:Data.getOvernight(d.id)})).filter(({o})=>o?.name);
     const booked = nights.filter(({o})=>o.status==='booked').length;
 
-    frag.appendChild(sectionHead(`🏨 Accommodation`, `${booked}/${nights.length} confirmed`));
-
     if (!nights.length) {
       const em = document.createElement('div');
       em.style.cssText = 'font-size:var(--text-sm);color:var(--text-muted);padding:var(--s3) 0';
@@ -118,8 +116,6 @@ const BookingsScreen = (() => {
   function renderTransportContent() {
     const frag = document.createDocumentFragment();
     const stops = Data.getTransportReservations();
-    frag.appendChild(sectionHead('🚄 Transport', stops.length + ' to track'));
-
     if (!stops.length) {
       const em = document.createElement('p');
       em.style.cssText = 'font-size:var(--text-sm);color:var(--text-muted);padding:var(--s2) 0';
@@ -201,16 +197,17 @@ const BookingsScreen = (() => {
       jrSection.appendChild(Object.assign(document.createElement('div'),{style:'height:1px'}));
       frag.appendChild(jrSection);
 
-      // Wire share button
-      setTimeout(() => {
-        root.querySelector('#jr-share-btn')?.addEventListener('click', () => {
+      // Wire share button directly to element ref
+      const jrShareBtn = jrHeader.querySelector('#jr-share-btn');
+      if (jrShareBtn) {
+        jrShareBtn.addEventListener('click', () => {
           if (navigator.share) {
             navigator.share({ title:'JR Pass Reservations — Japan 2027', text: shareText });
           } else {
             navigator.clipboard?.writeText(shareText).then(() => Toast.show('Copied to clipboard','success'));
           }
         });
-      }, 0);
+      }
     }
 
     return frag;
@@ -220,8 +217,6 @@ const BookingsScreen = (() => {
   function renderActivitiesContent() {
     const frag = document.createDocumentFragment();
     const stops = Data.getActivityReservations();
-    frag.appendChild(sectionHead('🎌 Activities', stops.length + ' to book'));
-
     if (!stops.length) {
       const em = document.createElement('p');
       em.style.cssText = 'font-size:var(--text-sm);color:var(--text-muted);padding:var(--s2) 0 var(--s4)';
@@ -487,22 +482,24 @@ const BookingsScreen = (() => {
       <button class="btn btn-primary" id="cfg-save-btn" style="width:100%;margin-top:var(--s2)">Save budget settings</button>`;
     frag.appendChild(budgetSection);
 
-    setTimeout(() => {
-      root.querySelector('#traveler-add-btn')?.addEventListener('click', async () => {
-        const inp = root.querySelector('#traveler-input');
-        const name = inp?.value?.trim();
-        if (!name) return;
-        if (travelers.includes(name)) { Toast.show(`${name} already added`,'warning'); return; }
-        await Data.updateTravelers([...travelers,name]);
-        Toast.show(`${name} added`,'success'); render();
-      });
-      root.querySelector('#traveler-input')?.addEventListener('keydown', e => { if(e.key==='Enter') root.querySelector('#traveler-add-btn')?.click(); });
-      root.querySelector('#cfg-save-btn')?.addEventListener('click', () => {
-        Config.BUDGET_MYR        = parseInt(root.querySelector('#cfg-budget')?.value)||Config.BUDGET_MYR;
-        Config.EXCHANGE_RATE_JPY = parseInt(root.querySelector('#cfg-rate')?.value)||Config.EXCHANGE_RATE_JPY;
-        Toast.show('Budget settings saved','success'); render();
-      });
-    }, 0);
+    // Wire directly — no setTimeout to avoid stacking listeners on re-render
+    const tInput  = tSection.querySelector('#traveler-input');
+    const tAddBtn = tSection.querySelector('#traveler-add-btn');
+    const addTraveler = async () => {
+      const name = tInput?.value?.trim();
+      if (!name) return;
+      if (travelers.includes(name)) { Toast.show(`${name} already added`,'warning'); return; }
+      await Data.updateTravelers([...travelers, name]);
+      Toast.show(`${name} added`,'success'); render();
+    };
+    tAddBtn?.addEventListener('click', addTraveler);
+    tInput?.addEventListener('keydown', e => { if (e.key==='Enter') addTraveler(); });
+
+    budgetSection.querySelector('#cfg-save-btn')?.addEventListener('click', () => {
+      Config.BUDGET_MYR        = parseInt(budgetSection.querySelector('#cfg-budget')?.value)||Config.BUDGET_MYR;
+      Config.EXCHANGE_RATE_JPY = parseInt(budgetSection.querySelector('#cfg-rate')?.value)||Config.EXCHANGE_RATE_JPY;
+      Toast.show('Budget settings saved','success'); render();
+    });
     return frag;
   }
 

@@ -118,33 +118,9 @@ const App = (() => {
     el.textContent = txt;
   }
 
-  /* ─── Conflict UI ────────────────────────────────────────── */
-  let _remoteConflict = null;
-
-  function showConflict(remote) {
-    _remoteConflict = remote;
-    let banner = document.getElementById('conflict-banner');
-    if (!banner) {
-      banner = document.createElement('div');
-      banner.id = 'conflict-banner';
-      banner.className = 'conflict-banner';
-      document.getElementById('app').insertBefore(banner, document.getElementById('screen-content'));
-    }
-    banner.innerHTML = `
-      <p class="conflict-msg">⚠ Google Sheet was updated while you had offline changes.</p>
-      <div class="conflict-btns">
-        <button id="conflict-keep" class="btn btn-ghost" style="font-size:11px;min-height:32px">Keep mine</button>
-        <button id="conflict-remote" class="btn btn-primary" style="font-size:11px;min-height:32px">Use Sheet</button>
-      </div>`;
-    banner.style.display = 'flex';
-    document.getElementById('conflict-keep').onclick   = () => Sync.keepLocal();
-    document.getElementById('conflict-remote').onclick = () => Sync.acceptRemote(_remoteConflict);
-  }
-
-  function hideConflict() {
-    const b = document.getElementById('conflict-banner');
-    if (b) b.style.display = 'none';
-  }
+  /* ─── Conflict UI (stubs — not used with InstantDB) ─────── */
+  function showConflict() {}
+  function hideConflict() {}
 
   /* ─── Urgent badge ───────────────────────────────────────── */
   function updateUrgentBadge() {
@@ -158,10 +134,10 @@ const App = (() => {
   /* ─── Connectivity ───────────────────────────────────────── */
   function watchConnectivity() {
     window.addEventListener('online', async () => {
-      if (Config.GAS_URL) {
-        const queue = await DB.loadQueue().catch(() => []);
-        if (queue.length) await Sync.push();
-        else updateSyncStatus('synced');
+      if (Config.INSTANT_APP_ID) {
+        updateSyncStatus('syncing');
+        try { await Sync.pushAll(); updateSyncStatus('synced'); }
+        catch(_) { updateSyncStatus('error'); }
       }
     });
     window.addEventListener('offline', () => updateSyncStatus('offline'));
@@ -183,7 +159,7 @@ const App = (() => {
 
     watchConnectivity();
     updateUrgentBadge();
-    updateSyncStatus(Config.GAS_URL && navigator.onLine ? 'syncing' : 'offline');
+    updateSyncStatus(Config.INSTANT_APP_ID && navigator.onLine ? 'syncing' : 'offline');
 
     // Render stamp banner once into its persistent container
     renderStampBanner();

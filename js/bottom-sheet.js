@@ -102,35 +102,34 @@ const BottomSheet = (() => {
   function stopEditHTML(stop, day) {
     const days = Data.getDays().map(d => ({ v:d.id, l:`${d.label} · ${d.date}` }));
     const transTypes = [{v:'plane',l:'Plane'},{v:'train',l:'Train'},{v:'bus',l:'Bus'},{v:'walk',l:'Walk'},{v:'boat',l:'Boat'},{v:'cable',l:'Cable car'}];
+    const showTrain = ['train','plane','boat'].includes(stop.transportType||'');
     return `
       <div class="bs-detail">
         <p class="bs-name" style="margin-bottom:var(--s4)">Edit stop</p>
         <p class="bs-section-head">Details</p>
         ${field('Stop name','e-name',stop.name,'text','e.g. Takijiri-oji')}
         ${textarea('Activity','e-activity',stop.activity,'What happens here?')}
-        ${field('Time','e-time',stop.time?.replace(/[^0-9:]/g,'').padEnd(5,'0'),'time')}
+        ${field('Time','e-time',/^\d{2}:\d{2}$/.test(stop.time||'')?stop.time:'','time')}
         ${select('Move to day','e-day',stop.dayId,days)}
         <p class="bs-section-head">Transport</p>
-        ${textarea('Transport detail','e-transport',stop.transport,'e.g. JR Oito Line · ~40 min · JR Pass ✓')}
+        ${textarea('Transport detail','e-transport',stop.transport,'e.g. JR Oito Line · ~40 min · JR Pass \u2713')}
         ${select('Transport type','e-ttype',stop.transportType,transTypes)}
         ${field('Platform','e-platform',stop.trainDetail?.platform||'','text','e.g. Platform 2')}
-        ${['train','plane','boat'].includes(stop.transportType||'')?`
-          <div class="bs-train-detail-block">
-            <label class="bs-edit-label">Train / service details (for JR cheat sheet)</label>
-            <div style="display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s3)">
-              <span style="font-size:var(--text-sm);color:var(--text-secondary)">Seat reservation required?</span>
-              <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto">
-                <input type="checkbox" id="e-seatres" ${stop.trainDetail?.seatReservation?'checked':''} style="accent-color:var(--accent);width:16px;height:16px">
-                <span style="font-size:var(--text-sm)">Yes</span>
-              </label>
-            </div>
-            ${field('Origin','e-origin',stop.trainDetail?.origin||'','text','e.g. Shin-Osaka')}
-            ${field('Destination','e-destination',stop.trainDetail?.destination||'','text','e.g. Kii-Tanabe')}
-            ${field('Arrive time','e-arrive',stop.trainDetail?.arriveTime||'','text','e.g. 11:52 or TBD')}
-            ${field('Train number','e-trainno',stop.trainDetail?.trainNumber||'','text','e.g. Kuroshio 5 or TBD')}
-            ${field('Duration','e-duration',stop.trainDetail?.duration||'','text','e.g. ~2 hrs')}
+        <div id="e-train-detail-block" class="bs-train-detail-block" style="display:${showTrain?'block':'none'};margin-top:var(--s2)">
+          <label class="bs-edit-label">Train details (for JR cheat sheet)</label>
+          <div style="display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s3)">
+            <span style="font-size:var(--text-sm);color:var(--text-secondary)">Seat reservation required?</span>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto">
+              <input type="checkbox" id="e-seatres" ${stop.trainDetail?.seatReservation?'checked':''} style="accent-color:var(--accent);width:16px;height:16px">
+              <span style="font-size:var(--text-sm)">Yes</span>
+            </label>
           </div>
-        `:''}
+          ${field('Origin','e-origin',stop.trainDetail?.origin||'','text','e.g. Shin-Osaka')}
+          ${field('Destination','e-destination',stop.trainDetail?.destination||'','text','e.g. Kii-Tanabe')}
+          ${field('Arrive time','e-arrive',stop.trainDetail?.arriveTime||'','text','e.g. 11:52 or TBD')}
+          ${field('Train number','e-trainno',stop.trainDetail?.trainNumber||'','text','e.g. Kuroshio 5')}
+          ${field('Duration','e-duration',stop.trainDetail?.duration||'','text','e.g. ~2 hrs')}
+        </div>
         <p class="bs-section-head">Reservation</p>
         <div class="bs-edit-group" style="display:flex;align-items:center;gap:var(--s3)">
           <label class="bs-edit-label" style="margin-bottom:0">Needs booking?</label>
@@ -143,17 +142,15 @@ const BottomSheet = (() => {
         <p class="bs-section-head">Booking</p>
         ${select('Status','e-status',stop.booking.status,statusOpts)}
         ${field('Reference','e-ref',stop.booking.ref||'','text','e.g. HTL-20270412')}
-        ${field('Cost (¥)','e-cost',stop.booking.cost||'','number','e.g. 18000')}
+        ${field('Cost (\u00a5)','e-cost',stop.booking.cost||'','number','e.g. 18000')}
         ${field('Deadline','e-deadline',stop.booking.deadline||'','date')}
-        ${textarea('Notes','e-notes',stop.notes||'','Reminders, tips…')}
+        ${textarea('Notes','e-notes',stop.notes||'','Reminders, tips\u2026')}
         <div class="bs-actions" style="margin-top:var(--s4)">
           <button class="btn btn-primary bs-full-btn" id="bs-save-btn">Save changes</button>
           <button class="btn btn-ghost bs-full-btn" id="bs-cancel-btn">Cancel</button>
         </div>
       </div>`;
   }
-
-  /* ─── Overnight view/edit mode ───────────────────────────── */
   function overnightHTML(day) {
     const o = Data.getOvernight(day.id) || {};
     return `
