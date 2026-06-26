@@ -52,8 +52,10 @@
     .stamp-chevron{width:16px;height:16px;color:var(--text-muted)}
     .stamp-progress-bar{height:3px;background:var(--surface-raised)}
     .stamp-progress-fill{height:100%;background:var(--accent);transition:width .4s}
-    .stamp-grid{display:flex;gap:8px;overflow-x:auto;padding:var(--s3) var(--s4);scrollbar-width:none}
+    .stamp-grid{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x;padding:var(--s3) var(--s4);scrollbar-width:none;will-change:scroll-position}
     .stamp-grid::-webkit-scrollbar{display:none}
+    /* Prevent iOS auto-zoom on input focus (triggers when font-size < 16px) */
+    input,select,textarea{font-size:16px !important;-webkit-text-size-adjust:100%;min-width:0;max-width:100%;box-sizing:border-box}
     .stamp-dot{width:52px;height:52px;border-radius:50%;border:2px solid var(--border);background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;position:relative;transition:all .2s;-webkit-tap-highlight-color:transparent}
     .stamp-dot--sanzan{border-color:var(--accent);border-width:2.5px}
     .stamp-dot--collected{background:var(--accent);border-color:var(--accent)}
@@ -102,8 +104,8 @@
     /* Stop rows */
     .tl-row{display:flex;cursor:pointer;padding:0 var(--s4) 0 var(--s3)}
     .tl-row:active{background:rgba(0,0,0,.03)}
-    .tl-time{width:52px;flex-shrink:0;padding-top:16px;text-align:right;padding-right:var(--s2)}
-    .tl-time-val{display:block;font-size:12px;font-weight:500;color:var(--text-primary);line-height:1.2}
+    .tl-time{width:52px;flex-shrink:0;padding-top:16px;text-align:right;padding-right:var(--s2);overflow:hidden}
+    .tl-time-val{display:block;font-size:12px;font-weight:500;color:var(--text-primary);line-height:1.2;white-space:nowrap;overflow:hidden}
     .tl-time-tz{display:block;font-size:9px;color:var(--text-muted)}
     .tl-connector{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:36px}
     /* Icon circle — SVG icons now show correctly (fix #3) */
