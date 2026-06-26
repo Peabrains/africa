@@ -112,6 +112,7 @@ const DB = (() => {
 
     /* Stops — delete */
     deleteStop: (id) => del('stops', id),
+    clearStops: () => new Promise((res,rej) => { const t=db.transaction('stops','readwrite'); t.objectStore('stops').clear().onsuccess=res; t.onerror=rej; }),
 
     /* Packing — save single item + delete */
     savePackingItem: (item) => put('packing', item),

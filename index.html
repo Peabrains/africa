@@ -79,6 +79,13 @@
     .nav-btn.active{color:var(--accent);font-weight:500}
     .nav-btn.active::before{content:'';position:absolute;top:0;left:20%;right:20%;height:2px;background:var(--accent);border-radius:0 0 var(--r-sm) var(--r-sm)}
 
+    /* ── Timeline accordion ─────────────────────────────────────── */
+    .tl-day-header--tap{cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;gap:var(--s2);padding:12px var(--s3) 8px}
+    .tl-day-meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+    .tl-day-date{font-size:var(--text-sm);font-weight:500;color:var(--text-primary)}
+    .tl-day-title-text{font-size:var(--text-xs);color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .tl-chevron{flex-shrink:0;color:var(--text-muted)}
+    .tl-empty-hint{font-size:var(--text-xs);color:var(--text-muted);padding:4px var(--s3) 8px;font-style:italic}
     /* ── Timeline ─────────────────────────────────────────────── */
 
     /* Day block — bigger date, visually distinct (fix #4) */

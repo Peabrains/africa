@@ -40,6 +40,7 @@ const Sync = (() => {
   /* ─── Serialize all local state to one record ─────────────── */
   function buildPayload() {
     return {
+      dataVersion: String(Config.DATA_VERSION || 1),
       stops:    JSON.stringify(Data.getStops()),
       expenses: JSON.stringify(Data.getExpenses()),
       packing:  JSON.stringify(Data.getPackingItems()),
@@ -92,6 +93,14 @@ const Sync = (() => {
 
   function applyRemote(record) {
     if (!record) return;
+    // Version check — ignore old data blobs from before a major seed rebuild
+    const blobVersion = parseInt(record.dataVersion || '1');
+    const targetVersion = Config.DATA_VERSION || 1;
+    if (blobVersion < targetVersion) {
+      console.log('[Sync] Remote blob v'+blobVersion+' < current v'+targetVersion+'. Pushing new data up.');
+      setTimeout(() => pushAll().catch(console.warn), 500);
+      return;
+    }
     let changed = false;
 
     /* Stops — ID-based merge, never drops local-only additions */

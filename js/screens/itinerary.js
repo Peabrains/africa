@@ -3,44 +3,74 @@
 const ItineraryScreen = (() => {
   let root;
 
-  const SEG_COLOR = { kumano:'#2B41B0', alpine:'#2A7A4B', hakuba:'#1E6FA8', osaka:'#888888' };
-  const TRANSPORT_ICON = { plane:'plane', train:'train', bus:'bus', walk:'walk', boat:'boat', cable:'cable' };
+  /* ── Accordion state (module-level — survives re-renders) ── */
+  const daysExpanded = {};
+  let _toggling = false;
+
+  const SEG_COLOR = {
+    transit: '#AAAAAA',
+    kumano:  '#C1440E',
+    nagano:  '#7B4EA0',
+    alpine:  '#2A7A4B',
+    osaka:   '#888888',
+  };
+
+  function getDayExpanded(dayId) {
+    if (daysExpanded[dayId] === undefined) daysExpanded[dayId] = true; // default open
+    return daysExpanded[dayId];
+  }
+
+  function toggleDay(dayId) {
+    if (_toggling) return;
+    _toggling = true;
+    daysExpanded[dayId] = !getDayExpanded(dayId);
+    render();
+    setTimeout(() => { _toggling = false; }, 250);
+  }
 
   function badge(status) {
-    const m = { booked:['badge-booked','✓ Booked'], pending:['badge-pending','Pending'], urgent:['badge-urgent','⚡ Urgent'], open:['badge-open','Open'] };
+    const m = {
+      booked:  ['badge-booked',  '✓ Booked'],
+      pending: ['badge-pending', 'Pending'],
+      urgent:  ['badge-urgent',  '⚡ Urgent'],
+      open:    ['badge-open',    'Open'],
+    };
     const [cls, lbl] = m[status] || m.open;
     return `<span class="badge ${cls}">${lbl}</span>`;
   }
 
-  /* ─── Day header ────────────────────────────────────────── */
-  function dayHeader(day, stops) {
+  /* ─── Day header (accordion) ────────────────────────────── */
+  function dayHeader(day, stops, isOpen) {
     const wrap = document.createElement('div');
     wrap.className = 'tl-day-block';
-    wrap.innerHTML = `
-      <div class="tl-day-header-row">
-        <div class="tl-day-pill"><span class="tl-day-label">${day.label}</span></div>
-        <span class="tl-day-date">${day.date}</span>
-      </div>
-      <p class="tl-day-title-text">${day.title}</p>`;
 
-    const wxStop = stops.find(s => s.lat && s.lng);
-    if (wxStop && navigator.onLine) {
-      const wxEl = document.createElement('div');
-      wxEl.className = 'wx-container';
-      wxEl.style.paddingLeft = '0';
-      wrap.appendChild(wxEl);
-      Weather.renderStrip(wxEl, wxStop.lat, wxStop.lng, wxStop.name);
+    const row = document.createElement('div');
+    row.className = 'tl-day-header-row tl-day-header--tap';
+    row.innerHTML = `
+      <div class="tl-day-pill"><span class="tl-day-label">${day.label}</span></div>
+      <div class="tl-day-meta">
+        <span class="tl-day-date">${day.date}</span>
+        <span class="tl-day-title-text">${day.title}</span>
+      </div>
+      <span class="tl-chevron">${isOpen ? Icons.chevronUp('icon-sm') : Icons.chevronDown('icon-sm')}</span>`;
+    row.addEventListener('click', () => toggleDay(day.id));
+    wrap.appendChild(row);
+
+    if (!isOpen && stops.length === 0) {
+      const hint = document.createElement('p');
+      hint.className = 'tl-empty-hint';
+      hint.textContent = 'No stops · tap to expand and add';
+      wrap.appendChild(hint);
     }
-    wrap.appendChild(Object.assign(document.createElement('div'), { className:'tl-day-divider' }));
+
     return wrap;
   }
 
-  /* ─── Overnight card — from day level (not stop level) ─── */
+  /* ─── Overnight card ────────────────────────────────────── */
   function overnightCard(day) {
     const o = Data.getOvernight(day.id);
     if (!o?.name) return null;
-
-    const statusCls = { booked:'badge-booked', pending:'badge-pending', urgent:'badge-urgent', open:'badge-open' };
+    const statusCls = {booked:'badge-booked',pending:'badge-pending',urgent:'badge-urgent',open:'badge-open'};
     const card = document.createElement('div');
     card.className = 'overnight-card';
     card.innerHTML = `
@@ -52,7 +82,7 @@ const ItineraryScreen = (() => {
             <p class="overnight-name">${o.name}</p>
           </div>
         </div>
-        <span class="badge ${statusCls[o.status] || 'badge-open'}">${o.status === 'booked' ? '✓' : o.status === 'pending' ? 'Pending' : o.status === 'urgent' ? '⚡' : 'Open'}</span>
+        <span class="badge ${statusCls[o.status]||'badge-open'}">${o.status==='booked'?'✓':o.status==='urgent'?'⚡':o.status==='pending'?'Pending':'Open'}</span>
       </div>`;
     card.addEventListener('click', () => BottomSheet.openOvernight(day));
     return card;
@@ -70,8 +100,7 @@ const ItineraryScreen = (() => {
   /* ─── Stop row ──────────────────────────────────────────── */
   function stopRow(stop, isLast) {
     const day = Data.getDays().find(d => d.id === stop.dayId);
-    // Default to walk icon if no transport type set
-    const iconKey = TRANSPORT_ICON[stop.transportType] || 'walk';
+    const iconKey = stop.transportType || 'walk';
     const stampCollected = stop.hasStamp && Data.isStampCollected(stop.id);
     const segColor = SEG_COLOR[stop.segment] || '#888';
 
@@ -91,28 +120,24 @@ const ItineraryScreen = (() => {
       <div class="tl-content">
         <div class="tl-name-row">
           <p class="tl-name">${stop.name}</p>
-          ${stop.hasStamp ? `<span class="tl-stamp-dot ${stampCollected ? 'tl-stamp-dot--on' : ''}">判</span>` : ''}
+          ${stop.hasStamp ? `<span class="tl-stamp-dot ${stampCollected?'tl-stamp-dot--on':''}">${stop.stampKanji||'判'}</span>` : ''}
         </div>
         <p class="tl-activity">${stop.activity || ''}</p>
-        ${stop.transport ? `
-          <div class="tl-transport">
-            ${Icons[iconKey] ? Icons[iconKey]() : Icons.walk()}
-            <span>${stop.transport}</span>
-          </div>` : ''}
-        ${stop.transportType === 'train' && stop.trainDetail?.jrPass === false
+        ${stop.transport ? `<div class="tl-transport">${Icons[iconKey]?Icons[iconKey]():''}<span>${stop.transport}</span></div>` : ''}
+        ${stop.transportType==='train' && stop.trainDetail?.jrPass===false
           ? '<p class="tl-platform" style="color:var(--warning-text)">⚠ Not on JR Pass · buy separately</p>'
-          : stop.transportType === 'train' && stop.trainDetail?.jrPass
+          : stop.transportType==='train' && stop.trainDetail?.jrPass
             ? '<p class="tl-platform">JR Pass ✓</p>' : ''}
-        ${stop.transportType === 'train' && stop.trainDetail?.platform
+        ${stop.transportType==='train' && stop.trainDetail?.platform
           ? `<p class="tl-platform">Platform: ${stop.trainDetail.platform}</p>` : ''}
         ${stop.notes ? `<p class="tl-note">${stop.notes}</p>` : ''}
         <div class="tl-footer">
           ${badge(stop.booking.status)}
-          ${stop.category==='transport'?'<span class="cat-chip cat-chip--transport">Transport</span>':stop.category==='activity'?'<span class="cat-chip cat-chip--activity">Activity</span>':''}
-          ${stop.trainDetail?.seatReservation?'<span class="cat-chip cat-chip--jr">Seat res.</span>':''}
+          ${stop.category==='transport' ? '<span class="cat-chip cat-chip--transport">Transport</span>' :
+            stop.category==='activity'  ? '<span class="cat-chip cat-chip--activity">Activity</span>' : ''}
+          ${stop.trainDetail?.seatReservation ? '<span class="cat-chip cat-chip--jr">Seat res.</span>' : ''}
         </div>
       </div>`;
-
     row.addEventListener('click', () => BottomSheet.openStop(stop, day));
     return row;
   }
@@ -121,13 +146,37 @@ const ItineraryScreen = (() => {
   function render() {
     if (!root) return;
     root.innerHTML = '';
+
     Data.getDays().forEach(day => {
-      const stops = Data.getStopsByDay(day.id);
-      root.appendChild(dayHeader(day, stops));
-      stops.forEach((s, i) => root.appendChild(stopRow(s, i === stops.length - 1)));
-      const accom = overnightCard(day);
-      if (accom) root.appendChild(accom);
-      root.appendChild(addStopBtn(day.id));
+      const stops  = Data.getStopsByDay(day.id);
+      const isOpen = getDayExpanded(day.id);
+
+      // Day header (always visible)
+      root.appendChild(dayHeader(day, stops, isOpen));
+
+      if (isOpen) {
+        // Weather strip (only when expanded to avoid unnecessary fetches)
+        const wxStop = stops.find(s => s.lat && s.lng);
+        if (wxStop && navigator.onLine) {
+          const wxEl = document.createElement('div');
+          wxEl.className = 'wx-container';
+          root.appendChild(wxEl);
+          Weather.renderStrip(wxEl, wxStop.lat, wxStop.lng, wxStop.name);
+        }
+
+        // Day divider
+        root.appendChild(Object.assign(document.createElement('div'), {className:'tl-day-divider'}));
+
+        // Stop rows
+        stops.forEach((s, i) => root.appendChild(stopRow(s, i === stops.length - 1)));
+
+        // Overnight card
+        const accom = overnightCard(day);
+        if (accom) root.appendChild(accom);
+
+        // Add stop button
+        root.appendChild(addStopBtn(day.id));
+      }
     });
   }
 

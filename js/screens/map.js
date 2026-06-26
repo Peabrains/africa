@@ -3,8 +3,8 @@
 const MapScreen = (() => {
   let root, map, markersLayer;
 
-  const SEG_COLOR  = { kumano:'#2B41B0', alpine:'#2A7A4B', hakuba:'#1E6FA8', osaka:'#888888' };
-  const SEG_LABEL  = { kumano:'Kumano Kodo', alpine:'Alpine Route', hakuba:'Hakuba area', osaka:'Osaka / transit' };
+  const SEG_COLOR  = { transit:'#AAAAAA', kumano:'#C1440E', nagano:'#7B4EA0', alpine:'#2A7A4B', osaka:'#888888' };
+  const SEG_LABEL  = { transit:'Transit', kumano:'Kumano Kodo', nagano:'Nagano · Togakushi', alpine:'Alpine Route · Murodo', osaka:'Osaka' };
 
   /* ─── Custom Leaflet marker ──────────────────────────────── */
   function makeIcon(stop) {
@@ -70,7 +70,7 @@ const MapScreen = (() => {
 
     // Fit all stops
     const latlngs = stops.map(s=>[s.lat,s.lng]);
-    if (latlngs.length) map.fitBounds(L.latLngBounds(latlngs), { padding:[24,24] });
+    if (latlngs.length) map.fitBounds(L.latLngBounds(latlngs), { paddingTopLeft:[24,24], paddingBottomRight:[24,88] });
   }
 
   /* ─── Segment legend ─────────────────────────────────────── */

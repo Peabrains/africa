@@ -12,7 +12,8 @@ const Config = {
   GAS_URL:        '',        // (legacy — leave empty, InstantDB replaces this)
 
   TRIP_NAME:         'Japan Trip 2026',
-  TRIP_DATE:         '2027-04-10',
+  TRIP_DATE:         '2027-04-09',
+  DATA_VERSION:      2,          // bump when SEED_STOPS change fundamentally
   BUDGET_MYR:        8000,
   EXCHANGE_RATE_JPY: 33,
 };
