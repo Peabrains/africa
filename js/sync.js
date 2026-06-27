@@ -80,7 +80,14 @@ const Sync = (() => {
   function mergeById(local, remote) {
     const remoteMap = {};
     remote.forEach(r => { remoteMap[r.id] = r; });
-    const merged = local.map(l => remoteMap[l.id] ? { ...l, ...remoteMap[l.id] } : l);
+    const merged = local.map(l => {
+      const r = remoteMap[l.id];
+      if (!r) return l;
+      // Newer timestamp wins — protects local edits from being overwritten by stale remote
+      const localT  = l.updatedAt || l.ts || 0;
+      const remoteT = r.updatedAt || r.ts || 0;
+      return remoteT > localT ? { ...l, ...r } : { ...r, ...l };
+    });
     remote.forEach(r => { if (!merged.find(l => l.id === r.id)) merged.push(r); });
     return merged;
   }
@@ -176,7 +183,8 @@ const Sync = (() => {
       window.ItineraryScreen?.refresh?.();
       // Don't re-render if user is actively typing in an input
       const _focused = document.activeElement;
-      if (!_focused || !['INPUT','TEXTAREA','SELECT'].includes(_focused.tagName)) {
+      const _formOpen = document.querySelector('.add-expense-form')?.style?.display === 'flex';
+      if (!_formOpen && (!_focused || !['INPUT','TEXTAREA','SELECT'].includes(_focused.tagName))) {
         window.BookingsScreen?.refresh?.();
       }
     }

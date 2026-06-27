@@ -53,9 +53,7 @@
     .stamp-chevron{width:16px;height:16px;color:var(--text-muted)}
     .stamp-progress-bar{height:3px;background:var(--surface-raised)}
     .stamp-progress-fill{height:100%;background:var(--accent);transition:width .4s}
-    .stamp-scroll-wrap{overflow-x:scroll;-webkit-overflow-scrolling:touch;width:100%;scrollbar-width:none;cursor:grab}
-    .stamp-scroll-wrap::-webkit-scrollbar{display:none}
-    .stamp-grid{display:inline-flex;gap:8px;padding:var(--s3) var(--s4);min-width:100%}
+    .stamp-grid{display:flex;flex-wrap:wrap;gap:8px;padding:var(--s3) var(--s4)}
     /* Prevent iOS auto-zoom on input focus (triggers when font-size < 16px) */
     input,select,textarea{font-size:16px !important;-webkit-text-size-adjust:100%;min-width:0;max-width:100%;box-sizing:border-box}
     /* Remove native iOS time/date input chrome that overflows its container */

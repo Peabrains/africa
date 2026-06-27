@@ -52,8 +52,6 @@ const App = (() => {
     banner.appendChild(bar);
 
     if (expanded) {
-      const scrollWrap = document.createElement('div');
-      scrollWrap.className = 'stamp-scroll-wrap';
       const grid = document.createElement('div');
       grid.className = 'stamp-grid';
       stamps.forEach(stop => {
@@ -77,20 +75,7 @@ const App = (() => {
         grid.appendChild(dot);
       });
       scrollWrap.appendChild(grid);
-      // JS-driven scroll: more reliable than CSS touch-action on iOS
-      let _tx = 0, _sl = 0, _dragging = false;
-      scrollWrap.addEventListener('touchstart', e => {
-        _tx = e.touches[0].clientX; _sl = scrollWrap.scrollLeft; _dragging = false;
-      }, {passive:true});
-      scrollWrap.addEventListener('touchmove', e => {
-        const dx = _tx - e.touches[0].clientX;
-        if (Math.abs(dx) > 4) { _dragging = true; scrollWrap.scrollLeft = _sl + dx; }
-      }, {passive:true});
-      // Prevent accidental stamp collection on scroll-end
-      scrollWrap.addEventListener('touchend', () => {
-        if (_dragging) { scrollWrap.style.pointerEvents='none'; setTimeout(()=>scrollWrap.style.pointerEvents='',200); }
-      }, {passive:true});
-      banner.appendChild(scrollWrap);
+      banner.appendChild(grid);
       banner.insertAdjacentHTML('beforeend', '<p class="stamp-hint">Tap to collect · Red border = Kumano Sanzan</p>');
     }
 
