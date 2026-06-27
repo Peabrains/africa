@@ -80,6 +80,7 @@ const ItineraryScreen = (() => {
           <div style="min-width:0">
             <p class="overnight-label">Overnight</p>
             <p class="overnight-name">${o.name}</p>
+            ${o.address ? `<p class="overnight-addr">${o.address}</p>` : ''}
           </div>
         </div>
         <span class="badge ${statusCls[o.status]||'badge-open'}">${o.status==='booked'?'✓':o.status==='urgent'?'⚡':o.status==='pending'?'Pending':'Open'}</span>
@@ -123,6 +124,7 @@ const ItineraryScreen = (() => {
           ${stop.hasStamp ? `<span class="tl-stamp-dot ${stampCollected?'tl-stamp-dot--on':''}">${stop.stampKanji||'判'}</span>` : ''}
         </div>
         <p class="tl-activity">${stop.activity || ''}</p>
+        ${stop.openingHours ? `<p class="tl-hours">${Icons.clock?.('icon-xs')||'🕐'} ${stop.openingHours}</p>` : ''}
         ${stop.transport ? `<div class="tl-transport">${Icons[iconKey]?Icons[iconKey]():''}<span>${stop.transport}</span></div>` : ''}
         ${stop.transportType==='train' && stop.trainDetail?.jrPass===false
           ? '<p class="tl-platform" style="color:var(--warning-text)">⚠ Not on JR Pass · buy separately</p>'

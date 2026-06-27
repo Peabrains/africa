@@ -23,19 +23,19 @@ const DAYS = [
 
 /* ── Overnight defaults (keyed by dayId) ────────────────── */
 const OVERNIGHT_DEFAULTS = {
-  d1:  {name:'Kushimoto (Pending)',                     status:'open',    ref:'',             cost:null, deadline:null},
-  d2:  {name:'the cue - hoso back yard house -',        status:'booked',  ref:'#205159',      cost:null, deadline:null},
-  d3:  {name:'Kiri-no-Sato Takahara Lodge',             status:'booked',  ref:'#205689',      cost:null, deadline:null},
-  d4:  {name:'古道の宿 ひよどり (Guest House Hiyodori)',  status:'booked',  ref:'#205751',      cost:null, deadline:null},
-  d5:  {name:'Kawayu-Onsen Fujiya',                     status:'booked',  ref:'#205159',      cost:null, deadline:null},
-  d6:  {name:'Kawayu-Onsen Fujiya (2nd night)',         status:'booked',  ref:'#205159',      cost:null, deadline:null},
+  d1:  {name:'Mercure Wakayama Kushimoto Resort & Spa', status:'booked',  ref:'QLWPFPZP',     cost:null, deadline:null, address:'〒649-3510 和歌山県東牟婁郡串本町サンゴ台1184-10'},
+  d2:  {name:'the cue - hoso back yard house -',        status:'booked',  ref:'#205159',      cost:null, deadline:null, address:'〒646-0031 和歌山県田辺市湊16-6'},
+  d3:  {name:'Kiri-no-Sato Takahara Lodge',             status:'booked',  ref:'#205689',      cost:null, deadline:null, address:'〒646-1416 和歌山県田辺市中辺路町高原826'},
+  d4:  {name:'古道の宿 ひよどり (Guest House Hiyodori)',  status:'booked',  ref:'#205751',      cost:null, deadline:null, address:'〒646-1401 和歌山県田辺市中辺路町野中1371'},
+  d5:  {name:'Kawayu-Onsen Fujiya',                     status:'booked',  ref:'#205159',      cost:null, deadline:null, address:'〒647-1717 和歌山県田辺市本宮町川湯1452'},
+  d6:  {name:'Kawayu-Onsen Fujiya (2nd night)',         status:'booked',  ref:'#205159',      cost:null, deadline:null, address:'〒647-1717 和歌山県田辺市本宮町川湯1452'},
   d7:  {name:'Kii-Katsuura (Pending)',                  status:'open',    ref:'',             cost:null, deadline:'2027-02-01'},
   d8:  {name:'Nagano (Pending)',                        status:'open',    ref:'',             cost:null, deadline:null},
   d9:  {name:'Nagano (Pending)',                        status:'open',    ref:'',             cost:null, deadline:null},
   d10: {name:'Murodo Sanso (Pending)',                  status:'urgent',  ref:'',             cost:null, deadline:'2027-01-01'},
-  d11: {name:'DEL style 大阪心齋橋 by 大和Roynet飯店',  status:'booked',  ref:'TC45F0809AAD7', cost:null, deadline:null},
-  d12: {name:'DEL style 大阪心齋橋 by 大和Roynet飯店',  status:'booked',  ref:'TC45F0809AAD7', cost:null, deadline:null},
-  d13: {name:'DEL style 大阪心齋橋 by 大和Roynet飯店',  status:'booked',  ref:'TC45F0809AAD7', cost:null, deadline:null},
+  d11: {name:'DEL style 大阪心齋橋 by 大和Roynet飯店',  status:'booked',  ref:'TC45F0809AAD7', cost:null, deadline:null, address:'〒542-0085 大阪府大阪市中央区心斎橋筋1丁目4-23'},
+  d12: {name:'DEL style 大阪心齋橋 by 大和Roynet飯店',  status:'booked',  ref:'TC45F0809AAD7', cost:null, deadline:null, address:'〒542-0085 大阪府大阪市中央区心斎橋筋1丁目4-23'},
+  d13: {name:'DEL style 大阪心齋橋 by 大和Roynet飯店',  status:'booked',  ref:'TC45F0809AAD7', cost:null, deadline:null, address:'〒542-0085 大阪府大阪市中央区心斎橋筋1丁目4-23'},
 };
 
 /* ── Seed stops (from Kumano Kodo sheet, updated Jun 2026) ── */
@@ -328,6 +328,18 @@ T('sk40','d14',1,'osaka','KIX — Morning flight home',
   {status:'open',ref:'',cost:null,deadline:null}),
 ];
 
+/* ── Opening hours (show in stop rows) ───────────────────── */
+{
+  const OH = {
+    sk04: '08:00–17:00',  // Hayatama Taisha
+    sk08: '09:00–18:00',  // Tanabe Tourist Info Center
+    sk15: '07:00–17:30',  // Hosshinmon-oji
+    sk16: '08:00–17:00',  // Kumano Hongu Taisha
+    sk23: '06:00–16:30 (Taisha) · 07:30–16:30 (Seigantoji)',  // Nachi
+  };
+  SEED_STOPS.forEach(s => { if (OH[s.id]) s.openingHours = OH[s.id]; });
+}
+
 /* ── Stamp metadata (romaji names + sanzan order) ───────── */
 const STAMP_META = {
   sk04: {romaji:'Hayatama Taisha',  sanzanNum:2},
@@ -391,12 +403,12 @@ const SOS_DATA = {
     {label:'MY Embassy Tokyo',          value:'+81-3-2080-7700'},
   ],
   lodging:[
-    {label:'D1 Kushimoto',   value:'本州最南端の小さなペンションBranchee',jp:'ペンションBranchee'},
-    {label:'D2 Kii-Tanabe',  value:'the cue - hoso back yard house',jp:''},
-    {label:'D3 Takahara',    value:'Kiri-no-Sato Takahara Lodge',jp:'霧の郷たかはら'},
-    {label:'D4 Tsugizakura', value:'古道の宿 ひよどり (Guest House Hiyodori)',jp:'古道の宿 ひよどり'},
-    {label:'D5–6 Kawayu',    value:'Kawayu-Onsen Fujiya',jp:'川湯温泉 ふじや'},
-    {label:'D11–13 Osaka',   value:'DEL style 大阪心齋橋 by 大和Roynet飯店 (TC45F0809AAD7)',jp:'大阪心齋橋'},
+    {label:'D1 Kushimoto',   value:'Mercure Wakayama Kushimoto Resort & Spa (QLWPFPZP)', jp:'〒649-3510 和歌山県東牟婁郡串本町サンゴ台1184-10'},
+    {label:'D2 Kii-Tanabe',  value:'the cue - hoso back yard house (#205159)',            jp:'〒646-0031 和歌山県田辺市湊16-6'},
+    {label:'D3 Takahara',    value:'Kiri-no-Sato Takahara Lodge (#205689)',               jp:'〒646-1416 和歌山県田辺市中辺路町高原826'},
+    {label:'D4 Tsugizakura', value:'古道の宿 ひよどり / Guest House Hiyodori (#205751)',   jp:'〒646-1401 和歌山県田辺市中辺路町野中1371'},
+    {label:'D5–6 Kawayu',    value:'Kawayu-Onsen Fujiya (#205159)',                       jp:'〒647-1717 和歌山県田辺市本宮町川湯1452'},
+    {label:'D11–13 Osaka',   value:'DEL style 大阪心齋橋 (TC45F0809AAD7)',                jp:'〒542-0085 大阪府大阪市中央区心斎橋筋1丁目4-23'},
   ],
   passes:[
     {label:'JR Pass ref',           value:'Confirm when collected'},

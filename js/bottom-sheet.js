@@ -77,6 +77,17 @@ const BottomSheet = (() => {
   function textarea(label, id, value, placeholder='') {
     return `<div class="bs-edit-group"><label class="bs-edit-label" for="${id}">${label}</label><textarea id="${id}" class="bs-textarea" rows="2" placeholder="${placeholder}">${value||''}</textarea></div>`;
   }
+  function timeWithTz(timeId, tzId, timeVal, tzVal) {
+    const tVal = /^\d{2}:\d{2}$/.test(timeVal||'') ? timeVal : '';
+    const sel = ['JST','MYT','UTC'].map(z =>
+      `<option value="${z}" ${(tzVal||'JST')===z?'selected':''}>${z}</option>`).join('');
+    return `<div class="bs-edit-group">
+      <label class="bs-edit-label" for="${timeId}">Time</label>
+      <div class="bs-time-row">
+        <input id="${timeId}" class="bs-input" type="time" value="${tVal}">
+        <select id="${tzId}" class="bs-input bs-tz-sel">${sel}</select>
+      </div></div>`;
+  }
   function select(label, id, value, options) {
     const opts = options.map(o => `<option value="${o.v}" ${o.v===value?'selected':''}>${o.l}</option>`).join('');
     return `<div class="bs-edit-group"><label class="bs-edit-label" for="${id}">${label}</label><select id="${id}" class="bs-input"><option value="">—</option>${opts}</select></div>`;
@@ -133,7 +144,7 @@ const BottomSheet = (() => {
         <p class="bs-section-head">Details</p>
         ${field('Stop name','e-name',stop.name,'text','e.g. Takijiri-oji')}
         ${textarea('Activity','e-activity',stop.activity,'What happens here?')}
-        ${field('Time','e-time',/^\d{2}:\d{2}$/.test(stop.time||'')?stop.time:'','time')}
+        ${timeWithTz('e-time','e-tz',stop.time,stop.timeZone)}
         ${select('Move to day','e-day',stop.dayId,days)}
         <p class="bs-section-head">Transport</p>
         ${textarea('Transport detail','e-transport',stop.transport,'e.g. JR Oito Line · ~40 min · JR Pass \u2713')}
@@ -209,7 +220,7 @@ const BottomSheet = (() => {
         ${select('Day','a-day',dayId,days)}
         ${field('Stop name *','a-name','','text','e.g. Kumano Hongu Taisha')}
         ${textarea('Activity','a-activity','','What happens here?')}
-        ${field('Time','a-time','','time')}
+        ${timeWithTz('a-time','a-tz','','JST')}
         ${textarea('Transport to get here','a-transport','','e.g. On foot · 3.6 km')}
         ${select('Transport type','a-ttype','walk',transTypes)}
         <div id="a-train-detail-block" class="bs-train-detail-block" style="display:none;margin-top:var(--s2)">
@@ -316,6 +327,7 @@ const BottomSheet = (() => {
         name:          g('e-name')||stop.name,
         activity:      g('e-activity'),
         time:          g('e-time'),
+        timeZone:      body.querySelector('#e-tz')?.value || 'JST',
         dayId:         g('e-day')||stop.dayId,
         transport:     g('e-transport'),
         transportType: g('e-ttype')||stop.transportType,
@@ -386,6 +398,7 @@ const BottomSheet = (() => {
       await Data.addStop({
         dayId: g('a-day')||dayId, name,
         activity: g('a-activity'), time: g('a-time'),
+        timeZone: body.querySelector('#a-tz')?.value || 'JST',
         transport: g('a-transport'), transportType: tType,
         trainDetail,
         needsBooking: body.querySelector('#a-needsbook')?.checked || false,

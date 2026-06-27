@@ -13,7 +13,7 @@ const Config = {
 
   TRIP_NAME:         'Japan Trip 2026',
   TRIP_DATE:         '2027-04-09',
-  DATA_VERSION:      3,          // bump when SEED_STOPS change fundamentally
+  DATA_VERSION:      4,          // bump when SEED_STOPS change fundamentally
   BUDGET_MYR:        8000,
   EXCHANGE_RATE_JPY: 33,
 };
