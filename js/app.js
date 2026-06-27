@@ -206,5 +206,18 @@ const App = (() => {
   return { init, switchTo, updateSyncStatus, updateUrgentBadge, showConflict, hideConflict, renderStampBanner };
 })();
 
-document.addEventListener('DOMContentLoaded', App.init);
+document.addEventListener('DOMContentLoaded', () => {
+  // Auto-reload when a new service worker takes over
+  if ('serviceWorker' in navigator) {
+    let _swRefreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!_swRefreshing) {
+        _swRefreshing = true;
+        Toast?.show?.('App updated — reloading…', 'info');
+        setTimeout(() => window.location.reload(), 1200);
+      }
+    });
+  }
+  App.init();
+});
 window.App = App;
