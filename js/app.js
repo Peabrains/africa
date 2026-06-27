@@ -207,6 +207,13 @@ const App = (() => {
   return { init, switchTo, updateSyncStatus, updateUrgentBadge, showConflict, hideConflict, renderStampBanner };
 })();
 
+// SW-driven reload — works even if app.js previously had an error
+if (navigator.serviceWorker) {
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data && e.data.type === 'SW_RELOAD') window.location.reload();
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   if ('serviceWorker' in navigator) {
     // Show version from SW cache name, and force update checks
