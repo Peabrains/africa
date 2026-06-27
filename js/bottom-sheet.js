@@ -72,12 +72,7 @@ const BottomSheet = (() => {
 
   /* ─── Field builders ─────────────────────────────────────── */
   function field(label, id, value, type='text', placeholder='') {
-    // Use type=text for time fields — iOS native time input has overflow/focus bugs
-    const t   = type === 'time' ? 'text' : type;
-    const ph  = type === 'time' ? (placeholder || 'HH:MM') : placeholder;
-    const im  = type === 'time' ? ' inputmode="numeric"' : '';
-    const pat = type === 'time' ? ' pattern="\\d{2}:\\d{2}"' : '';
-    return `<div class="bs-edit-group"><label class="bs-edit-label" for="${id}">${label}</label><input id="${id}" class="bs-input" type="${t}" value="${(value||'').toString().replace(/"/g,'&quot;')}" placeholder="${ph}"${im}${pat}></div>`;
+    return `<div class="bs-edit-group"><label class="bs-edit-label" for="${id}">${label}</label><input id="${id}" class="bs-input" type="${type}" value="${(value||'').toString().replace(/"/g,'&quot;')}" placeholder="${placeholder}"></div>`;
   }
   function textarea(label, id, value, placeholder='') {
     return `<div class="bs-edit-group"><label class="bs-edit-label" for="${id}">${label}</label><textarea id="${id}" class="bs-textarea" rows="2" placeholder="${placeholder}">${value||''}</textarea></div>`;
