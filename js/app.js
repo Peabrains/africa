@@ -207,15 +207,34 @@ const App = (() => {
 })();
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Auto-reload when a new service worker takes over
   if ('serviceWorker' in navigator) {
+    // Show version from SW cache name, and force update checks
     let _swRefreshing = false;
+
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!_swRefreshing) {
         _swRefreshing = true;
         Toast?.show?.('App updated — reloading…', 'info');
         setTimeout(() => window.location.reload(), 1200);
       }
+    });
+
+    // Read actual running SW cache name → display as version
+    function showVersion() {
+      caches.keys().then(keys => {
+        const sw = keys.find(k => k.startsWith('japan-trip-'));
+        const el = document.getElementById('app-version-display');
+        if (el) el.textContent = sw ? sw.replace('japan-trip-', '') : '';
+      }).catch(() => {});
+    }
+    showVersion();
+
+    // Force browser to check for new SW every time app is opened/focused
+    navigator.serviceWorker.ready.then(reg => {
+      reg.update().catch(() => {});
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update().catch(() => {});
+      });
     });
   }
   App.init();
