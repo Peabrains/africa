@@ -25,7 +25,7 @@ const BottomSheet = (() => {
     sheet.addEventListener('touchmove', e => {
       currentY = e.touches[0].clientY;
       const dy = currentY - startY;
-      if (dy > 0) { sheet.style.transition='none'; sheet.style.transform=`translateY(${dy}px)`; e.preventDefault(); }
+      if (dy > 15) { sheet.style.transition='none'; sheet.style.transform=`translateY(${dy}px)`; e.preventDefault(); }
     }, { passive:false });
     sheet.addEventListener('touchend', () => {
       sheet.style.transition = 'transform 0.3s cubic-bezier(0.32,0.72,0,1)';
@@ -48,7 +48,12 @@ const BottomSheet = (() => {
 
   /* ─── Field builders ─────────────────────────────────────── */
   function field(label, id, value, type='text', placeholder='') {
-    return `<div class="bs-edit-group"><label class="bs-edit-label" for="${id}">${label}</label><input id="${id}" class="bs-input" type="${type}" value="${(value||'').toString().replace(/"/g,'&quot;')}" placeholder="${placeholder}"></div>`;
+    // Use type=text for time fields — iOS native time input has overflow/focus bugs
+    const t   = type === 'time' ? 'text' : type;
+    const ph  = type === 'time' ? (placeholder || 'HH:MM') : placeholder;
+    const im  = type === 'time' ? ' inputmode="numeric"' : '';
+    const pat = type === 'time' ? ' pattern="\\d{2}:\\d{2}"' : '';
+    return `<div class="bs-edit-group"><label class="bs-edit-label" for="${id}">${label}</label><input id="${id}" class="bs-input" type="${t}" value="${(value||'').toString().replace(/"/g,'&quot;')}" placeholder="${ph}"${im}${pat}></div>`;
   }
   function textarea(label, id, value, placeholder='') {
     return `<div class="bs-edit-group"><label class="bs-edit-label" for="${id}">${label}</label><textarea id="${id}" class="bs-textarea" rows="2" placeholder="${placeholder}">${value||''}</textarea></div>`;

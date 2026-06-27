@@ -26,7 +26,7 @@
     /* ── Shell ──────────────────────────────────────────────── */
     html{height:-webkit-fill-available}
     body{min-height:100vh;min-height:-webkit-fill-available;background:var(--surface)}
-    #app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:480px;margin:0 auto;background:var(--bg);position:relative}
+    #app{display:flex;flex-direction:column;height:100vh;height:100svh;height:-webkit-fill-available;max-width:480px;margin:0 auto;background:var(--bg);position:relative}
 
     /* ── Header ─────────────────────────────────────────────── */
     #app-header{flex-shrink:0;background:var(--surface);border-bottom:1.5px solid var(--border);padding:env(safe-area-inset-top) 0 0}
@@ -53,7 +53,7 @@
     .stamp-chevron{width:16px;height:16px;color:var(--text-muted)}
     .stamp-progress-bar{height:3px;background:var(--surface-raised)}
     .stamp-progress-fill{height:100%;background:var(--accent);transition:width .4s}
-    .stamp-grid{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x;padding:var(--s3) var(--s4);scrollbar-width:none;will-change:scroll-position}
+    .stamp-grid{display:flex;gap:8px;overflow-x:scroll;overflow-y:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;touch-action:pan-x;padding:var(--s3) var(--s4);scrollbar-width:none}
     .stamp-grid::-webkit-scrollbar{display:none}
     /* Prevent iOS auto-zoom on input focus (triggers when font-size < 16px) */
     input,select,textarea{font-size:16px !important;-webkit-text-size-adjust:100%;min-width:0;max-width:100%;box-sizing:border-box}
