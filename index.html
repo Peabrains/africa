@@ -53,8 +53,9 @@
     .stamp-chevron{width:16px;height:16px;color:var(--text-muted)}
     .stamp-progress-bar{height:3px;background:var(--surface-raised)}
     .stamp-progress-fill{height:100%;background:var(--accent);transition:width .4s}
-    .stamp-grid{display:flex;gap:8px;overflow-x:scroll;overflow-y:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;touch-action:pan-x;padding:var(--s3) var(--s4);scrollbar-width:none}
-    .stamp-grid::-webkit-scrollbar{display:none}
+    .stamp-scroll-wrap{overflow-x:scroll;-webkit-overflow-scrolling:touch;touch-action:pan-x;width:100%;scrollbar-width:none}
+    .stamp-scroll-wrap::-webkit-scrollbar{display:none}
+    .stamp-grid{display:inline-flex;gap:8px;padding:var(--s3) var(--s4);min-width:100%}
     /* Prevent iOS auto-zoom on input focus (triggers when font-size < 16px) */
     input,select,textarea{font-size:16px !important;-webkit-text-size-adjust:100%;min-width:0;max-width:100%;box-sizing:border-box}
     /* Remove native iOS time/date input chrome that overflows its container */
@@ -166,7 +167,7 @@
     .bs-full-btn{width:100%;justify-content:center}
     .bs-action-row{display:flex;gap:var(--s2)}
     .bs-action-row .btn{flex:1;justify-content:center;font-size:var(--text-sm)}
-    .bs-edit-group{margin-bottom:var(--s3);overflow:hidden;width:100%;min-width:0}
+    .bs-edit-group{margin-bottom:var(--s3);width:100%;min-width:0}
     .bs-edit-label{display:block;font-size:var(--text-xs);font-weight:500;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
     .bs-input{width:100%;background:var(--surface-raised);border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 10px;font-size:var(--text-sm);font-family:var(--font);color:var(--text-primary);min-height:40px;box-sizing:border-box}
     .bs-input:focus{outline:none;border-color:var(--accent);background:var(--surface)}

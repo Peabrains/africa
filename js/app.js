@@ -52,6 +52,8 @@ const App = (() => {
     banner.appendChild(bar);
 
     if (expanded) {
+      const scrollWrap = document.createElement('div');
+      scrollWrap.className = 'stamp-scroll-wrap';
       const grid = document.createElement('div');
       grid.className = 'stamp-grid';
       stamps.forEach(stop => {
@@ -74,7 +76,8 @@ const App = (() => {
         });
         grid.appendChild(dot);
       });
-      banner.appendChild(grid);
+      scrollWrap.appendChild(grid);
+      banner.appendChild(scrollWrap);
       banner.insertAdjacentHTML('beforeend', '<p class="stamp-hint">Tap to collect · Red border = Kumano Sanzan</p>');
     }
 
