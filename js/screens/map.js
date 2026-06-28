@@ -123,7 +123,7 @@ const MapScreen = (() => {
   function render() {
     if (!root) return;
     root.innerHTML = '';
-    // layout controlled by CSS #screen-content.map-active + #map-container rules
+    root.style.cssText = 'display:flex;flex-direction:column;height:100%;';
 
     root.appendChild(legend());
 
