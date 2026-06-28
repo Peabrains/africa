@@ -4,21 +4,23 @@
 const DAY_ORDER = ['d0','d1','d2','d3','d4','d5','d6','d7','d8','d9','d10','d11','d12','d13','d14'];
 
 const DAYS = [
-  {id:'d0',  label:'D0',  date:'Fri 9 Apr',   title:'Night Flight to Osaka'},
-  {id:'d1',  label:'D1',  date:'Sat 10 Apr',  title:'Osaka · Kushimoto · Hayatama Taisha'},
-  {id:'d2',  label:'D2',  date:'Sun 11 Apr',  title:'Kushimoto · Kii-Tanabe'},
-  {id:'d3',  label:'D3',  date:'Mon 12 Apr',  title:'Kii-Tanabe · Takijiri · Takahara'},
-  {id:'d4',  label:'D4',  date:'Tue 13 Apr',  title:'Takahara · Tsugizakura  · 16 km'},
-  {id:'d5',  label:'D5',  date:'Wed 14 Apr',  title:'Tsugizakura · Hongu · Yunomine'},
-  {id:'d6',  label:'D6',  date:'Thu 15 Apr',  title:'Hongu Taisha rest day'},
-  {id:'d7',  label:'D7',  date:'Fri 16 Apr',  title:'Riverboat · Shingu · Kii-Katsuura'},
-  {id:'d8',  label:'D8',  date:'Sat 17 Apr',  title:'Nachi · Nagoya · Nagano'},
-  {id:'d9',  label:'D9',  date:'Sun 18 Apr',  title:'Togakushi shrine day'},
-  {id:'d10', label:'D10', date:'Mon 19 Apr',  title:'Nagano · Alpine Route · Murodo'},
-  {id:'d11', label:'D11', date:'Tue 20 Apr',  title:'Murodo · Tateyama · Toyama · Osaka'},
-  {id:'d12', label:'D12', date:'Wed 21 Apr',  title:'Osaka'},
-  {id:'d13', label:'D13', date:'Thu 22 Apr',  title:'Osaka'},
-  {id:'d14', label:'D14', date:'Fri 23 Apr',  title:'Morning flight home'},
+  {id:'d0',  label:'D0',  date:'Fri 9 Apr',   title:'Night Flight to Osaka',               locality:'KUL'},
+  {id:'d1',  label:'D1',  date:'Sat 10 Apr',  title:'Osaka · Kushimoto · Hayatama Taisha', locality:'Kushimoto'},
+  {id:'d2',  label:'D2',  date:'Sun 11 Apr',  title:'Kushimoto · Kii-Tanabe',              locality:'Kii-Tanabe'},
+  {id:'d3',  label:'D3',  date:'Mon 12 Apr',  title:'Kii-Tanabe · Takijiri · Takahara',    locality:'Takahara'},
+  {id:'d4',  label:'D4',  date:'Tue 13 Apr',  title:'Takahara · Tsugizakura · 16 km',      locality:'Nakahechi Trail'},
+  {id:'d5',  label:'D5',  date:'Wed 14 Apr',  title:'Tsugizakura · Hongu · Yunomine',      locality:'Hongu'},
+  {id:'d6',  label:'D6',  date:'Thu 15 Apr',  title:'Hongu Taisha rest day',               locality:'Kawayu Onsen'},
+  {id:'d7',  label:'D7',  date:'Fri 16 Apr',  title:'Riverboat · Shingu · Kii-Katsuura',  locality:'Kii-Katsuura'},
+  {id:'d8',  label:'D8',  date:'Sat 17 Apr',  title:'Nachi · Nagoya · Nagano',             locality:'Nachi → Nagano',
+   weatherPoints:[{label:'Nachi', lat:33.6687, lng:135.8901},{label:'Nagano', lat:36.6442, lng:138.1880}]},
+  {id:'d9',  label:'D9',  date:'Sun 18 Apr',  title:'Togakushi shrine day',                locality:'Togakushi'},
+  {id:'d10', label:'D10', date:'Mon 19 Apr',  title:'Nagano · Alpine Route · Murodo',      locality:'Murodo'},
+  {id:'d11', label:'D11', date:'Tue 20 Apr',  title:'Murodo · Tateyama · Toyama · Osaka',  locality:'Murodo → Osaka',
+   weatherPoints:[{label:'Murodo', lat:36.5763, lng:137.5985},{label:'Osaka', lat:34.6724, lng:135.5025}]},
+  {id:'d12', label:'D12', date:'Wed 21 Apr',  title:'Osaka',                               locality:'Osaka'},
+  {id:'d13', label:'D13', date:'Thu 22 Apr',  title:'Osaka',                               locality:'Osaka'},
+  {id:'d14', label:'D14', date:'Fri 23 Apr',  title:'Morning flight home',                 locality:'Osaka'},
 ];
 
 /* ── Overnight defaults (keyed by dayId) ────────────────── */

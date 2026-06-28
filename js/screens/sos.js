@@ -167,9 +167,18 @@ const SOSScreen = (() => {
 
     const addForm = document.createElement('div');
     addForm.style.cssText = 'display:none;flex-direction:column;gap:var(--s2);margin-top:var(--s2)';
+    const dayOpts = Data.getDays().map(d =>
+      `<option value="${d.id}">${d.label} · ${d.date}</option>`).join('');
     addForm.innerHTML = `
-      <input id="cl-title" class="bs-input" type="text" placeholder="Title (e.g. Ryokan Booking)">
+      <input id="cl-title" class="bs-input" type="text" placeholder="Title (e.g. Hotel confirmation)">
       <input id="cl-url"   class="bs-input" type="url"  placeholder="https://...">
+      <div class="bs-edit-group">
+        <label class="bs-edit-label" for="cl-day">Show on day (optional)</label>
+        <select id="cl-day" class="bs-input">
+          <option value="">SOS only</option>
+          ${dayOpts}
+        </select>
+      </div>
       <div style="display:flex;gap:var(--s2)">
         <button class="btn btn-primary" id="cl-save" style="flex:1">Save</button>
         <button class="btn btn-ghost"   id="cl-cancel" style="flex:1">Cancel</button>
@@ -186,7 +195,8 @@ const SOSScreen = (() => {
       const title = addForm.querySelector('#cl-title')?.value?.trim();
       const url   = addForm.querySelector('#cl-url')?.value?.trim();
       if (!title || !url) { Toast.show('Title and URL required', 'warning'); return; }
-      await Data.addCustomLink({ title, url });
+      const dayId = addForm.querySelector('#cl-day')?.value || null;
+      await Data.addCustomLink({ title, url, dayId: dayId || null });
       Toast.show('Link saved', 'success');
       render();
     });

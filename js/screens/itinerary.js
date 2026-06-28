@@ -1,6 +1,19 @@
 'use strict';
 
 const ItineraryScreen = (() => {
+
+  /* -- Static guide link mapping -- */
+  const STOP_LINKS = {
+    sk09: [{title:'Bus: Kii-Tanabe to Hongu', url:'http://www2.tb-kumano.jp/en/transport/pdf/Tanabe-Shirahama-to-Hongu-bus.pdf'}],
+    sk10: [{title:'Nakahechi Route Map (PDF)', url:'https://www2.tb-kumano.jp/en/kumano-kodo/pdf/Kumano-Kodo-Nakahechi-Route-Maps-Takijiri-Takahara.pdf'}],
+    sk16: [{title:'Bus: Hongu-Kawayu-Yunomine', url:'http://www2.tb-kumano.jp/en/transport/pdf/Hongu-Kawayu-Yunomine-bus.pdf'}],
+    sk20: [{title:'Bus: Hongu to Shingu', url:'http://www2.tb-kumano.jp/en/transport/pdf/Hongu-Koguchi-Shingu-bus.pdf'}],
+    sk22: [{title:'Nachisan Travel Guide', url:'https://visitwakayama.jp/en/stories/detail_539.html'}],
+    sk23: [{title:'Bus: Nachi-Kii-Katsuura', url:'https://www2.tb-kumano.jp/en/transport/pdf/Nachi-Kii-Katsuura-bus.pdf'}],
+    sk30: [{title:'Alpine Route timetable (PDF)', url:'https://www.alpen-route.com/en/wp-content/uploads/2026/04/2026_timetable_nagano-toyamaedit.pdf'}],
+    sk34: [{title:'Murodo Walks Map (PDF)', url:'https://www.alpen-route.com/en/assets_v2/file/walks_map.pdf'}],
+  };
+
   let root;
 
   /* ── Accordion state (module-level — survives re-renders) ── */
@@ -139,6 +152,7 @@ const ItineraryScreen = (() => {
             stop.category==='activity'  ? '<span class="cat-chip cat-chip--activity">Activity</span>' : ''}
           ${stop.trainDetail?.seatReservation ? '<span class="cat-chip cat-chip--jr">Seat res.</span>' : ''}
         </div>
+        ${(STOP_LINKS[stop.id]||[]).map(l=>`<a href="${l.url}" target="_blank" rel="noopener" class="tl-link-chip" onclick="event.stopPropagation()">\u2197 ${l.title}</a>`).join('')}
       </div>`;
     row.addEventListener('click', () => BottomSheet.openStop(stop, day));
     return row;
@@ -157,13 +171,22 @@ const ItineraryScreen = (() => {
       root.appendChild(dayHeader(day, stops, isOpen));
 
       if (isOpen) {
-        // Weather strip (only when expanded to avoid unnecessary fetches)
-        const wxStop = stops.find(s => s.lat && s.lng);
-        if (wxStop && navigator.onLine) {
-          const wxEl = document.createElement('div');
-          wxEl.className = 'wx-container';
-          root.appendChild(wxEl);
-          Weather.renderStrip(wxEl, wxStop.lat, wxStop.lng, wxStop.name);
+        // Weather strip -- use day locality; multi-point for transit days
+        if (navigator.onLine) {
+          if (day.weatherPoints) {
+            const wxEl = document.createElement('div');
+            wxEl.className = 'wx-container';
+            root.appendChild(wxEl);
+            Weather.renderMultiStrip(wxEl, day.weatherPoints);
+          } else {
+            const wxStop = stops.find(s => s.lat && s.lng);
+            if (wxStop) {
+              const wxEl = document.createElement('div');
+              wxEl.className = 'wx-container';
+              root.appendChild(wxEl);
+              Weather.renderStrip(wxEl, wxStop.lat, wxStop.lng, day.locality || wxStop.name);
+            }
+          }
         }
 
         // Day divider
@@ -178,6 +201,16 @@ const ItineraryScreen = (() => {
 
         // Add stop button
         root.appendChild(addStopBtn(day.id));
+
+        // Custom links tagged to this day
+        const dayLinks = (Data.getCustomLinks?.() || []).filter(l => l.dayId === day.id);
+        if (dayLinks.length) {
+          const dlWrap = document.createElement('div');
+          dlWrap.className = 'day-links-wrap';
+          dlWrap.innerHTML = '<p class="day-links-head">🔖 Resources</p>'
+            + dayLinks.map(l => `<a href="${l.url}" target="_blank" rel="noopener" class="tl-link-chip">\u2197 ${l.title}</a>`).join('');
+          root.appendChild(dlWrap);
+        }
       }
     });
   }
