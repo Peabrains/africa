@@ -123,13 +123,12 @@ const MapScreen = (() => {
   function render() {
     if (!root) return;
     root.innerHTML = '';
-    root.style.cssText = 'display:flex;flex-direction:column;';
+    // layout controlled by CSS #screen-content.map-active + #map-container rules
 
     root.appendChild(legend());
 
     const mapEl = document.createElement('div');
     mapEl.id = 'map-container';
-    mapEl.style.cssText = 'flex:1;border-radius:var(--r-lg);overflow:hidden;border:1.5px solid var(--border);min-height:0;';
     root.appendChild(mapEl);
 
     map = L.map('map-container', { zoomControl:true, attributionControl:true });
