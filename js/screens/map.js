@@ -42,8 +42,14 @@ const MapScreen = (() => {
     restroomLayer = L.layerGroup().addTo(map);
     (Data.getRestrooms?.() || []).forEach(r => {
       const m = L.marker([r.lat, r.lng], { icon: makeRestroomIcon() });
+      m.on('click', () => {
+        window.open(`https://maps.google.com/maps?daddr=${r.lat},${r.lng}`, '_blank');
+      });
       m.bindTooltip(`<strong>WC · ${r.name}</strong>${r.note?'<br><small>'+r.note+'</small>':''}`, {
         direction:'top', offset:[0,-13], opacity:0.95 });
+      m.on('click', function() {
+        window.open('https://www.google.com/maps/dir/?api=1&destination=' + r.lat + ',' + r.lng + '&travelmode=walking', '_blank');
+      });
       m.addTo(restroomLayer);
     });
   }
@@ -114,7 +120,7 @@ const MapScreen = (() => {
   function render() {
     if (!root) return;
     root.innerHTML = '';
-    root.style.cssText = 'display:flex;flex-direction:column;height:100%;position:relative;';
+    root.style.cssText = 'display:flex;flex-direction:column;overflow:hidden;';
 
     root.appendChild(legend());
 
@@ -122,18 +128,6 @@ const MapScreen = (() => {
     mapEl.id = 'map-container';
     mapEl.style.cssText = 'flex:1;border-radius:var(--r-lg);overflow:hidden;border:1.5px solid var(--border);min-height:0;';
     root.appendChild(mapEl);
-
-    // Restroom toggle button
-    const restroomBtn = document.createElement('button');
-    restroomBtn.className = 'map-wc-btn';
-    restroomBtn.title = 'Restrooms';
-    restroomBtn.textContent = 'WC';
-    restroomBtn.addEventListener('click', () => {
-      showRestrooms = !showRestrooms;
-      restroomBtn.classList.toggle('map-wc-btn--active', showRestrooms);
-      renderRestrooms();
-    });
-    root.appendChild(restroomBtn);
 
     map = L.map('map-container', { zoomControl:true, attributionControl:true });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -148,6 +142,25 @@ const MapScreen = (() => {
         if (map) {
           map.invalidateSize();
           renderAll();
+
+          // WC as Leaflet topright control -- away from attribution
+          const WCCtrl = L.Control.extend({
+            options: { position: 'topleft' },
+            onAdd: function() {
+              const btn = L.DomUtil.create('button', 'map-wc-btn');
+              btn.textContent = 'WC';
+              btn.title = 'Restroom locations';
+              L.DomEvent.on(btn, 'click touchend', function(e) {
+                L.DomEvent.stopPropagation(e);
+                L.DomEvent.preventDefault(e);
+                showRestrooms = !showRestrooms;
+                btn.classList.toggle('map-wc-btn--active', showRestrooms);
+                renderRestrooms();
+              });
+              return btn;
+            }
+          });
+          new WCCtrl().addTo(map);
         }
       });
     });
