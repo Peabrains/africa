@@ -3,41 +3,45 @@
 /* ============================================================
    WEATHER — Open-Meteo (free, no API key)
    Shows 3-day forecast for a given lat/lng
+   Fixed for Africa: timezone = Africa/Nairobi
+   Icons: inline SVG (no Tabler CSS dependency)
    ============================================================ */
 const Weather = (() => {
   const CACHE = {};
 
+  /* WMO weather codes → emoji (no icon font needed, works offline) */
   const WMO = {
-    0:  { label:'Clear',         icon:'ti-sun'               },
-    1:  { label:'Mainly clear',  icon:'ti-sun'               },
-    2:  { label:'Partly cloudy', icon:'ti-cloud'             },
-    3:  { label:'Overcast',      icon:'ti-cloud-filled'      },
-    45: { label:'Fog',           icon:'ti-cloud-fog'         },
-    48: { label:'Freezing fog',  icon:'ti-cloud-fog'         },
-    51: { label:'Light drizzle', icon:'ti-cloud-drizzle'     },
-    53: { label:'Drizzle',       icon:'ti-cloud-drizzle'     },
-    61: { label:'Light rain',    icon:'ti-cloud-rain'        },
-    63: { label:'Rain',          icon:'ti-cloud-rain'        },
-    65: { label:'Heavy rain',    icon:'ti-cloud-rain'        },
-    71: { label:'Light snow',    icon:'ti-snowflake'         },
-    73: { label:'Snow',          icon:'ti-snowflake'         },
-    80: { label:'Showers',       icon:'ti-cloud-rain'        },
-    81: { label:'Showers',       icon:'ti-cloud-rain'        },
-    95: { label:'Thunderstorm',  icon:'ti-cloud-storm'       },
-    99: { label:'Thunderstorm',  icon:'ti-cloud-storm'       },
+    0:  { label:'Clear',         emoji:'☀️' },
+    1:  { label:'Mainly clear',  emoji:'🌤️' },
+    2:  { label:'Partly cloudy', emoji:'⛅' },
+    3:  { label:'Overcast',      emoji:'☁️' },
+    45: { label:'Fog',           emoji:'🌫️' },
+    48: { label:'Freezing fog',  emoji:'🌫️' },
+    51: { label:'Light drizzle', emoji:'🌦️' },
+    53: { label:'Drizzle',       emoji:'🌦️' },
+    61: { label:'Light rain',    emoji:'🌧️' },
+    63: { label:'Rain',          emoji:'🌧️' },
+    65: { label:'Heavy rain',    emoji:'🌧️' },
+    71: { label:'Light snow',    emoji:'🌨️' },
+    73: { label:'Snow',          emoji:'❄️'  },
+    80: { label:'Showers',       emoji:'🌦️' },
+    81: { label:'Showers',       emoji:'🌧️' },
+    95: { label:'Thunderstorm',  emoji:'⛈️' },
+    99: { label:'Thunderstorm',  emoji:'⛈️' },
   };
 
   function wmo(code) {
-    return WMO[code] || WMO[Math.floor(code/10)*10] || { label:'Mixed', icon:'ti-cloud' };
+    return WMO[code] || WMO[Math.floor(code / 10) * 10] || { label:'Mixed', emoji:'🌡️' };
   }
 
   async function fetch3Day(lat, lng) {
     const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
     if (CACHE[key]) return CACHE[key];
 
+    // Africa/Nairobi = EAT (UTC+3) — covers TZ, KE, UG all on same offset
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
       + `&daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_probability_max,precipitation_sum`
-      + `&timezone=Asia/Tokyo&forecast_days=3`;
+      + `&timezone=Africa%2FNairobi&forecast_days=3`;
 
     const res  = await fetch(url);
     const json = await res.json();
@@ -60,7 +64,7 @@ const Weather = (() => {
   const REL_LABELS = ['Today', 'Tomorrow', '+2 days'];
 
   function dayCard(d, idx) {
-    const { label, icon } = wmo(d.code);
+    const { label, emoji } = wmo(d.code);
     const dateLabel = REL_LABELS[idx] || '+' + idx + ' days';
     const hasRain = d.precipProb != null && d.precipProb > 0;
     const isWet   = hasRain && d.precipProb >= 50;
@@ -70,7 +74,7 @@ const Weather = (() => {
     return `
       <div class="wx-day">
         <span class="wx-date">${dateLabel}</span>
-        <i class="ti ${icon} wx-icon" title="${label}"></i>
+        <span class="wx-icon" title="${label}">${emoji}</span>
         <span class="wx-temp">${d.max}° / ${d.min}°</span>
         ${rainLine}
       </div>`;
@@ -84,12 +88,12 @@ const Weather = (() => {
       el.innerHTML = `
         <div class="wx-strip">
           <span class="wx-location">${label}</span>
-          ${days.map((d,i) => dayCard(d,i)).join('')}
+          ${days.map((d, i) => dayCard(d, i)).join('')}
         </div>`;
     } catch(_) { el.innerHTML = ''; }
   }
 
-  /* Multi-location: renders two stacked strips */
+  /* Multi-location: renders one strip per point */
   async function renderMultiStrip(el, points) {
     if (!navigator.onLine) { el.innerHTML = ''; return; }
     try {
@@ -97,7 +101,7 @@ const Weather = (() => {
       el.innerHTML = allDays.map((days, i) => `
         <div class="wx-strip">
           <span class="wx-location">${points[i].label}</span>
-          ${days.map((d,i) => dayCard(d,i)).join('')}
+          ${days.map((d, j) => dayCard(d, j)).join('')}
         </div>`).join('');
     } catch(_) { el.innerHTML = ''; }
   }
