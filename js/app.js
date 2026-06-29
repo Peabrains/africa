@@ -230,9 +230,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Read actual running SW cache name → display as version
     function showVersion() {
       caches.keys().then(keys => {
-        const sw = keys.find(k => k.startsWith('japan-trip-'));
+        const sw = keys.find(k => k.startsWith('africa-safari-'));
         const el = document.getElementById('app-version-display');
-        if (el) el.textContent = sw ? sw.replace('japan-trip-', '') : '';
+        if (el) el.textContent = sw ? sw.replace('africa-safari-', '') : '';
       }).catch(() => {});
     }
     showVersion();
