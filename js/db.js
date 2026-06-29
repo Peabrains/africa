@@ -2,10 +2,11 @@
 
 /* ============================================================
    DB — IndexedDB wrapper
-   Stores: stops | stamps | expenses | packing | queue
+   Africa Safari PWA — renamed from japan-trip
+   Stores: stops | expenses | packing | meta | queue
    ============================================================ */
 const DB = (() => {
-  const NAME = 'japan-trip', VERSION = 1;
+  const NAME = 'africa-safari', VERSION = 1;
   let db;
 
   function open() {
@@ -81,20 +82,27 @@ const DB = (() => {
     loadStops:   ()       => getAll('stops'),
     saveStop:    (stop)   => put('stops', { ...stop, _savedAt: Date.now() }),
     saveStops:   (stops)  => Promise.all(stops.map(s => put('stops', { ...s, _savedAt: Date.now() }))),
+    deleteStop:  (id)     => del('stops', id),
+    clearStops:  ()       => clear('stops'),
 
-    /* Stamps */
-    loadStamps:  ()       => getAll('stamps').then(rows => rows.filter(r => r.collected).map(r => r.stopId)),
+    /* Stamps (unused in Africa but kept for API compatibility) */
+    loadStamps:  ()               => getAll('stamps').then(rows => rows.filter(r => r.collected).map(r => r.stopId)),
     saveStamp:   (stopId, collected) => put('stamps', { stopId, collected }),
+    clearStamps: ()               => clear('stamps'),
 
     /* Expenses */
-    loadExpenses:  ()     => getAll('expenses'),
-    saveExpense:   (exp)  => put('expenses', exp),
-    deleteExpense: (id)   => del('expenses', id),
+    loadExpenses:  ()    => getAll('expenses'),
+    saveExpense:   (exp) => put('expenses', exp),
+    deleteExpense: (id)  => del('expenses', id),
+    clearExpenses: ()    => clear('expenses'),
 
     /* Packing */
-    loadPacking:   ()          => getAll('packing'),
-    savePacking:   (items)     => Promise.all(items.map(i => put('packing', i))),
-    togglePacking: (id, checked) => open().then(() => new Promise((res,rej) => {
+    loadPacking:     ()          => getAll('packing'),
+    savePacking:     (items)     => Promise.all(items.map(i => put('packing', i))),
+    savePackingItem: (item)      => put('packing', item),
+    deletePacking:   (id)        => del('packing', id),
+    clearPacking:    ()          => clear('packing'),
+    togglePacking: (id, checked) => open().then(() => new Promise((res, rej) => {
       const store = tx('packing', 'readwrite');
       const req   = store.get(id);
       req.onsuccess = () => {
@@ -106,36 +114,26 @@ const DB = (() => {
     })),
 
     /* Sync queue */
-    queueChange:  (change) => put('queue', { ...change, id: Date.now() + Math.random() }),
-    loadQueue:    ()        => getAll('queue'),
-    clearQueue:   ()        => clear('queue'),
+    queueChange: (change) => put('queue', { ...change, id: Date.now() + Math.random() }),
+    loadQueue:   ()        => getAll('queue'),
+    clearQueue:  ()        => clear('queue'),
 
-    /* Stops — delete */
-    deleteStop: (id) => del('stops', id),
-    clearStops:    () => new Promise((res,rej) => { const t=db.transaction('stops','readwrite');    const r=t.objectStore('stops').clear();    r.onsuccess=res; r.onerror=rej; }),
-    clearExpenses: () => new Promise((res,rej) => { const t=db.transaction('expenses','readwrite'); const r=t.objectStore('expenses').clear(); r.onsuccess=res; r.onerror=rej; }),
-    clearPacking:  () => new Promise((res,rej) => { const t=db.transaction('packing','readwrite');  const r=t.objectStore('packing').clear();  r.onsuccess=res; r.onerror=rej; }),
-    clearStamps:   () => new Promise((res,rej) => { const t=db.transaction('stamps','readwrite');   const r=t.objectStore('stamps').clear();   r.onsuccess=res; r.onerror=rej; }),
-    clearMeta:     () => new Promise((res,rej) => { const t=db.transaction('meta','readwrite');     const r=t.objectStore('meta').clear();     r.onsuccess=res; r.onerror=rej; }),
+    /* Travelers + overnight */
+    loadTravelers: ()       => getMeta('travelers').then(v => v || []),
+    saveTravelers: (names)  => setMeta('travelers', names),
+    loadOvernight: ()       => getMeta('overnight').then(v => v || null),
+    saveOvernight: (data)   => setMeta('overnight', data),
 
-    /* Packing — save single item + delete */
-    savePackingItem: (item) => put('packing', item),
-    deletePacking:   (id)   => del('packing', id),
-
-    /* Travelers */
-    loadTravelers: () => getMeta('travelers').then(v => v || []),
-    saveTravelers: (names) => setMeta('travelers', names),
-
-    /* Overnight */
-    loadOvernight: () => getMeta('overnight').then(v => v || null),
-    saveOvernight: (data) => setMeta('overnight', data),
-
-    /* Meta */
-    getLastSync:  ()    => getMeta('lastSync'),
-    setLastSync:  (ts)  => setMeta('lastSync', ts),
-    setMeta:       (key, val) => setMeta(key, val),
+    /* Custom links */
     loadCustomLinks: () => getMeta('customLinks').then(v => v || []),
     saveCustomLinks: (links) => setMeta('customLinks', links),
+
+    /* Meta */
+    getMeta,
+    setMeta,
+    getLastSync:  ()    => getMeta('lastSync'),
+    setLastSync:  (ts)  => setMeta('lastSync', ts),
+    clearMeta:    ()    => clear('meta'),
   };
 })();
 
