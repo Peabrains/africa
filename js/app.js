@@ -192,7 +192,11 @@ const App = (() => {
 /* ── SW-driven reload ────────────────────────────────────────── */
 if (navigator.serviceWorker) {
   navigator.serviceWorker.addEventListener('message', e => {
-    if (e.data && e.data.type === 'SW_RELOAD') window.location.reload();
+    if (e.data && e.data.type === 'SW_UPDATED') {
+  // New SW activated — show toast then reload to get fresh files
+  if (window.Toast) Toast.show('App updated to ' + e.data.version + ' — refreshing…', 'info');
+  setTimeout(() => window.location.reload(), 1500);
+}
   });
 }
 
@@ -206,16 +210,23 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!_swRefreshing) {
         _swRefreshing = true;
-        Toast && Toast.show('App updated \u2014 reloading\u2026', 'info');
-        setTimeout(() => window.location.reload(), 1200);
+        // Request version from new SW before reload
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'GET_VERSION' });
+        }
       }
     });
 
-    caches.keys().then(keys => {
-      const sw = keys.find(k => k.startsWith('africa-safari-'));
-      const el = document.getElementById('app-version-display');
-      if (el) el.textContent = sw ? sw.replace('africa-safari-', 'v') : '';
-    }).catch(() => {});
+    // Ask the active SW for its version directly
+    if (navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'GET_VERSION' });
+    }
+    navigator.serviceWorker.addEventListener('message', e => {
+      if (e.data?.type === 'SW_VERSION') {
+        const el = document.getElementById('app-version-display');
+        if (el) el.textContent = 'build ' + e.data.version;
+      }
+    });
 
     navigator.serviceWorker.ready.then(reg => {
       reg.update().catch(() => {});
