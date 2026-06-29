@@ -79,8 +79,8 @@ const BottomSheet = (() => {
   }
   function timeWithTz(timeId, tzId, timeVal, tzVal) {
     const tVal = /^\d{2}:\d{2}$/.test(timeVal||'') ? timeVal : '';
-    const sel = ['JST','MYT','UTC'].map(z =>
-      `<option value="${z}" ${(tzVal||'JST')===z?'selected':''}>${z}</option>`).join('');
+    const sel = ['EAT','MYT','UTC'].map(z =>
+      `<option value="${z}" ${(tzVal||'EAT')===z?'selected':''}>${z}</option>`).join('');
     return `<div class="bs-edit-group">
       <label class="bs-edit-label" for="${timeId}">Time</label>
       <div class="bs-time-row">
@@ -102,15 +102,13 @@ const BottomSheet = (() => {
 
   /* ─── Stop view mode ─────────────────────────────────────── */
   function stopViewHTML(stop, day) {
-    const stampCollected = stop.hasStamp && Data.isStampCollected(stop.id);
+    const stampCollected = false; // no stamps in Africa PWA
     const tIconKey = {plane:'plane',train:'train',bus:'bus',walk:'walk',boat:'boat',cable:'cable'}[stop.transportType] || 'walk';
     let transportBlock = '';
     if (stop.transport || stop.trainDetail) {
       const rows = [];
       if (stop.transport) rows.push(`<div class="bs-transport-row">${Icons[tIconKey]('icon-sm')}<span>${stop.transport}</span></div>`);
       if (stop.trainDetail?.platform) rows.push(`<div class="bs-transport-row">${Icons.info('icon-sm')}<span>Platform ${stop.trainDetail.platform}</span></div>`);
-      if (stop.trainDetail?.jrPass === false && stop.transportType === 'train') rows.push(`<div class="bs-transport-row">${Icons.card('icon-sm')}<span style="color:var(--warning-text)">NOT on JR Pass · buy separately</span></div>`);
-      else if (stop.trainDetail?.jrPass && stop.transportType === 'train') rows.push(`<div class="bs-transport-row">${Icons.card('icon-sm')}<span>JR Pass ✓</span></div>`);
       if (rows.length) transportBlock = `<div class="bs-transport-card"><p class="bs-transport-card-title">Transport</p>${rows.join('')}</div>`;
     }
     return `
@@ -122,10 +120,10 @@ const BottomSheet = (() => {
         <div class="bs-rows">
           ${detailRow(Icons.clock, stop.time ? `${stop.time}${stop.timeZone?' '+stop.timeZone:''}` : '')}
           ${detailRow(Icons.card, stop.booking?.ref ? 'Ref: '+stop.booking.ref : '')}
-          ${detailRow(Icons.yen, stop.booking?.cost ? '¥'+stop.booking.cost.toLocaleString() : '')}
+          ${detailRow(Icons.yen, stop.booking?.cost ? 'USD '+stop.booking.cost.toLocaleString() : '')}
           ${detailRow(Icons.info, stop.notes, 'style="color:var(--accent)"')}
         </div>
-        ${stop.hasStamp ? `<div class="bs-stamp-section"><div class="bs-stamp-circle ${stampCollected?'bs-stamp-circle--on':''}"><span class="bs-stamp-kanji">${stop.stampKanji}</span></div><div class="bs-stamp-info"><p class="bs-stamp-name">${stop.stampRomaji}${stop.isSanzan?` · Sanzan ${stop.sanzanNum}/3`:''}</p><p class="bs-stamp-status">${stampCollected?'✓ Collected':'Not yet collected'}</p></div><button class="btn ${stampCollected?'btn-ghost':'btn-primary'} bs-stamp-btn" id="bs-collect-btn">${stampCollected?'Uncollect':'Collect'}</button></div>` : ''}
+        <!-- no stamp section for Africa -->
         <div class="bs-actions">
           ${stop.booking.status!=='booked'?`<button class="btn btn-primary bs-full-btn" id="bs-book-btn">Mark as booked</button>`:`<button class="btn btn-ghost bs-full-btn" id="bs-unbook-btn">✓ Booked — unmark</button>`}
           <div class="bs-action-row"><button class="btn btn-ghost" id="bs-edit-btn">Edit stop</button><button class="btn btn-danger" id="bs-remove-btn">Remove</button></div>
@@ -199,7 +197,7 @@ const BottomSheet = (() => {
         ${field('Accommodation name','o-name',o.name||'','text','e.g. Kiri-no-Sato Takahara Lodge')}
         ${select('Booking status','o-status',o.status||'open',statusOpts)}
         ${field('Booking reference','o-ref',o.ref||'','text','e.g. HTL-20270412')}
-        ${field('Cost per night (¥)','o-cost',o.cost||'','number','e.g. 18000')}
+        ${field('Cost (USD)','o-cost',o.cost||'','number','e.g. 18000')}
         ${field('Book by (deadline)','o-deadline',o.deadline||'','date')}
         <div class="bs-actions" style="margin-top:var(--s4)">
           <button class="btn btn-primary bs-full-btn" id="o-save-btn">Save</button>
@@ -220,7 +218,7 @@ const BottomSheet = (() => {
         ${select('Day','a-day',dayId,days)}
         ${field('Stop name *','a-name','','text','e.g. Kumano Hongu Taisha')}
         ${textarea('Activity','a-activity','','What happens here?')}
-        ${timeWithTz('a-time','a-tz','','JST')}
+        ${timeWithTz('a-time','a-tz','','EAT')}
         ${textarea('Transport to get here','a-transport','','e.g. On foot · 3.6 km')}
         ${select('Transport type','a-ttype','walk',transTypes)}
         <div id="a-train-detail-block" class="bs-train-detail-block" style="display:none;margin-top:var(--s2)">
@@ -293,13 +291,7 @@ const BottomSheet = (() => {
       App.updateUrgentBadge(); close();
       window.ItineraryScreen?.refresh(); window.BookingsScreen?.refresh?.();
     });
-    body.querySelector('#bs-collect-btn')?.addEventListener('click', async () => {
-      const now = await Data.toggleStamp(stop.id);
-      const prog = Data.getStampProgress();
-      if (prog.sanzanComplete && now && stop.isSanzan && stop.sanzanNum===3) Toast.show('三山達成 — Kumano Sanzan complete!','success');
-      else Toast.show(now?`${stop.stampRomaji} collected`:'Stamp uncollected', now?'success':'info');
-      App.renderStampBanner(); close(); window.ItineraryScreen?.refresh();
-    });
+    // Stamp collect button removed — no stamps in Africa PWA
     body.querySelector('#bs-edit-btn')?.addEventListener('click', () => { body.innerHTML=stopEditHTML(stop,day); wireStopEdit(stop,day); });
     body.querySelector('#bs-remove-btn')?.addEventListener('click', async () => {
       await Data.deleteStop(stop.id); Toast.show(`${stop.name} removed`,'warning'); close();
@@ -327,7 +319,7 @@ const BottomSheet = (() => {
         name:          g('e-name')||stop.name,
         activity:      g('e-activity'),
         time:          g('e-time'),
-        timeZone:      body.querySelector('#e-tz')?.value || 'JST',
+        timeZone:      body.querySelector('#e-tz')?.value || 'EAT',
         dayId:         g('e-day')||stop.dayId,
         transport:     g('e-transport'),
         transportType: g('e-ttype')||stop.transportType,
@@ -398,7 +390,7 @@ const BottomSheet = (() => {
       await Data.addStop({
         dayId: g('a-day')||dayId, name,
         activity: g('a-activity'), time: g('a-time'),
-        timeZone: body.querySelector('#a-tz')?.value || 'JST',
+        timeZone: body.querySelector('#a-tz')?.value || 'EAT',
         transport: g('a-transport'), transportType: tType,
         trainDetail,
         needsBooking: body.querySelector('#a-needsbook')?.checked || false,
