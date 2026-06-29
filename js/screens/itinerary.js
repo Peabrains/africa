@@ -144,7 +144,7 @@ const ItineraryScreen = (() => {
       </div>
       <div class="tl-connector">
         <div class="tl-icon-circle" style="border-color:${segColor};color:${segColor}">
-          ${Icons[iconKey] ? Icons[iconKey]() : Icons.walk()}
+          ${Icons[iconKey] ? Icons[iconKey]('icon-sm') : Icons.walk('icon-sm')}
         </div>
         ${!isLast ? '<div class="tl-line"></div>' : ''}
       </div>
@@ -153,7 +153,7 @@ const ItineraryScreen = (() => {
           <p class="tl-name">${stop.name}</p>
         </div>
         <p class="tl-activity">${stop.activity || ''}</p>
-        ${stop.transport ? `<div class="tl-transport">${Icons[iconKey]?Icons[iconKey]():''}<span>${stop.transport}</span></div>` : ''}
+        ${stop.transport ? `<div class="tl-transport"> ${Icons[iconKey]?Icons[iconKey]('icon-sm'):''}<span>${stop.transport}</span></div>` : ''}
         ${stop.notes ? `<p class="tl-note">${stop.notes}</p>` : ''}
         <div class="tl-footer">
           ${badge(stop.booking.status)}
