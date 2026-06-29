@@ -815,3 +815,47 @@ const Data = {
 };
 
 window.Data = Data;
+
+/* ── Compatibility stubs (called by bookings.js) ──────────── */
+// These extend the Data API without modifying the core object.
+// Using Object.assign to add to the existing window.Data.
+
+Object.assign(Data, {
+
+  /* Expense settlement (used by budget tab) */
+  calcSettlement() {
+    return this.getBalances();
+  },
+
+  /* Travelers update alias */
+  async updateTravelers(names) {
+    TRAVELERS = names;
+    await DB.saveTravelers(names).catch(()=>{});
+    Sync?.pushTravelers?.();
+  },
+
+  /* Reset to seed data (settings screen) */
+  async resetToSeed() {
+    STOPS    = JSON.parse(JSON.stringify(SEED_STOPS));
+    EXPENSES = [];
+    PACKING  = JSON.parse(JSON.stringify(SEED_PACKING));
+    OVERNIGHT = {};
+    Object.entries(OVERNIGHT_DEFAULTS).forEach(([k,v]) => { OVERNIGHT[k] = { ...v }; });
+    await DB.clearStops().catch(()=>{});
+    await DB.saveStops(STOPS);
+    await DB.saveOvernight(OVERNIGHT);
+    await DB.clearExpenses().catch(()=>{});
+    await DB.savePacking(PACKING);
+    await DB.setMeta('dataVersion', Config.DATA_VERSION || 1);
+  },
+
+  /* Stamp stubs — Africa has no stamps but bookings.js may reference these */
+  getStampStops:    () => [],
+  isStampCollected: () => false,
+  toggleStamp:      async () => false,
+  getStampProgress: () => ({ collected:0, total:0, sanzanCollected:0, sanzanTotal:0, sanzanComplete:false }),
+  getJRSeatReservations: () => [],
+
+  /* Custom links setter (called by sync.js) */
+  setCustomLinks(links) { CUSTOM_LINKS = links; },
+});
