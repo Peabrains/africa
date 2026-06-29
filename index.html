@@ -253,6 +253,7 @@
   </nav>
 </div>
 
+<script src="js/auth.js"></script>
 <script src="js/config.js"></script>
 <script src="js/db.js"></script>
 <script src="js/data.js"></script>
@@ -279,6 +280,9 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.innerHTML = `${Icons[icon]('icon-lg')}<span>${label}</span>`;
   });
   document.getElementById('sync-btn').innerHTML = Icons.refresh('icon-sm');
+
+  // Gate the app behind a PIN before initialising
+  Auth.gate().then(() => App.init());
 });
 </script>
 </body>
