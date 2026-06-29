@@ -1,506 +1,600 @@
 'use strict';
 
-/* ── Day structure (D0–D14, from Kumano Kodo sheet) ─────── */
-const DAY_ORDER = ['d0','d1','d2','d3','d4','d5','d6','d7','d8','d9','d10','d11','d12','d13','d14'];
+/* ============================================================
+   DATA — Africa Safari 2026
+   Vivien · East Africa Safari & Mountain Gorilla · 15 Nights
+   KUL → Tanzania → Kenya → Uganda → KUL
+   31 Aug – 17 Sep 2026
+   Operator: Wildsenses Holidays (+60 28138778)
+   www.wildsensesholidays.com
+   ============================================================ */
+
+/* ── Day order (d0 = night departure, d1–d16 = in-country) ── */
+const DAY_ORDER = [
+  'd0','d1','d2','d3','d4','d5','d6','d7','d8',
+  'd9','d10','d11','d12','d13','d14','d15','d16','d17'
+];
 
 const DAYS = [
-  {id:'d0',  label:'D0',  date:'Fri 9 Apr',   title:'Night Flight to Osaka',               locality:'KUL'},
-  {id:'d1',  label:'D1',  date:'Sat 10 Apr',  title:'Osaka · Kushimoto · Hayatama Taisha', locality:'Kushimoto'},
-  {id:'d2',  label:'D2',  date:'Sun 11 Apr',  title:'Kushimoto · Kii-Tanabe',              locality:'Kii-Tanabe'},
-  {id:'d3',  label:'D3',  date:'Mon 12 Apr',  title:'Kii-Tanabe · Takijiri · Takahara',    locality:'Takahara'},
-  {id:'d4',  label:'D4',  date:'Tue 13 Apr',  title:'Takahara · Tsugizakura · 16 km',      locality:'Nakahechi Trail'},
-  {id:'d5',  label:'D5',  date:'Wed 14 Apr',  title:'Tsugizakura · Hongu · Yunomine',      locality:'Hongu'},
-  {id:'d6',  label:'D6',  date:'Thu 15 Apr',  title:'Hongu Taisha rest day',               locality:'Kawayu Onsen'},
-  {id:'d7',  label:'D7',  date:'Fri 16 Apr',  title:'Riverboat · Shingu · Kii-Katsuura',  locality:'Kii-Katsuura'},
-  {id:'d8',  label:'D8',  date:'Sat 17 Apr',  title:'Nachi · Nagoya · Nagano',             locality:'Nachi → Nagano',
-   weatherPoints:[{label:'Nachi', lat:33.6687, lng:135.8901},{label:'Nagano', lat:36.6442, lng:138.1880}]},
-  {id:'d9',  label:'D9',  date:'Sun 18 Apr',  title:'Togakushi shrine day',                locality:'Togakushi'},
-  {id:'d10', label:'D10', date:'Mon 19 Apr',  title:'Nagano · Alpine Route · Murodo',      locality:'Murodo'},
-  {id:'d11', label:'D11', date:'Tue 20 Apr',  title:'Murodo · Tateyama · Toyama · Osaka',  locality:'Murodo → Osaka',
-   weatherPoints:[{label:'Murodo', lat:36.5763, lng:137.5985},{label:'Osaka', lat:34.6724, lng:135.5025}]},
-  {id:'d12', label:'D12', date:'Wed 21 Apr',  title:'Osaka',                               locality:'Osaka'},
-  {id:'d13', label:'D13', date:'Thu 22 Apr',  title:'Osaka',                               locality:'Osaka'},
-  {id:'d14', label:'D14', date:'Fri 23 Apr',  title:'Morning flight home',                 locality:'Osaka'},
+  {id:'d0',  label:'D0',  date:'Sun 30 Aug',  title:'Depart KUL — Overnight to Doha',          locality:'KUL'},
+  {id:'d1',  label:'D1',  date:'Mon 1 Sep',   title:'Kilimanjaro → Ngorongoro',                 locality:'Ngorongoro',
+   weatherPoints:[{label:'Ngorongoro', lat:-3.1740, lng:35.5900}]},
+  {id:'d2',  label:'D2',  date:'Tue 2 Sep',   title:'Full day Ngorongoro Crater',               locality:'Ngorongoro',
+   weatherPoints:[{label:'Ngorongoro Crater', lat:-3.1740, lng:35.5900}]},
+  {id:'d3',  label:'D3',  date:'Wed 3 Sep',   title:'Manyara → Central Serengeti',              locality:'Central Serengeti',
+   weatherPoints:[{label:'Central Serengeti', lat:-2.3333, lng:34.8333}]},
+  {id:'d4',  label:'D4',  date:'Thu 4 Sep',   title:'Central Serengeti — Big Cats day',         locality:'Central Serengeti',
+   weatherPoints:[{label:'Seronera Valley', lat:-2.4500, lng:34.8200}]},
+  {id:'d5',  label:'D5',  date:'Fri 5 Sep',   title:'Central → Northern Serengeti',             locality:'Northern Serengeti',
+   weatherPoints:[{label:'Northern Serengeti', lat:-1.5000, lng:35.0000}]},
+  {id:'d6',  label:'D6',  date:'Sat 6 Sep',   title:'Northern Serengeti — Great Migration',     locality:'Northern Serengeti',
+   weatherPoints:[{label:'Mara River', lat:-1.4000, lng:34.9800}]},
+  {id:'d7',  label:'D7',  date:'Sun 7 Sep',   title:'Northern Serengeti — River Crossings',     locality:'Northern Serengeti',
+   weatherPoints:[{label:'Mara River', lat:-1.4000, lng:34.9800}]},
+  {id:'d8',  label:'D8',  date:'Mon 8 Sep',   title:'Northern Serengeti — River Crossings',     locality:'Northern Serengeti',
+   weatherPoints:[{label:'Northern Serengeti', lat:-1.5000, lng:35.0000}]},
+  {id:'d9',  label:'D9',  date:'Tue 9 Sep',   title:'Serengeti → Kilimanjaro → Nairobi',        locality:'Nairobi',
+   weatherPoints:[{label:'Kilimanjaro', lat:-3.0674, lng:37.3556},{label:'Nairobi', lat:-1.2921, lng:36.8219}]},
+  {id:'d10', label:'D10', date:'Wed 10 Sep',  title:'Nairobi → Amboseli National Park',         locality:'Amboseli',
+   weatherPoints:[{label:'Amboseli', lat:-2.6527, lng:37.2606}]},
+  {id:'d11', label:'D11', date:'Thu 11 Sep',  title:'Amboseli — Elephants & Kilimanjaro views', locality:'Amboseli',
+   weatherPoints:[{label:'Amboseli', lat:-2.6527, lng:37.2606}]},
+  {id:'d12', label:'D12', date:'Fri 12 Sep',  title:'Amboseli — Maasai & safari activities',    locality:'Amboseli',
+   weatherPoints:[{label:'Amboseli', lat:-2.6527, lng:37.2606}]},
+  {id:'d13', label:'D13', date:'Sat 13 Sep',  title:'Amboseli → Nairobi → Entebbe',             locality:'Entebbe',
+   weatherPoints:[{label:'Entebbe', lat:0.0512, lng:32.4637}]},
+  {id:'d14', label:'D14', date:'Sun 14 Sep',  title:'Entebbe → Bwindi Impenetrable Forest',     locality:'Bwindi',
+   weatherPoints:[{label:'Bwindi', lat:-1.0333, lng:29.7167}]},
+  {id:'d15', label:'D15', date:'Mon 15 Sep',  title:'Mountain Gorilla Habituation Experience',  locality:'Bwindi',
+   weatherPoints:[{label:'Bwindi Forest', lat:-1.0333, lng:29.7167}]},
+  {id:'d16', label:'D16', date:'Tue 16 Sep',  title:'Bwindi → Entebbe → Doha (overnight)',      locality:'Entebbe',
+   weatherPoints:[{label:'Entebbe', lat:0.0512, lng:32.4637}]},
+  {id:'d17', label:'D17', date:'Wed 17 Sep',  title:'Doha → KUL — Arrive home',                 locality:'KUL'},
 ];
 
-/* ── Overnight defaults (keyed by dayId) ────────────────── */
+/* ── Accommodation defaults (keyed by dayId) ─────────────── */
 const OVERNIGHT_DEFAULTS = {
-  d1:  {name:'Mercure Wakayama Kushimoto Resort & Spa', status:'booked',  ref:'QLWPFPZP',     cost:null, deadline:null, address:'〒649-3510 和歌山県東牟婁郡串本町サンゴ台1184-10'},
-  d2:  {name:'the cue - hoso back yard house -',        status:'booked',  ref:'#205159',      cost:null, deadline:null, address:'〒646-0031 和歌山県田辺市湊16-6'},
-  d3:  {name:'Kiri-no-Sato Takahara Lodge',             status:'booked',  ref:'#205689',      cost:null, deadline:null, address:'〒646-1416 和歌山県田辺市中辺路町高原826'},
-  d4:  {name:'古道の宿 ひよどり (Guest House Hiyodori)',  status:'booked',  ref:'#205751',      cost:null, deadline:null, address:'〒646-1401 和歌山県田辺市中辺路町野中1371'},
-  d5:  {name:'Kawayu-Onsen Fujiya',                     status:'booked',  ref:'#205159',      cost:null, deadline:null, address:'〒647-1717 和歌山県田辺市本宮町川湯1452'},
-  d6:  {name:'Kawayu-Onsen Fujiya (2nd night)',         status:'booked',  ref:'#205159',      cost:null, deadline:null, address:'〒647-1717 和歌山県田辺市本宮町川湯1452'},
-  d7:  {name:'Kii-Katsuura (Pending)',                  status:'open',    ref:'',             cost:null, deadline:'2027-02-01'},
-  d8:  {name:'Nagano (Pending)',                        status:'open',    ref:'',             cost:null, deadline:null},
-  d9:  {name:'Nagano (Pending)',                        status:'open',    ref:'',             cost:null, deadline:null},
-  d10: {name:'Murodo Sanso (Pending)',                  status:'urgent',  ref:'',             cost:null, deadline:'2027-01-01'},
-  d11: {name:'DEL style 大阪心齋橋 by 大和Roynet飯店',  status:'booked',  ref:'TC45F0809AAD7', cost:null, deadline:null, address:'〒542-0085 大阪府大阪市中央区心斎橋筋1丁目4-23'},
-  d12: {name:'DEL style 大阪心齋橋 by 大和Roynet飯店',  status:'booked',  ref:'TC45F0809AAD7', cost:null, deadline:null, address:'〒542-0085 大阪府大阪市中央区心斎橋筋1丁目4-23'},
-  d13: {name:'DEL style 大阪心齋橋 by 大和Roynet飯店',  status:'booked',  ref:'TC45F0809AAD7', cost:null, deadline:null, address:'〒542-0085 大阪府大阪市中央区心斎橋筋1丁目4-23'},
+  d1:  {name:'Asilia The Highlands',           status:'booked', ref:'', cost:null, deadline:null,
+        address:'Ngorongoro Conservation Area, Tanzania'},
+  d2:  {name:'Asilia The Highlands',           status:'booked', ref:'', cost:null, deadline:null,
+        address:'Ngorongoro Conservation Area, Tanzania'},
+  d3:  {name:'Asilia Dunia Camp',              status:'booked', ref:'', cost:null, deadline:null,
+        address:'Central Serengeti, Tanzania'},
+  d4:  {name:'Asilia Dunia Camp',              status:'booked', ref:'', cost:null, deadline:null,
+        address:'Central Serengeti, Tanzania'},
+  d5:  {name:'Asilia Olakira Camp',            status:'booked', ref:'', cost:null, deadline:null,
+        address:'Northern Serengeti, Tanzania'},
+  d6:  {name:'Asilia Olakira Camp',            status:'booked', ref:'', cost:null, deadline:null,
+        address:'Northern Serengeti, Tanzania'},
+  d7:  {name:'Asilia Olakira Camp',            status:'booked', ref:'', cost:null, deadline:null,
+        address:'Northern Serengeti, Tanzania'},
+  d8:  {name:'Asilia Olakira Camp',            status:'booked', ref:'', cost:null, deadline:null,
+        address:'Northern Serengeti, Tanzania'},
+  d9:  {name:'Radisson Blu Nairobi Arboretum', status:'booked', ref:'', cost:null, deadline:null,
+        address:'Arboretum Road, Nairobi, Kenya'},
+  d10: {name:'Tortilis Camp',                  status:'booked', ref:'', cost:null, deadline:null,
+        address:'Amboseli, Kimana Sanctuary, Kenya'},
+  d11: {name:'Tortilis Camp',                  status:'booked', ref:'', cost:null, deadline:null,
+        address:'Amboseli, Kimana Sanctuary, Kenya'},
+  d12: {name:'Tortilis Camp',                  status:'booked', ref:'', cost:null, deadline:null,
+        address:'Amboseli, Kimana Sanctuary, Kenya'},
+  d13: {name:'No.5 Boutique Hotel',            status:'booked', ref:'', cost:null, deadline:null,
+        address:'Entebbe, Uganda'},
+  d14: {name:'Nkuringo Gorilla Lodge (Forest Suite)', status:'booked', ref:'', cost:null, deadline:null,
+        address:'Nkuringo, Bwindi Impenetrable Forest, Uganda'},
+  d15: {name:'Nkuringo Gorilla Lodge (Forest Suite)', status:'booked', ref:'', cost:null, deadline:null,
+        address:'Nkuringo, Bwindi Impenetrable Forest, Uganda'},
 };
 
-/* ── Seed stops (from Kumano Kodo sheet, updated Jun 2026) ── */
-const T = (s,d,o,seg,name,act,transport,tt,time,tz,lat,lng,stamp,kanji,sanzan,needs,cat,td,bk) => ({
-  id:s, dayId:d, order:o, segment:seg, name, activity:act, transport, transportType:tt,
-  time, timeZone:tz||'JST', lat, lng,
-  hasStamp:!!stamp, stampKanji:kanji||'', stampRomaji:'', isSanzan:!!sanzan, sanzanNum:null,
-  needsBooking:!!needs, category:cat||null, trainDetail:td||null,
-  notes:'', booking:bk||{status:'open',ref:'',cost:null,deadline:null},
+/* ── Stop builder helpers ────────────────────────────────── */
+/*  T(id, dayId, order, segment, name, activity, transport, transportType,
+      time, tz, lat, lng, flightIncluded, needsBooking, category, booking)  */
+const T = (id,dayId,order,seg,name,act,transport,tt,time,tz,lat,lng,flightIncluded,needs,cat,bk) => ({
+  id, dayId, order, segment:seg,
+  name, activity:act, transport, transportType:tt,
+  time, timeZone:tz||'EAT',
+  lat, lng,
+  flightIncluded: flightIncluded === true,    // true = green badge, false = gold badge
+  flightExcluded: flightIncluded === false,   // explicitly excluded
+  needsBooking:!!needs, category:cat||null,
+  notes:'',
+  booking: bk || {status:'open', ref:'', cost:null, deadline:null},
 });
-const TRN = (svc,jp,sr,orig,dest,arr,num,dur,plat) => ({service:svc,jrPass:!!jp,seatReservation:!!sr,origin:orig||'',destination:dest||'',arriveTime:arr||'',trainNumber:num||'TBD',duration:dur||'',platform:plat||''});
 
+/* ── Flight helper ───────────────────────────────────────── */
+const FL = (airline,flightNo,from,to,dep,arr,included) => ({
+  airline, flightNo, origin:from, destination:to,
+  departTime:dep, arriveTime:arr, included:!!included
+});
+
+/* ═══════════════════════════════════════════════════════════
+   SEED STOPS — all 17 days
+   Segments: transit | tanzania | kenya | uganda
+   ═══════════════════════════════════════════════════════════ */
 const SEED_STOPS = [
-/* D0 — Night flight ──────────────────────────────────────── */
-T('sk01','d0',1,'transit','KUL → KIX','Night flight to Osaka Kansai',
-  'MH52 · depart ~23:00 MYT · arrive ~06:30+1 JST','plane','23:00','MYT',
-  null,null, false,'',false, true,'transport',
-  {service:'MH52',jrPass:false,seatReservation:false},
-  {status:'pending',ref:'MH52',cost:null,deadline:null}),
 
-/* D1 — Osaka → Kushimoto → Hayatama Taisha ──────────────── */
-T('sk02','d1',1,'kumano','KIX → Kushimoto (Haruka + Kuroshio 1)',
-  'Collect JR Pass at KIX (allow 30–45 min at JR office)',
-  'KIX → Hineno @ Haruka 6 (08:08, 8 min) → Kushimoto @ Kuroshio 1 Ltd Exp (08:16, 2h40m)',
-  'train','08:08','JST', 33.4784,135.7834,
-  false,'',false, true,'transport',
-  TRN('Haruka 6 + Kuroshio 1 Ltd Exp',true,true,'KIX / Hineno','Kushimoto','11:06','Kuroshio 1','~3h'),
-  {status:'open',ref:'',cost:null,deadline:null}),
+/* ── D0 · Sun 30 Aug · KUL → Doha (overnight) ──────────── */
+T('af01','d0',1,'transit','KUL → Doha (Qatar Airways)',
+  'Depart Kuala Lumpur in the evening. Overnight flight to Doha.',
+  'Qatar Airways · KUL → DOH · Depart 22:20 · Arrive 22:45+1',
+  'plane','22:20','MYT', null,null, true, true,'transport',
+  {status:'booked',ref:'QR KUL-DOH',cost:null,deadline:null,flightDetail:FL('Qatar Airways','QR','KUL','DOH','22:20','22:45',false)}),
 
-T('sk03','d1',2,'kumano','Kushimoto — arrive & lunch',
-  'Check in bags, explore town, lunch near station.',
-  '','walk','11:30','JST', 33.4784,135.7834,
-  false,'',false, false,null,null,
-  {status:'open',ref:'',cost:null,deadline:null}),
+/* ── D1 · Mon 1 Sep · Kilimanjaro → Ngorongoro ─────────── */
+T('af02','d1',1,'transit','Doha → Kilimanjaro (Qatar Airways)',
+  'Overnight connection arrives Kilimanjaro in the morning. Greeted by Wildsenses representative.',
+  'Qatar Airways · DOH → JRO · Depart 01:55 · Arrive 07:35',
+  'plane','01:55','AST', -3.4295,36.6773, true, true,'transport',
+  {status:'booked',ref:'QR DOH-JRO',cost:null,deadline:null,flightDetail:FL('Qatar Airways','QR','DOH','JRO','01:55','07:35',false)}),
 
-T('sk04','d1',3,'kumano','Hayatama Taisha (Sanzan #2)',
-  'Grand Shrine #2. 御朱印 stamp. Ancient camphor trees.',
-  'Train Kushimoto→Ukui (13:14, 46m) + Bus Ukui→Hayatama Mae (14:13, 22m). Arrive ~14:40. Linger ~2h47m.',
-  'walk','14:40','JST', 33.7322,135.9835,
-  true,'速玉',true, false,'activity',null,
-  {status:'open',ref:'',cost:null,deadline:null}),
+T('af03','d1',2,'tanzania','Kilimanjaro → Manyara (light aircraft)',
+  'Connect light aircraft to Lake Manyara airstrip. Scenic flight over the Rift Valley.',
+  'Light aircraft · JRO → Manyara · ~45 mins · INCLUDED in package',
+  'plane','09:00','EAT', -3.3667,35.8167, true, false,'transport',
+  {status:'booked',ref:'Included',cost:null,deadline:null,flightDetail:FL('Light Aircraft','','JRO','Manyara','~09:00','~09:45',true)}),
 
-T('sk05','d1',4,'kumano','Return — Shingu → Kushimoto (Kuroshio 36)',
-  'Evening return to Kushimoto for overnight.',
-  'Bus Hayatama → Shingu Stn (17:27, 4m) → Kuroshio 36 Ltd Exp (17:46, 51m)',
-  'train','17:46','JST', 33.4784,135.7834,
-  false,'',false, true,'transport',
-  TRN('Kuroshio 36 Ltd Express',true,true,'Shingu','Kushimoto','18:37','Kuroshio 36','51 min'),
-  {status:'open',ref:'',cost:null,deadline:null}),
+T('af04','d1',3,'tanzania','Masai Village cultural visit',
+  'Cultural visit to local Masai village on scenic drive from airstrip to The Highlands camp.',
+  'Road transfer with guide · ~1 hr',
+  'car','10:00','EAT', -3.2500,35.7000, true, false,'activity',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
 
-/* D2 — Kushimoto → Kii-Tanabe ───────────────────────────── */
-T('sk06','d2',1,'kumano','Hashigui-iwa & Shionomisaki sightseeing',
-  'Southernmost tip of Honshu. Hashigui-iwa rock pillars. Cape Shionomisaki lighthouse.',
-  '','walk','08:00','JST', 33.4555,135.7617,
-  false,'',false, false,null,null),
+T('af05','d1',4,'tanzania','Arrive Asilia The Highlands',
+  'Arrive camp in the afternoon. Settle into Dome Suite. Dinner with fireplace — it gets chilly at 2,300m.',
+  'Road transfer from Masai village · ~30 min',
+  'car','14:00','EAT', -3.2183,35.5167, true, false,null,
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
 
-T('sk07','d2',2,'kumano','Kushimoto → Kii-Tanabe',
-  'Afternoon train south to Kii-Tanabe.',
-  'JR Kisei Line · 1h16m · JR Pass ✓',
-  'train','14:20','JST', 33.7330,135.3841,
-  false,'',false, false,'transport',
-  TRN('JR Kisei Line',true,false,'Kushimoto','Kii-Tanabe','15:36','','1h 16min'),
-  {status:'open',ref:'',cost:null,deadline:null}),
+/* ── D2 · Tue 2 Sep · Full day Ngorongoro Crater ────────── */
+T('af06','d2',1,'tanzania','Descent into Ngorongoro Crater',
+  'Early morning descent to the 300 km² crater floor. One of the Seven Natural Wonders of Africa. 25,000 mammals including the Big Five and 16 endangered black rhino.',
+  'Open 4WD safari vehicle with guide · Descent from crater rim',
+  'car','06:00','EAT', -3.1740,35.5900, true, false,'activity',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
 
-T('sk08','d2',3,'kumano','Tanabe Tourist Info Center',
-  'Collect Kumano Passport (御朱印帳). Pick up trail maps. Ask about conditions.',
-  'Walking distance from Kii-Tanabe Station. Open 09:00–18:00.',
-  'walk','15:40','JST', 33.7330,135.3841,
-  false,'',false, false,null,null),
+T('af07','d2',2,'tanzania','Full day Ngorongoro game drive',
+  'Lions, hyena packs, zebra, wildebeest, hippo, flamingo at Lake Magadi, elephant and leopard. Bush picnic lunch in the crater.',
+  'All-day game drive · Bush lunch included',
+  'car','06:30','EAT', -3.1740,35.5900, false, false,'activity',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
 
-/* D3 — Kii-Tanabe → Takijiri → Takahara ────────────────── */
-T('sk09','d3',1,'kumano','Bus to Takijiri-oji',
-  'Ryujin Bus to the Kumano Kodo trailhead.',
-  'Bus Kii-Tanabe Stn → Takijiri-oji · 08:30 · ~35 min · Platform 2 · ¥970',
-  'bus','08:30','JST', 33.7757,135.5037,
-  false,'',false, false,'transport',null,
-  {status:'open',ref:'',cost:null,deadline:null}),
+T('af08','d2',3,'tanzania','Return to The Highlands',
+  'Ascend crater rim. Dinner at camp. Optional hike at Olmoti rim available.',
+  'Ascent to crater rim · Return to camp',
+  'car','17:00','EAT', -3.2183,35.5167, false, false,null,
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
 
-T('sk10','d3',2,'kumano','Takijiri-oji (trailhead)',
-  'Kumano Kodo trailhead. Tainai-kuguri womb-crawling rock. First stamp.',
-  'Arrive from bus. Walk begins here.',
-  'walk','09:05','JST', 33.7757,135.5037,
-  true,'滝尻',false, false,null,null),
+/* ── D3 · Wed 3 Sep · Manyara → Central Serengeti ──────── */
+T('af09','d3',1,'tanzania','The Highlands → Manyara airstrip',
+  'After breakfast, road transfer to Manyara airstrip for flight to Central Serengeti.',
+  'Road transfer to airstrip · ~1 hr',
+  'car','08:00','EAT', -3.3667,35.8167, true, false,'transport',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
 
-T('sk11','d3',3,'kumano','Arrive Takahara',
-  'First overnight on the ridge. Stunning mist views. Onsen at the lodge. ~3.6 km, ~1.5–2 hrs from Takijiri.',
-  'On foot.',
-  'walk','12:00','JST', 33.7959,135.5321,
-  true,'高原',false, false,null,null),
+T('af10','d3',2,'tanzania','Manyara → Central Serengeti (light aircraft)',
+  'Scenic flight over the Serengeti ecosystem. Arrive Seronera airstrip.',
+  'Light aircraft · Manyara → Seronera · ~1 hour · INCLUDED in package',
+  'plane','09:30','EAT', -2.4500,34.8200, true, false,'transport',
+  {status:'booked',ref:'Included',cost:null,deadline:null,flightDetail:FL('Light Aircraft','','Manyara','Seronera','~09:30','~10:30',true)}),
 
-/* D4 — Takahara → Tsugizakura ───────────────────────────── */
-T('sk12','d4',1,'kumano','Depart Takahara',
-  '16 km · ~7 hrs. Path: Daimon-oji → Jujo-oji → Chikatsuyu-oji → Hisohara-oji → Tsugizakura-oji.',
-  'On foot.',
-  'walk','08:00','JST', 33.7959,135.5321,
-  false,'',false, false,null,null),
+T('af11','d3',3,'tanzania','Arrive Asilia Dunia Camp — lunch & afternoon game drive',
+  'Road transfer to camp. Leisure lunch. Afternoon game drive in the Seronera Valley — prime big cat country. Lion, cheetah, leopard, elephant, giraffe, zebra.',
+  'Open safari vehicle with professional guide',
+  'car','12:00','EAT', -2.4500,34.8200, false, false,'activity',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
 
-T('sk13','d4',2,'kumano','Chikatsuyu-oji (resupply)',
-  'Last reliable shop/resupply on this leg. Nonaka-no-Shimizu cold spring nearby.',
-  'On foot · ~8.5 km from Takahara · ~4 hrs.',
-  'walk','12:00','JST', 33.8314,135.6417,
-  true,'近露',false, false,null,null),
+/* ── D4 · Thu 4 Sep · Central Serengeti Big Cats ────────── */
+T('af12','d4',1,'tanzania','Morning game drive — Central Serengeti',
+  'Game-rich Seronera Valley. Year-round game viewing due to abundant rivers. Large resident populations of lion, cheetah, leopard. Spectacular predator-prey interactions.',
+  'Open safari vehicle · Depart camp at sunrise',
+  'car','06:00','EAT', -2.4500,34.8200, false, false,'activity',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
 
-T('sk14','d4',3,'kumano','Tsugizakura-oji',
-  '800-year-old cedar tree. End of the day. Guest House Hiyodori is 16 min walk from oji.',
-  'On foot · ~7.5 km from Chikatsuyu · ~3 hrs.',
-  'walk','16:00','JST', 33.8283,135.6342,
-  true,'継桜',false, false,null,null),
+T('af13','d4',2,'tanzania','Afternoon game drive — Moru Kopjes region',
+  'Explore the Moru Kopjes area — scenic rocky outcrops offering panoramic views of the Central Serengeti plains. Lion prides frequent these rocks.',
+  'Open safari vehicle · Afternoon departure from camp',
+  'car','15:30','EAT', -2.5500,34.7000, false, false,'activity',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
 
-/* D5 — Tsugizakura → Hongu → Yunomine ──────────────────── */
-T('sk15','d5',1,'kumano','Hosshinmon-oji',
-  'Traditional outer torii gate of Hongu Taisha. 3-torii gate approach.',
-  'On foot.',
-  'walk','09:00','JST', 33.8618,135.7207,
-  true,'発心',false, false,null,null),
+/* ── D5 · Fri 5 Sep · Central → Northern Serengeti ─────── */
+T('af14','d5',1,'tanzania','Central Serengeti → Northern Serengeti airstrip (light aircraft)',
+  'After breakfast, road transfer to airstrip and fly north to the Great Migration territory.',
+  'Light aircraft · Central Serengeti → Serengeti North · ~1 hour · INCLUDED in package',
+  'plane','08:30','EAT', -1.5000,35.0000, true, false,'transport',
+  {status:'booked',ref:'Included',cost:null,deadline:null,flightDetail:FL('Light Aircraft','','Seronera','Kogatende','~08:30','~09:30',true)}),
 
-T('sk16','d5',2,'kumano','Kumano Hongu Taisha (Sanzan #1)',
-  'Grand Shrine #1 of Kumano Sanzan. Largest torii gate in Japan nearby (Oyunohara). 御朱印 stamp.',
-  'On foot from Hosshinmon · ~2 hrs.',
-  'walk','12:00','JST', 33.8406,135.7735,
-  true,'本宮',true, false,null,null,
-  {status:'open',ref:'',cost:null,deadline:null}),
+T('af15','d5',2,'tanzania','Game drive en route to Asilia Olakira Camp',
+  'Game drive from airstrip to camp. Millions of wildebeest and zebra in the northern plains. Proximity to the Mara River for river crossing sightings.',
+  'Open safari vehicle · Game drive to camp',
+  'car','10:00','EAT', -1.5000,35.0000, false, false,'activity',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
 
-T('sk17','d5',3,'kumano','Yunomine Onsen · Tsuboyu',
-  'World\'s only UNESCO heritage hot spring bath. Tsuboyu private bath (30-min slots). Book slot at Yuge-ya Inn.',
-  'Bus Hongu → Yunomine · ~15 min · ¥200.',
-  'bus','15:00','JST', 33.8293,135.7576,
-  true,'湯峯',false, true,'activity',null,
-  {status:'urgent',ref:'',cost:null,deadline:'2027-02-01'}),
+T('af16','d5',3,'tanzania','Afternoon game drive — Mara River vicinity',
+  'Stay close to the Mara River for crossing sightings. Best season Jul–Oct. Hippos, crocodiles, wildebeest river crossing — the greatest wildlife show on Earth.',
+  'Open safari vehicle · Ready to move to river on guide radio call',
+  'car','15:30','EAT', -1.4000,34.9800, false, false,'activity',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
 
-/* D6 — Hongu Taisha rest day ────────────────────────────── */
-T('sk18','d6',1,'kumano','Kawayu Onsen riverside',
-  'Free morning. River rock hot spring pools (Sennin Buro). Open to all, no charge.',
+/* ── D6 · Sat 6 Sep · Northern Serengeti + Hot Air Balloon ─ */
+T('af17','d6',1,'tanzania','🎈 Hot Air Balloon over the Serengeti',
+  'Pre-dawn wake up for once-in-a-lifetime hot air balloon experience over the Serengeti at sunrise. Champagne bush breakfast upon landing. USD 590 per person — INCLUDED in package.',
+  'Pick up from camp in darkness · ~1 hr flight · Bush breakfast · Return to camp by mid-morning',
+  'walk','04:30','EAT', -1.5500,35.0500, true, false,'activity',
+  {status:'booked',ref:'Included USD 590/pax',cost:590,deadline:null}),
+
+T('af18','d6',2,'tanzania','Afternoon game drive — Northern Serengeti',
+  'Return to the Mara River area. Monitor river crossing activity via guide radio network. Lion, leopard, cheetah, elephant, hyena, ostrich, buffalo across the rolling kopje country.',
+  'Open safari vehicle',
+  'car','15:30','EAT', -1.4000,34.9800, false, false,'activity',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
+
+/* ── D7 · Sun 7 Sep · Northern Serengeti ───────────────── */
+T('af19','d7',1,'tanzania','Morning game drive — Mara River',
+  'Full river crossing focus. Radio network with other guides. Lobo Kopje area — beautiful landscape with permanent wildlife populations.',
+  'Open safari vehicle · Sunrise departure',
+  'car','06:00','EAT', -1.4000,34.9800, false, false,'activity',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
+
+T('af20','d7',2,'tanzania','Afternoon game drive — Northern Serengeti',
+  'Continue monitoring for river crossings. Fine linens and fine dining at Olakira Camp each evening — the camp almost disappears into the surrounding African bush.',
+  'Open safari vehicle',
+  'car','15:30','EAT', -1.5000,35.0000, false, false,'activity',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
+
+/* ── D8 · Mon 8 Sep · Northern Serengeti ───────────────── */
+T('af21','d8',1,'tanzania','Morning game drive — Northern Serengeti',
+  'Final morning in the Northern Serengeti. Panoramic views from Olakira over the sprawling plains.',
+  'Open safari vehicle · Sunrise departure',
+  'car','06:00','EAT', -1.5000,35.0000, false, false,'activity',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
+
+T('af22','d8',2,'tanzania','Afternoon game drive — final Serengeti',
+  'Last afternoon in Tanzania — savour every moment of the endless plains.',
+  'Open safari vehicle',
+  'car','15:30','EAT', -1.5000,35.0000, false, false,'activity',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
+
+/* ── D9 · Tue 9 Sep · Serengeti → Kilimanjaro → Nairobi ── */
+T('af23','d9',1,'transit','Goodbye Serengeti — transfer to airstrip',
+  'After breakfast, road transfer to Northern Serengeti airstrip.',
+  'Road transfer · ~30 min',
+  'car','08:00','EAT', -1.5000,35.0000, false, false,'transport',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
+
+T('af24','d9',2,'transit','Northern Serengeti → Kilimanjaro (light aircraft)',
+  'Long scenic flight south back to Kilimanjaro International Airport.',
+  'Light aircraft · Kogatende → JRO · ~2.5 hours · INCLUDED in package',
+  'plane','09:00','EAT', -3.4295,36.6773, true, false,'transport',
+  {status:'booked',ref:'Included',cost:null,deadline:null,flightDetail:FL('Light Aircraft','','Kogatende','JRO','~09:00','~11:30',true)}),
+
+T('af25','d9',3,'transit','Kilimanjaro → Nairobi Wilson (regional flight)',
+  'Connect regional flight from Kilimanjaro to Nairobi Wilson Airport.',
+  'Regional flight · JRO → Wilson · ~1 hour · INCLUDED in package',
+  'plane','13:00','EAT', -1.3222,36.8148, true, false,'transport',
+  {status:'booked',ref:'Included',cost:null,deadline:null,flightDetail:FL('Regional','','JRO','NBO Wilson','~13:00','~14:00',true)}),
+
+T('af26','d9',4,'kenya','Arrive Nairobi — hotel check-in',
+  'Arrive Nairobi around 15:30. Private road transfer to Radisson Blu Nairobi Arboretum. Overnight stay (breakfast only included).',
+  'Private road transfer from Wilson Airport · ~20 min',
+  'car','15:30','EAT', -1.2683,36.8084, false, false,null,
+  {status:'booked',ref:'Radisson Blu',cost:null,deadline:null}),
+
+/* ── D10 · Wed 10 Sep · Nairobi → Amboseli ──────────────── */
+T('af27','d10',1,'kenya','Nairobi → Wilson Airport',
+  'After breakfast, road transfer to Wilson Airport for morning flight to Amboseli.',
+  'Private road transfer · Hotel to Wilson Airport · ~20 min',
+  'car','08:30','EAT', -1.3222,36.8148, false, false,'transport',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
+
+T('af28','d10',2,'kenya','Nairobi Wilson → Amboseli (light aircraft)',
+  'Scenic flight from Nairobi to Amboseli with views of Mt Kilimanjaro on approach.',
+  'Light aircraft · NBO Wilson → Amboseli · ~1 hour · INCLUDED in package',
+  'plane','09:30','EAT', -2.6527,37.2606, true, false,'transport',
+  {status:'booked',ref:'Included',cost:null,deadline:null,flightDetail:FL('Light Aircraft','','NBO Wilson','Amboseli','~09:30','~10:30',true)}),
+
+T('af29','d10',3,'kenya','Arrive Tortilis Camp — lunch & afternoon safari',
+  'Road transfer from airstrip to Tortilis Camp. Acacia Tortilis woodland setting with Mt Kilimanjaro as backdrop. Lunch and afternoon game drive.',
+  'Open safari vehicle · Game drive from airstrip to camp',
+  'car','12:00','EAT', -2.6527,37.2606, false, false,'activity',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
+
+/* ── D11 · Thu 11 Sep · Amboseli ─────────────────────────── */
+T('af30','d11',1,'kenya','Morning safari — Amboseli NP',
+  'One of the best places in Africa to see big-tusked elephants. 1,500+ elephants in the ecosystem including some of the largest in Africa. Dramatic Kilimanjaro views on clear mornings.',
+  'Open safari vehicle · Dawn departure for best elephant light',
+  'car','06:00','EAT', -2.6527,37.2606, false, false,'activity',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
+
+T('af31','d11',2,'kenya','Afternoon safari or Maasai cultural walk',
+  'Optional Maasai village visit or guided bush walk with local Maasai guide — leave the vehicle and observe micro-ecosystems, tracks, dung beetles. Return to camp for dinner with Kilimanjaro views.',
+  'On foot with Maasai guide · or open safari vehicle',
+  'walk','15:30','EAT', -2.6527,37.2606, false, false,'activity',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
+
+/* ── D12 · Fri 12 Sep · Amboseli ─────────────────────────── */
+T('af32','d12',1,'kenya','Morning safari — Amboseli',
+  'Final Amboseli morning. Hippos, gazelles, giraffes, cape buffalo, impala, waterbucks. Good sightings of lion and hyena. Bush meals and sundowners in the private 30,000-acre game area.',
+  'Open safari vehicle · Sunrise departure',
+  'car','06:00','EAT', -2.6527,37.2606, false, false,'activity',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
+
+T('af33','d12',2,'kenya','Afternoon safari — Kimana Sanctuary',
+  'Explore the private conservancy surrounding Tortilis Camp. Outstanding guiding team, extensive range of activities.',
+  'Open safari vehicle',
+  'car','15:30','EAT', -2.6800,37.3000, false, false,'activity',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
+
+/* ── D13 · Sat 13 Sep · Amboseli → Nairobi → Entebbe ───── */
+T('af34','d13',1,'transit','Amboseli → Nairobi Wilson (light aircraft)',
+  'After breakfast, fly back to Nairobi. Arrive Wilson around 09:30.',
+  'Light aircraft · Amboseli → NBO Wilson · ~1 hour · INCLUDED in package',
+  'plane','08:00','EAT', -1.3222,36.8148, true, false,'transport',
+  {status:'booked',ref:'Included',cost:null,deadline:null,flightDetail:FL('Light Aircraft','','Amboseli','NBO Wilson','~08:00','~09:00',true)}),
+
+T('af35','d13',2,'transit','Wilson Airport → Nairobi Jomo Kenyatta International',
+  'Greeted by driver at Wilson. Private road transfer to JKIA for international departure to Entebbe.',
+  'Private road transfer · Wilson Airport → JKIA · ~45 min',
+  'car','09:30','EAT', -1.3192,36.9275, false, false,'transport',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
+
+T('af36','d13',3,'transit','Nairobi → Entebbe (Kenya Airways KQ 414)',
+  'Regional flight to Uganda. NOT included in package — buy separately.',
+  'Kenya Airways · NBO → EBB · KQ 414 · Depart 14:15 · Arrive 15:30 · NOT included',
+  'plane','14:15','EAT', 0.0424,32.4432, false, true,'transport',
+  {status:'booked',ref:'KQ 414',cost:null,deadline:null,flightDetail:FL('Kenya Airways','KQ 414','NBO','EBB','14:15','15:30',false)}),
+
+T('af37','d13',4,'uganda','Arrive Entebbe — hotel check-in',
+  'Private road transfer from Entebbe Airport to No.5 Boutique Hotel for overnight stay (breakfast only included).',
+  'Private road transfer · ~10 min from airport',
+  'car','16:00','EAT', 0.0512,32.4637, false, false,null,
+  {status:'booked',ref:'No.5 Boutique Hotel',cost:null,deadline:null}),
+
+/* ── D14 · Sun 14 Sep · Entebbe → Bwindi ────────────────── */
+T('af38','d14',1,'uganda','Entebbe → Bwindi Impenetrable Forest (light aircraft)',
+  'Morning flight from Entebbe to Bwindi airstrip. Spectacular flight over the Rift Valley and volcanic mountains.',
+  'Light aircraft · EBB → Bwindi · ~1.5 hours · INCLUDED in package',
+  'plane','08:00','EAT', -1.0333,29.7167, true, false,'transport',
+  {status:'booked',ref:'Included',cost:null,deadline:null,flightDetail:FL('Light Aircraft','','EBB','Bwindi','~08:00','~09:30',true)}),
+
+T('af39','d14',2,'uganda','Arrive Nkuringo Gorilla Lodge',
+  'Pick up from airstrip. Road transfer ~1.5–2 hrs to Nkuringo Gorilla Lodge at 2,161m altitude. Stunning views across Virunga Volcanoes chain. Settle into Forest Suite above the Bwindi canopy.',
+  'Private road transfer from airstrip · ~1.5–2 hrs',
+  'car','10:00','EAT', -1.0500,29.6833, false, false,null,
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
+
+T('af40','d14',3,'uganda','Leisure evening at Nkuringo Lodge',
+  'Dinner at camp. Settle in and rest before the big day tomorrow. Forest Suite has private viewing deck over the forest canopy and Virunga Volcanoes.',
   '',
-  'walk','08:00','JST', 33.8132,135.7725,
-  false,'',false, false,null,null),
+  'walk','18:00','EAT', -1.0500,29.6833, false, false,null,
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
 
-T('sk19','d6',2,'kumano','Kumano Hongu Taisha — spring matsuri',
-  'Spring matsuri at Hongu Taisha. Confirm exact 2027 festival date with shrine.',
-  'Hotel shuttle or local bus · ~20 min.',
-  'bus','10:00','JST', 33.8406,135.7735,
-  false,'',false, false,null,null),
+/* ── D15 · Mon 15 Sep · Mountain Gorilla Habituation ───── */
+T('af41','d15',1,'uganda','🦍 Mountain Gorilla Habituation Experience',
+  'Early departure from lodge for a full day in Bwindi Impenetrable Forest. 1 x Gorilla Habituation Permit per person — INCLUDED (USD 1,500/pax). Bwindi is home to ~400 mountain gorillas, about half the world\'s total population of this critically endangered ape. Habituated groups in Nkuringo and Rushaga sectors. Expect to return to lodge in the afternoon. 1 x complimentary 30-min massage at lodge included with Forest Suite.',
+  'Early morning depart · Full day trek · Afternoon return to lodge',
+  'walk','06:00','EAT', -1.0333,29.7167, true, false,'activity',
+  {status:'booked',ref:'Gorilla Permit Included USD 1,500/pax',cost:1500,deadline:null}),
 
-/* D7 — Riverboat → Shingu → Kii-Katsuura ───────────────── */
-T('sk20','d7',1,'kumano','Kumano-gawa Riverboat',
-  'Traditional cedar Kumano boat. Hongu riverside → Shingu area. ~90 min. Seasonal (Oct–May).',
-  'Board at Hongu riverside. Depart 14:30. Arrive ~16:30.',
-  'boat','14:30','JST', 33.8406,135.7735,
-  false,'',false, true,'activity',null,
-  {status:'booked',ref:'#205769',cost:null,deadline:null}),
-
-T('sk21','d7',2,'kumano','Shingu → Kii-Katsuura',
-  'Short JR hop to Katsuura for overnight.',
-  'JR Kisei Line · Shingu → Kii-Katsuura · ~25 min · JR Pass ✓.',
-  'train','17:00','JST', 33.6282,135.9414,
-  false,'',false, false,'transport',
-  TRN('JR Kisei Line',true,false,'Shingu','Kii-Katsuura','17:25','','25 min'),
-  {status:'open',ref:'',cost:null,deadline:null}),
-
-/* D8 — Nachi → Nagoya → Nagano ──────────────────────────── */
-T('sk22','d8',1,'kumano','Daimon-zaka → Nachi Taisha',
-  'Ancient cedar stone steps (267 steps). Pre-dawn start to beat the crowds.',
-  'Taxi Kii-Katsuura Stn → Daimon-zaka (06:00, ~30 min) then walk to Nachi Taisha (~60 min).',
-  'walk','06:30','JST', 33.6713,135.8976,
-  false,'',false, false,null,null),
-
-T('sk23','d8',2,'kumano','Kumano Nachi Taisha + Nachi Falls (Sanzan #3)',
-  'Grand Shrine #3. Sanzan complete! Pagoda + waterfall view. Nachi Falls 133m — Japan\'s tallest. KNT stamp 06:00–16:30, NS 07:30–16:30.',
-  'On foot from Daimon-zaka.',
-  'walk','07:00','JST', 33.6687,135.8901,
-  true,'那智',true, false,null,null),
-
-T('sk24','d8',3,'nagano','Kii-Katsuura → Nagoya',
-  'Long transit day begins. 4-hour train to Nagoya. JR Pass ✓. Seat reservation required.',
-  'Bus to Kii-Katsuura Stn (10:34, 24 min) · JRW Train → Nagoya (~4h) · depart 12:25.',
-  'train','12:25','JST', 33.6282,135.9414,
-  false,'',false, true,'transport',
-  TRN('JRW Kisei/Nanki Ltd Express',true,true,'Kii-Katsuura','Nagoya','16:08','TBD','~4h'),
-  {status:'open',ref:'',cost:null,deadline:null}),
-
-T('sk25','d8',4,'nagano','Nagoya Station (platform transfer)',
-  'Transfer at Nagoya. ~46 min to change platforms. Grab a quick bite if needed.',
+T('af42','d15',2,'uganda','Late lunch & celebrate at Nkuringo Lodge',
+  'Return from forest, share stories with fellow guests over a late lunch. Optional 30-min complimentary massage at lodge.',
   '',
-  'train','16:08','JST', 35.1709,136.8815,
-  false,'',false, false,null,null),
+  'walk','14:00','EAT', -1.0500,29.6833, false, false,null,
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
 
-T('sk26','d8',5,'nagano','Nagoya → Nagano',
-  'Final leg to Nagano. Arrive 20:40.',
-  'JR Shinano Ltd Express · ~3h 29min · JR Pass ✓ · Seat reservation required. Depart 17:11.',
-  'train','17:11','JST', 36.6442,138.1880,
-  false,'',false, true,'transport',
-  TRN('JR Shinano Ltd Express',true,true,'Nagoya','Nagano','20:40','TBD','3h 29min'),
-  {status:'open',ref:'',cost:null,deadline:null}),
+/* ── D16 · Tue 16 Sep · Bwindi → Entebbe → Doha ─────────── */
+T('af43','d16',1,'uganda','Bwindi → Entebbe (light aircraft)',
+  'After breakfast, road transfer to airstrip for return flight to Entebbe.',
+  'Light aircraft · Bwindi → EBB · ~1.5 hours · INCLUDED in package',
+  'plane','08:00','EAT', 0.0424,32.4432, true, false,'transport',
+  {status:'booked',ref:'Included',cost:null,deadline:null,flightDetail:FL('Light Aircraft','','Bwindi','EBB','~08:00','~09:30',true)}),
 
-/* D9 — Togakushi shrine day ─────────────────────────────── */
-T('sk27','d9',1,'nagano','Nagano → Togakushi (bus)',
-  'Early bus to ancient mountain shrine complex.',
-  'Bus Nagano Stn → Togakushi Hokusha · 06:50 · 48 min · BOOK IN ADVANCE (¥10,940 other transport D9).',
-  'bus','06:50','JST', 36.6442,138.1880,
-  false,'',false, true,'transport',null,
-  {status:'open',ref:'',cost:null,deadline:null}),
+T('af44','d16',2,'uganda','Arriving Entebbe — connect international departure',
+  'Arrive Entebbe around noon. Transfer to international terminal for afternoon departure to Doha.',
+  'Airport road transfer · ~10 min',
+  'car','12:00','EAT', 0.0424,32.4432, false, false,'transport',
+  {status:'booked',ref:'Included',cost:null,deadline:null}),
 
-T('sk28','d9',2,'nagano','Togakushi Shrines (Hokusha → Okusha)',
-  'Cedar-lined path through 5 shrines. Ancient cryptomeria forest. Hokusha (1st) → Chusha (3rd) → Okusha (5th). ~4 hrs walk.',
-  'Depart bus at Hokusha. Walk begins 07:38.',
-  'walk','07:38','JST', 36.7780,137.9870,
-  true,'戸隠',false, false,null,null),
+T('af45','d16',3,'transit','Entebbe → Doha (Qatar Airways)',
+  'International departure. Overnight flight to Doha.',
+  'Qatar Airways · EBB → DOH · Depart 17:30 · Arrive 23:35 · NOT included in package',
+  'plane','17:30','EAT', 25.2732,51.6080, false, true,'transport',
+  {status:'booked',ref:'QR EBB-DOH',cost:null,deadline:null,flightDetail:FL('Qatar Airways','QR','EBB','DOH','17:30','23:35',false)}),
 
-T('sk29','d9',3,'nagano','Return bus to Nagano',
-  'Bus Togakushi Okusha → Nagano Stn (59 min). Free afternoon in Nagano.',
-  'Bus depart 13:34. Arrive Nagano ~14:35.',
-  'bus','13:34','JST', 36.7780,137.9870,
-  false,'',false, false,null,null),
+/* ── D17 · Wed 17 Sep · Doha → KUL ──────────────────────── */
+T('af46','d17',1,'transit','Doha → Kuala Lumpur (Qatar Airways)',
+  'Early morning departure from Doha. Arrive home in the afternoon.',
+  'Qatar Airways · DOH → KUL · Depart 02:35 · Arrive 15:10 · NOT included in package',
+  'plane','02:35','GST', 3.1319,101.6841, false, true,'transport',
+  {status:'booked',ref:'QR DOH-KUL',cost:null,deadline:null,flightDetail:FL('Qatar Airways','QR','DOH','KUL','02:35','15:10',false)}),
 
-/* D10 — Nagano → Alpine Route → Murodo ──────────────────── */
-T('sk30','d10',1,'alpine','Nagano → Ogizawa (bus)',
-  'Book Alpine Route tickets in advance (through-ticket from Ogizawa to Toyama side). Depart Nagano.',
-  'Bus Nagano Stn → Ogizawa · 07:50 · 1h45m. BOOK ALPINE ROUTE TICKET IN ADVANCE.',
-  'bus','07:50','JST', 36.6442,138.1880,
-  false,'',false, true,'transport',null,
-  {status:'urgent',ref:'',cost:null,deadline:'2027-01-15'}),
-
-T('sk31','d10',2,'alpine','Ogizawa → Kurobe Dam (Kanden Electric Bus)',
-  'Kanden Tunnel Electric Bus through the mountain to Kurobe Dam.',
-  'Kanden Tunnel Electric Bus · 16 min · Alpine through-ticket.',
-  'cable','09:30','JST', 36.5592,137.7210,
-  false,'',false, false,'transport',null),
-
-T('sk32','d10',3,'alpine','Kurobe Dam Observatory',
-  'Linger 54 min. Walk across the 186m arch dam. Snow walls (Yuki-no-Otani) visible. Spectacular views.',
-  'On foot across the dam.',
-  'walk','09:46','JST', 36.5675,137.6650,
-  true,'室堂',false, false,null,null),
-
-T('sk33','d10',4,'alpine','Kurobe Dam → Murodo (cable car + ropeway + ebus)',
-  'Snow Wall at Murodo — walls 13–18m! Hell Valley (Jigokudani), Mikurigaike Pond, Shomyo Falls.',
-  'Kurobeko Cable Car (10:10, 5m) → Kurobedaira Ropeway (7m) → Daikanbo Ebus (11:15, 10m) → Murodo. Arrive ~11:25.',
-  'cable','10:10','JST', 36.5732,137.5967,
-  false,'',false, false,null,null),
-
-/* D11 — Murodo → Tateyama → Toyama → Osaka ─────────────── */
-T('sk34','d11',1,'alpine','Murodo morning',
-  'Morning exploration. Hell Valley, Mikurigaike Pond, Shomyo Falls (Japan\'s tallest at 350m), Midagahara Wetlands.',
+T('af47','d17',2,'transit','Arrive home — KUL',
+  'Welcome home. We hope to hear your amazing stories from the wilderness!',
   '',
-  'walk','06:00','JST', 36.5732,137.5967,
-  false,'',false, false,null,null),
-
-T('sk35','d11',2,'alpine','Murodo → Tateyama (bus + cable car)',
-  'Descend from Murodo via Bijodaira.',
-  'Bus Murodo → Bijodaira (13:00, 50m) → Cable Car Bijodaira → Tateyama (14:00, 7m). Arrive Tateyama ~14:07.',
-  'cable','13:00','JST', 36.5750,137.4633,
-  false,'',false, false,'transport',null),
-
-T('sk36','d11',3,'alpine','Tateyama → Toyama (Toyama Chihou Railway)',
-  'Switch to private Toyama Chihou Railway. NOT on JR Pass — buy ticket separately. ¥1,420.',
-  'Toyama Chihou Railway Tateyama Line · 14:27 · 1h9m · ¥1,420 · NOT JR Pass.',
-  'train','14:27','JST', 36.5833,137.4455,
-  false,'',false, true,'transport',
-  TRN('Toyama Chihou Railway Tateyama Line',false,false,'Tateyama','Toyama','15:36','','1h 9min'),
+  'walk','15:10','MYT', 3.1319,101.6841, false, false,null,
   {status:'open',ref:'',cost:null,deadline:null}),
 
-T('sk37','d11',4,'osaka','Toyama → Osaka (Shinkansen + Thunderbird)',
-  'Hokuriku Shinkansen Hakutaka 563 → Tsuruga, then Thunderbird 32 → Osaka. Arrive 18:17.',
-  'Hokuriku Shinkansen Hakutaka 563 + Thunderbird 32 · 14:55 · 3h22m · JR Pass ✓ · Seat reservation required.',
-  'train','14:55','JST', 36.7066,137.2130,
-  false,'',false, true,'transport',
-  TRN('Hokuriku Shinkansen Hakutaka 563 + Thunderbird 32',true,true,'Toyama','Osaka (Shin-Osaka)','18:17','Hakutaka 563 + Thunderbird 32','3h 22min'),
-  {status:'open',ref:'',cost:null,deadline:null}),
+]; // end SEED_STOPS
 
-/* D12 — Osaka ────────────────────────────────────────────── */
-T('sk38','d12',1,'osaka','Osaka free day',
-  'Dotonbori, Namba, Osaka Castle, Kuromon Market, Shinsekai.',
-  '',
-  'walk','','JST', 34.6654,135.5023,
-  false,'',false, false,null,null),
-
-/* D13 — Osaka ────────────────────────────────────────────── */
-T('sk39','d13',1,'osaka','Osaka free day',
-  'Nara day trip (45 min by train), Universal Studios, or more Osaka.',
-  '',
-  'walk','','JST', 34.6654,135.5023,
-  false,'',false, false,null,null),
-
-/* D14 — Morning flight ───────────────────────────────────── */
-T('sk40','d14',1,'osaka','KIX — Morning flight home',
-  'Morning departure. Allow 2 hrs for check-in. Subway Shinsaibashi → Namba → Nankai Rapid to KIX.',
-  'Subway Umeda/Shinsaibashi → Namba Stn, Nankai Rapid to KIX (~45 min, ¥1,500). Depart hotel early.',
-  'plane','','JST', 34.4348,135.2440,
-  false,'',false, true,'transport',null,
-  {status:'open',ref:'',cost:null,deadline:null}),
+/* ── Inclusions ──────────────────────────────────────────── */
+const INCLUSIONS = [
+  'Scheduled light aircraft flights within Tanzania, Kenya and Uganda',
+  'Regional flight: Kilimanjaro → Nairobi Wilson (D9)',
+  'Emergency Bush Evacuation Insurance in Kenya and Tanzania',
+  'Transfers to/from nearest airstrip to/from all camps',
+  'Private road transfers: Hotel ↔ Airport in Nairobi and Entebbe (both ways)',
+  '15 nights accommodation on single occupancy',
+  'Daily full board meals at all safari camps',
+  'Breakfast only at Radisson Blu Nairobi and No.5 Boutique Hotel Entebbe',
+  'Beverages and house wines at all camps',
+  'Complimentary laundry service at all camps',
+  'Daily safari activities on sharing basis as stated in itinerary',
+  'Cultural visit to Masai village at The Highlands (D1)',
+  '1 x Hot Air Balloon at Serengeti North — USD 590/person (D6)',
+  '1 x Mountain Gorilla Habituation Permit — USD 1,500/person (D15)',
+  '1 x Complimentary 30-min massage at Nkuringo Gorilla Lodge (Forest Suite)',
+  'All applicable Park and Conservancy fees during stay',
 ];
 
-/* ── Opening hours (show in stop rows) ───────────────────── */
-{
-  const OH = {
-    sk04: '08:00–17:00',  // Hayatama Taisha
-    sk08: '09:00–18:00',  // Tanabe Tourist Info Center
-    sk15: '07:00–17:30',  // Hosshinmon-oji
-    sk16: '08:00–17:00',  // Kumano Hongu Taisha
-    sk23: '06:00–16:30 (Taisha) · 07:30–16:30 (Seigantoji)',  // Nachi
-  };
-  SEED_STOPS.forEach(s => { if (OH[s.id]) s.openingHours = OH[s.id]; });
-}
+const EXCLUSIONS = [
+  'International flight tickets to Kilimanjaro and from Entebbe',
+  'Regional flight: Nairobi → Entebbe on Day 13 (KQ 414)',
+  'Lunch and dinner at Nairobi and Entebbe hotels',
+  'Additional excursions not stated in itinerary (e.g. extra massages)',
+  'Premium alcohols such as whisky and champagne',
+  'Travel visa fees (if required)',
+  'Personal travel insurance',
+  'Gratuities to safari guides and camp staff (to be paid on site)',
+  'Exclusive use of safari vehicle',
+  'Unforeseen increases in park fees, levy or fuel surcharges after booking',
+];
 
-/* ── Stamp metadata (romaji names + sanzan order) ───────── */
-const STAMP_META = {
-  sk04: {romaji:'Hayatama Taisha',  sanzanNum:2},
-  sk10: {romaji:'Takijiri-oji',     sanzanNum:null},
-  sk11: {romaji:'Takahara',         sanzanNum:null},
-  sk13: {romaji:'Chikatsuyu-oji',   sanzanNum:null},
-  sk14: {romaji:'Tsugizakura-oji',  sanzanNum:null},
-  sk15: {romaji:'Hosshinmon-oji',   sanzanNum:null},
-  sk16: {romaji:'Hongu Taisha',     sanzanNum:1},
-  sk17: {romaji:'Yunomine Onsen',   sanzanNum:null},
-  sk23: {romaji:'Nachi Taisha',     sanzanNum:3},
-  sk28: {romaji:'Togakushi Okusha', sanzanNum:null},
-  sk32: {romaji:'Kurobe Dam',       sanzanNum:null},
-};
-SEED_STOPS.forEach(s => {
-  const m = STAMP_META[s.id];
-  if (m) { s.stampRomaji = m.romaji; if (m.sanzanNum) s.sanzanNum = m.sanzanNum; }
-});
-
-/* ── Packing list ────────────────────────────────────────── */
+/* ── Packing list (Africa-specific) ─────────────────────── */
 const SEED_PACKING = [
-  {id:'pk01',cat:'Documents',   item:'Passport (valid >6 months)',         checked:false,essential:true},
-  {id:'pk02',cat:'Documents',   item:'JR Pass (exchange order)',            checked:false,essential:true},
-  {id:'pk03',cat:'Documents',   item:'Travel insurance docs',               checked:false,essential:true},
-  {id:'pk04',cat:'Documents',   item:'Hotel bookings printout',             checked:false,essential:false},
-  {id:'pk05',cat:'Documents',   item:'Emergency card (printed)',             checked:false,essential:true},
-  {id:'pk06',cat:'Trail Gear',  item:'Hiking boots (well broken in)',       checked:false,essential:true},
-  {id:'pk07',cat:'Trail Gear',  item:'Trekking poles',                      checked:false,essential:true},
-  {id:'pk08',cat:'Trail Gear',  item:'Rain jacket / waterproof shell',      checked:false,essential:true},
-  {id:'pk09',cat:'Trail Gear',  item:'Daypack (25–30 L) + rain cover',      checked:false,essential:true},
-  {id:'pk10',cat:'Trail Gear',  item:'Water bottles / hydration',           checked:false,essential:true},
-  {id:'pk11',cat:'Trail Gear',  item:'Blister plasters & first aid kit',   checked:false,essential:true},
-  {id:'pk12',cat:'Trail Gear',  item:'Trekking snacks (trail bars)',        checked:false,essential:false},
-  {id:'pk13',cat:'Trail Gear',  item:'Stamp passport pouch (keep dry)',    checked:false,essential:true},
-  {id:'pk14',cat:'Trail Gear',  item:'Offline maps downloaded (Maps.me)',  checked:false,essential:true},
-  {id:'pk15',cat:'Alpine',      item:'Warm gloves (Murodo plateau)',       checked:false,essential:true},
-  {id:'pk16',cat:'Alpine',      item:'Sunglasses (snow glare at Murodo)',  checked:false,essential:true},
-  {id:'pk17',cat:'Alpine',      item:'Waterproof boot covers / gaiters',   checked:false,essential:true},
-  {id:'pk18',cat:'Clothing',    item:'Moisture-wicking base layers × 3',   checked:false,essential:true},
-  {id:'pk19',cat:'Clothing',    item:'Mid-layer fleece or down',           checked:false,essential:true},
-  {id:'pk20',cat:'Clothing',    item:'Trekking trousers × 2',              checked:false,essential:true},
-  {id:'pk21',cat:'Clothing',    item:'Merino wool socks × 4',              checked:false,essential:true},
-  {id:'pk22',cat:'Clothing',    item:'Sandals (onsen / guesthouse)',       checked:false,essential:true},
-  {id:'pk23',cat:'Clothing',    item:'Light casual outfit (Osaka)',        checked:false,essential:false},
-  {id:'pk24',cat:'Clothing',    item:'Buff / neck gaiter',                 checked:false,essential:false},
-  {id:'pk25',cat:'Electronics', item:'Phone + cable + Japan adapter',      checked:false,essential:true},
-  {id:'pk26',cat:'Electronics', item:'Power bank (10,000 mAh+)',           checked:false,essential:true},
-  {id:'pk27',cat:'Onsen',       item:'Quick-dry travel towel',             checked:false,essential:true},
-  {id:'pk28',cat:'Onsen',       item:'Onsen etiquette card (printed EN)',  checked:false,essential:false},
-  {id:'pk29',cat:'Toiletries',  item:'Sunscreen SPF 50+',                  checked:false,essential:true},
-  {id:'pk30',cat:'Toiletries',  item:'Insect repellent',                   checked:false,essential:true},
-  {id:'pk31',cat:'Toiletries',  item:'Wet wipes (trail use)',              checked:false,essential:false},
-  {id:'pk32',cat:'Cash',        item:'Small yen cash (stamps / buses / shrines)', checked:false,essential:true},
+  // Documents
+  {id:'pk01',cat:'Documents',    item:'Passport (valid >6 months)',                   checked:false,essential:true},
+  {id:'pk02',cat:'Documents',    item:'Travel insurance documents',                    checked:false,essential:true},
+  {id:'pk03',cat:'Documents',    item:'Visa (Tanzania, Kenya, Uganda — check requirements)', checked:false,essential:true},
+  {id:'pk04',cat:'Documents',    item:'Wildsenses booking confirmation',               checked:false,essential:true},
+  {id:'pk05',cat:'Documents',    item:'Yellow fever vaccination certificate',          checked:false,essential:true},
+  {id:'pk06',cat:'Documents',    item:'Emergency card (printed)',                      checked:false,essential:true},
+  {id:'pk07',cat:'Documents',    item:'Gorilla permit confirmation printout',          checked:false,essential:true},
+  // Health
+  {id:'pk08',cat:'Health',       item:'Anti-malaria medication (prescribed)',          checked:false,essential:true},
+  {id:'pk09',cat:'Health',       item:'DEET insect repellent 50%+',                   checked:false,essential:true},
+  {id:'pk10',cat:'Health',       item:'Sunscreen SPF 50+',                            checked:false,essential:true},
+  {id:'pk11',cat:'Health',       item:'Basic first aid kit',                          checked:false,essential:true},
+  {id:'pk12',cat:'Health',       item:'Altitude sickness tablets (Ngorongoro 2,300m, Bwindi 2,161m)', checked:false,essential:false},
+  {id:'pk13',cat:'Health',       item:'Hand sanitiser',                               checked:false,essential:true},
+  {id:'pk14',cat:'Health',       item:'Rehydration salts',                            checked:false,essential:false},
+  // Safari clothing — muted earth tones only (no bright colours)
+  {id:'pk15',cat:'Safari Clothing', item:'Khaki/beige long-sleeve shirts × 4',       checked:false,essential:true},
+  {id:'pk16',cat:'Safari Clothing', item:'Safari trousers × 3 (zip-off recommended)',checked:false,essential:true},
+  {id:'pk17',cat:'Safari Clothing', item:'Fleece or light down jacket (Ngorongoro & Bwindi get cold)', checked:false,essential:true},
+  {id:'pk18',cat:'Safari Clothing', item:'Wide-brimmed sun hat',                     checked:false,essential:true},
+  {id:'pk19',cat:'Safari Clothing', item:'Buff / neck gaiter',                       checked:false,essential:true},
+  {id:'pk20',cat:'Safari Clothing', item:'Comfortable walking boots (broken in)',    checked:false,essential:true},
+  {id:'pk21',cat:'Safari Clothing', item:'Sandals / flip flops (camp use)',          checked:false,essential:false},
+  {id:'pk22',cat:'Safari Clothing', item:'Moisture-wicking base layers × 3',        checked:false,essential:true},
+  {id:'pk23',cat:'Safari Clothing', item:'Rain jacket / waterproof layer',           checked:false,essential:true},
+  {id:'pk24',cat:'Safari Clothing', item:'Merino wool socks × 5 pairs',              checked:false,essential:true},
+  // Gorilla trek (D15 — Bwindi is a dense rainforest)
+  {id:'pk25',cat:'Gorilla Trek',    item:'Thick gardening gloves (grip tree roots)', checked:false,essential:true},
+  {id:'pk26',cat:'Gorilla Trek',    item:'Waterproof trousers (forest mud)',         checked:false,essential:true},
+  {id:'pk27',cat:'Gorilla Trek',    item:'Gaiters (for dense undergrowth)',          checked:false,essential:true},
+  {id:'pk28',cat:'Gorilla Trek',    item:'Trekking poles (steep terrain)',           checked:false,essential:false},
+  {id:'pk29',cat:'Gorilla Trek',    item:'Small daypack for trek (5–10 L)',          checked:false,essential:true},
+  {id:'pk30',cat:'Gorilla Trek',    item:'Packed lunch & water for full day',        checked:false,essential:true},
+  // Electronics
+  {id:'pk31',cat:'Electronics',     item:'Camera + telephoto lens (300mm+)',         checked:false,essential:true},
+  {id:'pk32',cat:'Electronics',     item:'Extra memory cards + batteries',           checked:false,essential:true},
+  {id:'pk33',cat:'Electronics',     item:'Phone + charging cable',                   checked:false,essential:true},
+  {id:'pk34',cat:'Electronics',     item:'Power bank 10,000 mAh+ (camps may limit charging)', checked:false,essential:true},
+  {id:'pk35',cat:'Electronics',     item:'Universal travel adapter (East Africa plug types)', checked:false,essential:true},
+  {id:'pk36',cat:'Electronics',     item:'Binoculars 8×42 or 10×42',               checked:false,essential:true},
+  // Hot air balloon (D6)
+  {id:'pk37',cat:'Balloon Day',     item:'Warm layers (cold at altitude pre-dawn)', checked:false,essential:true},
+  {id:'pk38',cat:'Balloon Day',     item:'Camera fully charged night before',       checked:false,essential:true},
+  // Misc
+  {id:'pk39',cat:'Misc',            item:'USD cash (tips, extras, emergencies)',    checked:false,essential:true},
+  {id:'pk40',cat:'Misc',            item:'Small padlock for bags (safari vehicles have no lockers)', checked:false,essential:false},
+  {id:'pk41',cat:'Misc',            item:'Headtorch (Bwindi pre-dawn gorilla start)',checked:false,essential:true},
 ];
 
+/* ── SOS Data — Tanzania, Kenya, Uganda ─────────────────── */
 const SOS_DATA = {
   emergency:[
-    {label:'Japan Police',              value:'110'},
-    {label:'Japan Fire / Ambulance',    value:'119'},
-    {label:'JNTO Tourist Helpline (EN)',value:'050-3816-2787'},
-    {label:'MY Embassy Tokyo',          value:'+81-3-2080-7700'},
+    // Tanzania
+    {label:'Tanzania Police',            value:'112 or 115'},
+    {label:'Tanzania Ambulance',         value:'114'},
+    {label:'AMREF Flying Doctors (TZ)',  value:'+255 (0)738 640 640',  note:'Bush evacuation — covered by package'},
+    // Kenya
+    {label:'Kenya Police',               value:'999 or 112'},
+    {label:'Kenya Ambulance',            value:'999'},
+    {label:'AMREF Flying Doctors (KE)',  value:'+254 (0)20 699 2000',  note:'Bush evacuation — covered by package'},
+    // Uganda
+    {label:'Uganda Police',              value:'999 or 112'},
+    {label:'Uganda Ambulance',           value:'999'},
+    // Malaysian Embassy
+    {label:'MY Embassy Nairobi',         value:'+254 20 2697 000'},
+    {label:'MY Embassy Kampala',         value:'+256 41 4343 850'},
+    // Tour Operator
+    {label:'Wildsenses Holidays (24hr)', value:'+60 28138778', note:'Your operator — call first for any trip issue'},
   ],
   lodging:[
-    {label:'D1 Kushimoto',   value:'Mercure Wakayama Kushimoto Resort & Spa (QLWPFPZP)', jp:'〒649-3510 和歌山県東牟婁郡串本町サンゴ台1184-10'},
-    {label:'D2 Kii-Tanabe',  value:'the cue - hoso back yard house (#205159)',            jp:'〒646-0031 和歌山県田辺市湊16-6'},
-    {label:'D3 Takahara',    value:'Kiri-no-Sato Takahara Lodge (#205689)',               jp:'〒646-1416 和歌山県田辺市中辺路町高原826'},
-    {label:'D4 Tsugizakura', value:'古道の宿 ひよどり / Guest House Hiyodori (#205751)',   jp:'〒646-1401 和歌山県田辺市中辺路町野中1371'},
-    {label:'D5–6 Kawayu',    value:'Kawayu-Onsen Fujiya (#205159)',                       jp:'〒647-1717 和歌山県田辺市本宮町川湯1452'},
-    {label:'D11–13 Osaka',   value:'DEL style 大阪心齋橋 (TC45F0809AAD7)',                jp:'〒542-0085 大阪府大阪市中央区心斎橋筋1丁目4-23'},
+    {label:'D1–2 Ngorongoro',  value:'Asilia The Highlands',                  address:'Ngorongoro Conservation Area, Tanzania'},
+    {label:'D3–4 C. Serengeti',value:'Asilia Dunia Camp',                     address:'Central Serengeti, Tanzania'},
+    {label:'D5–8 N. Serengeti',value:'Asilia Olakira Camp',                   address:'Northern Serengeti, Tanzania'},
+    {label:'D9 Nairobi',       value:'Radisson Blu Nairobi Arboretum',        address:'Arboretum Road, Nairobi, Kenya'},
+    {label:'D10–12 Amboseli',  value:'Tortilis Camp',                         address:'Kimana Sanctuary, Amboseli, Kenya'},
+    {label:'D13 Entebbe',      value:'No.5 Boutique Hotel',                   address:'Entebbe, Uganda'},
+    {label:'D14–15 Bwindi',    value:'Nkuringo Gorilla Lodge (Forest Suite)', address:'Nkuringo, Bwindi, Uganda'},
   ],
   passes:[
-    {label:'JR Pass ref',           value:'Confirm when collected'},
-    {label:'Alpine Route ticket',   value:'Book in advance at Ogizawa or online'},
-    {label:'Osaka hotel ref',       value:'TC45F0809AAD7'},
+    {label:'Gorilla Permit',       value:'USD 1,500/pax — included · Confirm with operator'},
+    {label:'Hot Air Balloon',      value:'USD 590/pax — included · Confirm with operator'},
+    {label:'Bush Evacuation Ins.', value:'Included in Tanzania & Kenya only'},
+    {label:'KQ 414 (D13)',         value:'Nairobi → Entebbe · NOT included — buy separately'},
+    {label:'Qatar Airways (int\'l)',value:'KUL-DOH-JRO outbound · EBB-DOH-KUL return · NOT included'},
   ],
   addresses:[
-    {label:'Kumano Kodo trailhead (Takijiri)',jp:'和歌山県田辺市中辺路町滝尻'},
-    {label:'Kumano Hongu Taisha',             jp:'和歌山県田辺市本宮町本宮1110'},
-    {label:'Kumano Nachi Taisha',             jp:'和歌山県東牟婁郡那智勝浦町那智山1'},
-    {label:'Hayatama Taisha',                 jp:'和歌山県新宮市新宮1'},
-    {label:'Togakushi Okusha',                jp:'長野県長野市戸隠3690'},
-    {label:'Murodo (Tateyama Kurobe Alpine)', jp:'富山県中新川郡立山町芦峅寺'},
+    {label:'Asilia The Highlands',          address:'Ngorongoro Conservation Area (NCA), Tanzania'},
+    {label:'Asilia Dunia Camp',             address:'Seronera, Central Serengeti NP, Tanzania'},
+    {label:'Asilia Olakira Camp',           address:'Northern Serengeti (Kogatende area), Tanzania'},
+    {label:'Radisson Blu Arboretum',        address:'Arboretum Road, Nairobi, Kenya'},
+    {label:'Tortilis Camp',                 address:'Kimana Sanctuary, Amboseli, Kenya'},
+    {label:'No.5 Boutique Hotel',           address:'Entebbe, Uganda'},
+    {label:'Nkuringo Gorilla Lodge',        address:'Nkuringo, Bwindi Impenetrable NP, Uganda'},
   ],
 };
+
+/* ── Hospitals — nearest by region ──────────────────────── */
+const HOSPITALS = [
+  {region:'Tanzania (Arusha / Kilimanjaro)',  name:'Arusha Lutheran Medical Centre', tel:'+255 27 2544 295', maps:'https://maps.google.com/?q=-3.3869,36.6830', note:'Best private hospital near Kilimanjaro'},
+  {region:'Tanzania (Serengeti emergency)',   name:'AMREF Flying Doctors',           tel:'+255 738 640 640', maps:'', note:'Bush evacuation only — included in package'},
+  {region:'Kenya (Nairobi)',                  name:'The Nairobi Hospital',           tel:'+254 20 2845 000', maps:'https://maps.google.com/?q=-1.2993,36.8071', note:'Best private hospital in Nairobi'},
+  {region:'Kenya (Amboseli)',                 name:'AMREF Flying Doctors',           tel:'+254 20 699 2000', maps:'', note:'Bush evacuation — fly out to Nairobi'},
+  {region:'Uganda (Kampala)',                 name:'International Hospital Kampala', tel:'+256 31 2200 400', maps:'https://maps.google.com/?q=0.3476,32.5825', note:'~3 hrs from Bwindi'},
+  {region:'Uganda (Bwindi emergency)',        name:'Bwindi Community Hospital',      tel:'+256 792 964 920', maps:'https://maps.google.com/?q=-0.9892,29.7833', note:'Nearest hospital to Nkuringo Lodge'},
+];
+
+/* ── First aid — Africa-specific ────────────────────────── */
+const FIRST_AID = [
+  {title:'Malaria symptoms',
+   content:'Fever, chills, headache, muscle pain 7–30 days after mosquito bite. If you develop flu-like symptoms during or after the trip, seek medical attention immediately and tell the doctor you have been in a malaria zone. Do not self-diagnose.'},
+  {title:'Heat exhaustion',
+   content:'Move to shade. Remove heavy layers. Sip cool water slowly. Wet skin with cool water. Rest 30+ min. Emergency signs (heatstroke): confusion, no sweating, temperature above 40°C — call for help immediately.'},
+  {title:'Altitude (Ngorongoro 2,300m · Bwindi 2,161m)',
+   content:'Headache, nausea, dizziness on arrival. Mild: slow down, hydrate, rest. Do not ascend further when symptomatic. Descend if symptoms worsen. Both camps have medical kits and can assist evacuation.'},
+  {title:'Animal encounter (safari vehicle)',
+   content:'Stay inside the vehicle unless specifically instructed by your guide. Do not stand, shout or make sudden movements. If an animal approaches, stay calm and follow guide instructions exactly.'},
+  {title:'Gorilla trek injury (Bwindi forest)',
+   content:'Dense forest, steep terrain, roots and mud. If injured: stop and alert your guide immediately. The ranger team carries first aid. Do not attempt to walk out alone. Nkuringo Gorilla Lodge has emergency medical kit.'},
+  {title:'Insect bites & stings',
+   content:'Apply antiseptic. Watch for allergic reaction (difficulty breathing, swelling of face — use EpiPen if prescribed, call for help). Tsetse fly bites (sharp, day-biting) are common near game areas — use repellent and cover up.'},
+];
 
 /* ── Runtime state ───────────────────────────────────────── */
 let STOPS    = [...SEED_STOPS];
 let EXPENSES = [];
 let PACKING  = [...SEED_PACKING];
 let OVERNIGHT = {};
-let TRAVELERS = [];
-let TRIP_NAME = 'Japan Trip';
+let TRAVELERS = ['Vivien'];
+let TRIP_NAME = Config.TRIP_NAME;
 let CUSTOM_LINKS = [];
 
-// Build overnight from OVERNIGHT_DEFAULTS
+// Build overnight lookup from OVERNIGHT_DEFAULTS
 Object.entries(OVERNIGHT_DEFAULTS).forEach(([k,v]) => { OVERNIGHT[k] = { ...v }; });
 
 const STAMPS_COLLECTED = new Set();
 window._STAMPS_COLLECTED = STAMPS_COLLECTED;
 
-/* ── Data API ────────────────────────────────────────────── */
-
-/* -- Hospitals (nearest by region) -- */
-const HOSPITALS = [
-  {region:'D1 Kushimoto',           name:'くしもと町立病院',         tel:'0735-62-7111', maps:'https://maps.google.com/?q=33.4703,135.7757'},
-  {region:'D2-D4 Kii-Tanabe',       name:'紀南病院 (Kinan Hospital)',  tel:'0739-26-7050', maps:'https://maps.google.com/?q=33.7247,135.3817'},
-  {region:'D5-D7 Hongu / Shingu',   name:'新宮市立医療センター', tel:'0735-22-5311', maps:'https://maps.google.com/?q=33.7305,135.9924'},
-  {region:'D8-D10 Nagano',          name:'長野赤十字病院',         tel:'026-226-4131', note:'English support (For Foreigners desk)', maps:'https://maps.google.com/?q=36.6494,138.1975'},
-  {region:'Alpine (Nagano side)',    name:'市立大町総合病院',       tel:'0261-22-5111', note:'Nearest to Ogizawa entrance', maps:'https://maps.google.com/?q=36.5026,137.8450'},
-  {region:'Alpine (Toyama side)',    name:'富山赤十字病院',         tel:'076-433-2222', note:'Descend west for Murodo emergencies', maps:'https://maps.google.com/?q=36.6928,137.2050'},
-  {region:'D11-D14 Osaka',          name:'大阪赤十字病院',         tel:'06-6774-5111', maps:'https://maps.google.com/?q=34.6631,135.5195'},
-];
-
-/* -- First aid protocols -- */
-const FIRST_AID = [
-  {title:'Blisters',
-   content:'Drain at the edge with a sterile needle. Leave the roof intact. Apply blister plaster (Compeed). Change each morning on trail days.'},
-  {title:'Sprained Ankle',
-   content:'RICE: Rest immediately, Ice/cold water 20 min, Compress, Elevate. Can you bear weight? Yes: tape and continue carefully. No: stop and call for help. Do not walk it off on a remote section.'},
-  {title:'Heat Exhaustion',
-   content:'Move to shade. Remove heavy layers. Sip water slowly. Wet skin with cool water. Rest 30+ min. Emergency (call 119): confusion, no sweating, temp above 40 degrees — this is heatstroke.'},
-  {title:'Altitude Sickness (AMS) — Murodo 2,450m',
-   content:'You ascend Nagano (370m) to Murodo (2,450m) in ~3 hours. Symptoms: headache, nausea, dizziness. Mild: slow down, hydrate, rest at terminal. Do NOT go higher when symptomatic. Severe (confusion, vomiting): descend immediately by cable car. Call 119 if unconscious.'},
-  {title:'Hypothermia — Murodo in April',
-   content:'Snow and sub-zero temps normal at Murodo in April. Signs: shivering, confusion, slurred speech. Get indoors (Murodo Bus Terminal is heated). Remove wet clothing. Warm drinks, shared body heat. Call for help if shivering stops — that means the body has given up warming itself.'},
-];
-
-/* -- Restroom locations (map layer) -- */
-const RESTROOMS = [
-  // Nakahechi Trail (D3-D6)
-  {name:'Takijiri Kodo-Kan',            lat:33.8791, lng:135.5140, note:'Trailhead info center, beside bus stop'},
-  {name:'Takahara Shrine area',          lat:33.9031, lng:135.5613, note:'Near Takahara Kumano-jinja'},
-  {name:'Michi-no-eki Nakahechi',        lat:33.9010, lng:135.6150, note:'Roadside rest area, 09:00-17:00'},
-  {name:'Chikatsuyu-oji area',           lat:33.9068, lng:135.6418, note:'In the village'},
-  {name:'Tsugizakura-oji / Nonaka',      lat:33.8873, lng:135.7122, note:'Near the giant cedar shrine'},
-  {name:'Hosshinmon-oji',                lat:33.8484, lng:135.7706, note:'150m off trail on road'},
-  {name:'Kumano Hongu Taisha',           lat:33.8359, lng:135.7912, note:'Shrine grounds'},
-  {name:'Yunomine Onsen',                lat:33.8220, lng:135.7780, note:'Public facilities'},
-  {name:'Kawayu Onsen',                  lat:33.8218, lng:135.8060, note:'Public facilities'},
-  // Nachi / Katsuura (D7-D8)
-  {name:'Daimon-zaka (Nachi approach)',  lat:33.6779, lng:135.8997, note:'Cedar path start, near car park'},
-  {name:'Nachi Taisha / Seigantoji',     lat:33.6703, lng:135.8989, note:'Shrine complex'},
-  // Togakushi (D9)
-  {name:'Togakushi Okusha trailhead',    lat:36.7834, lng:138.0099, note:'Before cedar avenue, beside parking'},
-  // Alpine Route (D10-D11)
-  {name:'Ogizawa Station',               lat:36.5680, lng:137.6638, note:'Alpine Route east terminal'},
-  {name:'Kurobe Dam',                    lat:36.5615, lng:137.6543, note:'Dam observation area'},
-  {name:'Murodo Bus Terminal',           lat:36.5766, lng:137.5986, note:'Multiple facilities at 2,450m'},
-  {name:'Bijodaira Station',             lat:36.5513, lng:137.4765, note:'Cable car station'},
-];
-
+/* ── Data API (same interface as Japan PWA) ──────────────── */
 const Data = {
   async init() {
     try {
-      /* ── Version migration ────────────────────────────── */
       const localVersion = await DB.getMeta('dataVersion').catch(() => null);
       const targetVersion = Config.DATA_VERSION || 1;
       if (!localVersion || localVersion < targetVersion) {
-        // Major data rebuild — clear old stops and re-seed
         await DB.clearStops().catch(()=>{});
         STOPS = JSON.parse(JSON.stringify(SEED_STOPS));
         await DB.saveStops(STOPS);
@@ -508,9 +602,8 @@ const Data = {
         Object.entries(OVERNIGHT_DEFAULTS).forEach(([k,v]) => { OVERNIGHT[k] = { ...v }; });
         await DB.saveOvernight(OVERNIGHT);
         await DB.setMeta('dataVersion', targetVersion);
-        console.log('[Data] Migrated to v'+targetVersion);
+        console.log('[Data] Africa v'+targetVersion+' loaded');
       } else {
-        /* ── Normal load ────────────────────────────────── */
         const dbStops = await DB.loadStops();
         if (dbStops?.length >= SEED_STOPS.length * 0.8) STOPS = dbStops;
         else await DB.saveStops(STOPS);
@@ -532,7 +625,7 @@ const Data = {
     } catch(e) { console.warn('[Data.init]', e); }
   },
 
-  /* ── Setters (called by Sync) ────────────────────────── */
+  /* ── Setters (called by Sync) ─────────────────────────── */
   setStops(s)        { STOPS    = s; },
   setExpenses(e)     { EXPENSES = e; },
   setPackingItems(p) { PACKING  = p; },
@@ -540,7 +633,7 @@ const Data = {
   setOvernight(dayId, o) { OVERNIGHT[dayId] = o; },
   setTravelers(names) { TRAVELERS = names; },
 
-  /* ── Getters ─────────────────────────────────────────── */
+  /* ── Getters ──────────────────────────────────────────── */
   getDays:        () => DAYS,
   getStops:       () => STOPS,
   getStopsByDay(id) {
@@ -556,86 +649,16 @@ const Data = {
   getStop:        (id) => STOPS.find(s => s.id === id),
   getExpenses:    () => EXPENSES,
   getPackingItems:() => PACKING,
-
-  /* ── Trip name ──────────────────────────────────────────── */
-  getTripName: () => TRIP_NAME,
-  async setTripName(name) {
-    TRIP_NAME = name;
-    await DB.setMeta('tripName', name);
-    // Update header immediately
-    const el = document.getElementById('header-trip-name');
-    if (el) el.textContent = name;
-    Sync?.pushSettings?.();
-  },
-
-  /* ── Custom links ───────────────────────────────────────── */
-  getCustomLinks:  () => CUSTOM_LINKS,
-  setCustomLinks:  (links) => { CUSTOM_LINKS = links; },
-  async addCustomLink({ title, url }) {
-    const link = { id: 'cl_' + Date.now(), title, url, addedAt: Date.now() };
-    CUSTOM_LINKS.push(link);
-    await DB.saveCustomLinks(CUSTOM_LINKS);
-    Sync?.pushSettings?.();
-    return link;
-  },
-  async deleteCustomLink(id) {
-    CUSTOM_LINKS = CUSTOM_LINKS.filter(l => l.id !== id);
-    await DB.saveCustomLinks(CUSTOM_LINKS);
-    Sync?.pushSettings?.();
-  },
-
-  /* ── Nuclear reset ───────────────────────────────────────── */
-  async resetToSeed() {
-    // Wipe IndexedDB completely
-    await Promise.all([
-      DB.clearStops(), DB.clearExpenses(), DB.clearPacking(),
-      DB.clearStamps(), DB.clearMeta(),
-    ]).catch(()=>{});
-    // Re-seed state from SEED_STOPS
-    STOPS = JSON.parse(JSON.stringify(SEED_STOPS));
-    STOPS.forEach(s => {
-      const m = STAMP_META[s.id];
-      if (m) { s.stampRomaji = m.romaji; if (m.sanzanNum) s.sanzanNum = m.sanzanNum; }
-    });
-    EXPENSES = []; PACKING = JSON.parse(JSON.stringify(SEED_PACKING));
-    OVERNIGHT = {};
-    Object.entries(OVERNIGHT_DEFAULTS).forEach(([k,v]) => { OVERNIGHT[k] = {...v}; });
-    STAMPS_COLLECTED.clear(); TRAVELERS = [];
-    // Save fresh state to IndexedDB
-    await DB.saveStops(STOPS);
-    await DB.savePacking(PACKING);
-    await DB.setMeta('dataVersion', Config.DATA_VERSION || 2);
-  },
-
-  /* ── Travelers ───────────────────────────────────────── */
-  getTravelers: () => TRAVELERS,
-  async updateTravelers(names) {
-    TRAVELERS = names;
-    await DB.saveTravelers(names);
-    Sync?.pushTravelers?.(names);
-  },
-
-  /* ── Settlement ──────────────────────────────────────── */
-  calcSettlement() {
-    const travelers = TRAVELERS;
-    if (!travelers.length) return {};
-    const balances = {};
-    travelers.forEach(t => balances[t] = 0);
-    EXPENSES.forEach(exp => {
-      if (!exp.paidBy || !exp.splitBetween?.length) return;
-      const validSplit = exp.splitBetween.filter(n => balances[n] !== undefined);
-      if (!validSplit.length) return;
-      const share = exp.amountJPY / validSplit.length;
-      if (balances[exp.paidBy] !== undefined) balances[exp.paidBy] += exp.amountJPY;
-      validSplit.forEach(name => { balances[name] -= share; });
-    });
-    return balances;
-  },
+  getTripName:    () => TRIP_NAME,
+  getTravelers:   () => TRAVELERS,
+  getCustomLinks: () => CUSTOM_LINKS,
+  getInclusions:  () => INCLUSIONS,
+  getExclusions:  () => EXCLUSIONS,
 
   getSOS:         () => SOS_DATA,
   getHospitals:   () => HOSPITALS,
   getFirstAid:    () => FIRST_AID,
-  getRestrooms:   () => RESTROOMS,
+  getRestrooms:   () => [],             // no restroom layer needed for safari
   getOvernight:   (dayId) => OVERNIGHT[dayId] || null,
   getAllOvernight: () => OVERNIGHT,
 
@@ -645,7 +668,7 @@ const Data = {
     return cats;
   },
 
-  /* ── Stops ───────────────────────────────────────────── */
+  /* ── Stops ────────────────────────────────────────────── */
   async updateStop(id, patch) {
     const idx = STOPS.findIndex(s => s.id === id);
     if (idx === -1) return null;
@@ -655,18 +678,20 @@ const Data = {
     return STOPS[idx];
   },
 
-  async addStop({ dayId, name, activity='', time='', transport='', transportType='walk', notes='', trainDetail=null, needsBooking=false, category=null }) {
+  async addStop({ dayId, name, activity='', time='', transport='', transportType='walk', notes='', needsBooking=false, category=null }) {
     const existing = STOPS.filter(s => s.dayId === dayId);
     const order = existing.length ? Math.max(...existing.map(s => s.order)) + 1 : 1;
-    const kumano  = ['d0','d1','d2','d3','d4','d5','d6','d7'];
-    const seg = kumano.includes(dayId) ? 'kumano'
-              : ['d8','d9'].includes(dayId) ? 'nagano'
-              : ['d10','d11'].includes(dayId) ? 'alpine' : 'osaka';
+    const day = DAYS.find(d => d.id === dayId);
+    const seg = !day ? 'transit'
+      : ['d0','d9','d13','d16','d17'].includes(dayId) ? 'transit'
+      : ['d1','d2','d3','d4','d5','d6','d7','d8'].includes(dayId) ? 'tanzania'
+      : ['d10','d11','d12'].includes(dayId) ? 'kenya' : 'uganda';
     const stop = {
       id: 'su_' + Date.now(), dayId, order, segment: seg,
-      name, activity, transport, transportType, time, timeZone: 'JST',
-      notes, lat: null, lng: null, hasStamp: false, isSanzan: false,
-      needsBooking, category, trainDetail,
+      name, activity, transport, transportType, time, timeZone: 'EAT',
+      notes, lat: null, lng: null,
+      flightIncluded: false, flightExcluded: false,
+      needsBooking, category,
       booking: { status: 'open', ref: '', cost: null, deadline: null },
     };
     STOPS.push(stop);
@@ -681,7 +706,7 @@ const Data = {
     Sync?.removeStop?.(id);
   },
 
-  /* ── Overnight ───────────────────────────────────────── */
+  /* ── Overnight ────────────────────────────────────────── */
   async updateOvernight(dayId, patch) {
     OVERNIGHT[dayId] = { ...(OVERNIGHT[dayId] || {}), ...patch };
     await DB.saveOvernight(OVERNIGHT);
@@ -689,32 +714,7 @@ const Data = {
     return OVERNIGHT[dayId];
   },
 
-  /* ── Stamps ──────────────────────────────────────────── */
-  getStampStops:    () => STOPS.filter(s => s.hasStamp),
-  isStampCollected: (id) => STAMPS_COLLECTED.has(id),
-
-  async toggleStamp(id) {
-    const now = STAMPS_COLLECTED.has(id)
-      ? (STAMPS_COLLECTED.delete(id), false)
-      : (STAMPS_COLLECTED.add(id), true);
-    await DB.saveStamp(id, now);
-    Sync?.pushStamp?.(id, now);
-    return now;
-  },
-
-  getStampProgress() {
-    const all    = STOPS.filter(s => s.hasStamp);
-    const sanzan = all.filter(s => s.isSanzan);
-    return {
-      collected:       STAMPS_COLLECTED.size,
-      total:           all.length,
-      sanzanCollected: sanzan.filter(s => STAMPS_COLLECTED.has(s.id)).length,
-      sanzanTotal:     sanzan.length,
-      sanzanComplete:  sanzan.every(s => STAMPS_COLLECTED.has(s.id)),
-    };
-  },
-
-  /* ── Expenses ────────────────────────────────────────── */
+  /* ── Expenses ─────────────────────────────────────────── */
   async addExpense(exp) {
     exp.id = 'exp_' + Date.now(); exp.ts = Date.now();
     EXPENSES.push(exp);
@@ -729,7 +729,7 @@ const Data = {
   },
   getTotalSpentJPY: () => EXPENSES.reduce((s, e) => s + (e.amountJPY || 0), 0),
 
-  /* ── Packing ─────────────────────────────────────────── */
+  /* ── Packing ──────────────────────────────────────────── */
   async togglePacking(id, checked) {
     const item = PACKING.find(p => p.id === id);
     if (item) item.checked = checked;
@@ -749,7 +749,7 @@ const Data = {
     Sync?.removePacking?.(id);
   },
 
-  /* ── Reservations ────────────────────────────────────── */
+  /* ── Reservations ─────────────────────────────────────── */
   getTransportReservations() {
     return STOPS
       .filter(s => s.needsBooking && s.category === 'transport')
@@ -760,17 +760,13 @@ const Data = {
       .filter(s => s.needsBooking && s.category === 'activity')
       .sort((a,b) => (DAY_ORDER.indexOf(a.dayId) - DAY_ORDER.indexOf(b.dayId)) || (a.order||0)-(b.order||0));
   },
-  getJRSeatReservations() {
-    return STOPS
-      .filter(s => s.trainDetail?.seatReservation === true)
-      .sort((a,b) => DAY_ORDER.indexOf(a.dayId) - DAY_ORDER.indexOf(b.dayId));
-  },
 
   getBookingsList() {
     const order = { urgent:0, pending:1, booked:2, open:3 };
     return STOPS.filter(s => s.booking.status !== 'open')
       .sort((a,b) => order[a.booking.status] - order[b.booking.status]);
   },
+
   getStats() {
     return {
       urgent:  STOPS.filter(s => s.booking.status === 'urgent').length,
@@ -778,6 +774,43 @@ const Data = {
       booked:  STOPS.filter(s => s.booking.status === 'booked').length,
       total:   STOPS.length,
     };
+  },
+
+  /* ── Custom links ─────────────────────────────────────── */
+  async addCustomLink(link) {
+    link.id = 'lk_' + Date.now();
+    CUSTOM_LINKS.push(link);
+    await DB.saveCustomLinks(CUSTOM_LINKS).catch(()=>{});
+    Sync?.pushSettings?.();
+    return link;
+  },
+  async deleteCustomLink(id) {
+    CUSTOM_LINKS = CUSTOM_LINKS.filter(l => l.id !== id);
+    await DB.saveCustomLinks(CUSTOM_LINKS).catch(()=>{});
+    Sync?.pushSettings?.();
+  },
+
+  /* ── Trip name ────────────────────────────────────────── */
+  async setTripName(name) {
+    TRIP_NAME = name;
+    await DB.setMeta('tripName', name).catch(()=>{});
+    Sync?.pushSettings?.();
+  },
+
+  /* ── Balance ──────────────────────────────────────────── */
+  getBalances() {
+    const travelers = TRAVELERS.length ? TRAVELERS : ['Vivien'];
+    const balances = {};
+    travelers.forEach(t => balances[t] = 0);
+    EXPENSES.forEach(exp => {
+      if (!exp.paidBy || !exp.splitBetween?.length) return;
+      const validSplit = exp.splitBetween.filter(n => balances[n] !== undefined);
+      if (!validSplit.length) return;
+      const share = exp.amountJPY / validSplit.length;
+      if (balances[exp.paidBy] !== undefined) balances[exp.paidBy] += exp.amountJPY;
+      validSplit.forEach(name => { balances[name] -= share; });
+    });
+    return balances;
   },
 };
 
