@@ -1,21 +1,26 @@
 'use strict';
 
 /* ============================================================
-   CONFIG
-   ─────────────────────────────────────────────────────────────
-   INSTANT_APP_ID → get yours by visiting in your browser:
-   https://www.getadb.com/provision/<any-uuid>
-   Copy the "appId" from the JSON response and paste below.
+   CONFIG — Africa Safari PWA
+   East Africa Safari & Mountain Gorilla · Vivien · Sep 2026
    ============================================================ */
 const Config = {
-  INSTANT_APP_ID: '6b3ba6ba-b131-445f-9369-d84324863dc7',        // ← paste appId from getadb.com/provision/<uuid>
-  GAS_URL:        '',        // (legacy — leave empty, InstantDB replaces this)
+  INSTANT_APP_ID: '',           // ← Create a NEW InstantDB app at instantdb.com
+                                //   Paste the new appId here (Session 3)
 
-  TRIP_NAME:         'Japan Trip 2026',
-  TRIP_DATE:         '2027-04-09',
-  DATA_VERSION:      4,          // bump when SEED_STOPS change fundamentally
-  BUDGET_MYR:        8000,
-  EXCHANGE_RATE_JPY: 33,
+  TRIP_NAME:    'Africa Safari 2026',
+  TRIP_DATE:    '2026-08-31',   // Departure date KUL → Doha
+  DATA_VERSION: 1,              // Bump when SEED_STOPS change fundamentally
+
+  BUDGET_MYR:   0,              // Set your total trip budget in MYR
+  CURRENCY:     'USD',          // Primary foreign currency for this trip
+
+  // Countries visited (used for SOS screen country headers)
+  COUNTRIES: ['Tanzania', 'Kenya', 'Uganda'],
+
+  // Flight badge colours (itinerary legend)
+  FLIGHT_INCLUDED_COLOR:  '#2A7A4B',   // green  — included in package
+  FLIGHT_EXCLUDED_COLOR:  '#B8860B',   // gold   — not included (buy separately)
 };
 
 window.Config = Config;
