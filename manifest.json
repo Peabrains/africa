@@ -1,11 +1,11 @@
 {
-  "name": "Japan Trip 2026",
-  "short_name": "Japan Trip",
-  "description": "Kumano Kodo → Alpine Route → Hakuba → Osaka · Apr 10–26",
+  "name": "Africa Safari 2026",
+  "short_name": "Africa Safari",
+  "description": "East Africa Safari & Mountain Gorilla · Vivien · 31 Aug – 17 Sep 2026",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#DDE0F4",
-  "theme_color": "#2B41B0",
+  "background_color": "#F4F0E8",
+  "theme_color": "#7A5C2E",
   "orientation": "portrait-primary",
   "categories": ["travel", "lifestyle"],
   "icons": [
@@ -30,17 +30,17 @@
     {
       "name": "Itinerary",
       "url": "/?screen=itinerary",
-      "description": "View day-by-day itinerary"
+      "description": "Day-by-day safari itinerary"
     },
     {
-      "name": "Bookings",
-      "url": "/?screen=bookings",
-      "description": "Track booking status"
+      "name": "What's Included",
+      "url": "/?screen=itinerary",
+      "description": "Inclusions and exclusions"
     },
     {
-      "name": "SOS Card",
+      "name": "Emergency Kit",
       "url": "/?screen=sos",
-      "description": "Emergency contacts and info"
+      "description": "Emergency contacts and offline info"
     }
   ]
 }
