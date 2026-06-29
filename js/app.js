@@ -217,16 +217,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Ask the active SW for its version directly
-    if (navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'GET_VERSION' });
-    }
-    navigator.serviceWorker.addEventListener('message', e => {
-      if (e.data?.type === 'SW_VERSION') {
-        const el = document.getElementById('app-version-display');
-        if (el) el.textContent = 'build ' + e.data.version;
-      }
-    });
+    // Show app version from config
+    const vEl = document.getElementById('app-version-display');
+    if (vEl) vEl.textContent = (Config.APP_VERSION || 'v1');
 
     navigator.serviceWorker.ready.then(reg => {
       reg.update().catch(() => {});
