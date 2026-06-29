@@ -31,10 +31,10 @@ const BookingsScreen = (() => {
       '🏨 Accommodation', `${booked}/${nights.length} confirmed`,
       renderAccommodationContent));
     frag.appendChild(accordionSection('transport',
-      '🚄 Transport', `${transStops.length} to track`,
+      '✈️ Transport', `${transStops.length} to track`,
       renderTransportContent));
     frag.appendChild(accordionSection('activities',
-      '🎌 Activities', `${actStops.length} to book`,
+      '🦁 Activities', `${actStops.length} to book`,
       renderActivitiesContent));
     return frag;
   }
@@ -146,68 +146,6 @@ const BookingsScreen = (() => {
         card.addEventListener('click', () => BottomSheet.openStop(stop, day));
         frag.appendChild(card);
       });
-    }
-
-    // ── JR Seat Reservation Cheat Sheet ──
-    const jrLegs = Data.getJRSeatReservations();
-    if (jrLegs.length) {
-      const jrSection = document.createElement('div');
-      jrSection.style.cssText = 'background:var(--accent-subtle);border:1.5px solid var(--stamp-border);border-radius:var(--r-lg);padding:var(--s3);margin-top:var(--s3);margin-bottom:var(--s3)';
-
-      const jrHeader = document.createElement('div');
-      jrHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--s3)';
-      jrHeader.innerHTML = `
-        <div>
-          <p style="font-size:var(--text-sm);font-weight:500;color:var(--accent)">JR Pass Seat Reservations</p>
-          <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">Show this to the officer when booking</p>
-        </div>
-        <button id="jr-share-btn" class="btn btn-primary" style="font-size:var(--text-xs);min-height:32px;padding:0 12px">Share</button>`;
-      jrSection.appendChild(jrHeader);
-
-      let shareText = 'JR PASS SEAT RESERVATIONS — Japan Trip Apr 2027\n\n';
-
-      jrLegs.forEach(stop => {
-        const day = Data.getDays().find(d=>d.id===stop.dayId);
-        const td = stop.trainDetail || {};
-        const row = document.createElement('div');
-        row.style.cssText = 'padding:var(--s2) 0;border-bottom:1px solid var(--stamp-border)';
-        row.innerHTML = `
-          <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
-            <span class="badge badge-open" style="font-size:9px;padding:1px 5px">${day?.label||''}</span>
-            <span style="font-size:var(--text-xs);color:var(--text-muted)">${day?.date||''}</span>
-          </div>
-          <p style="font-size:var(--text-sm);font-weight:500;color:var(--text-primary)">${td.origin&&td.destination?td.origin+' → '+td.destination:(td.service||stop.name)}</p>
-          ${td.service?`<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">${td.service}</p>`:''}
-          <p style="font-size:var(--text-xs);color:var(--text-secondary);margin-top:2px">
-            Depart: ${stop.time||'TBD'} · Arrive: ${td.arriveTime||'TBD'} · ${td.duration||''}
-          </p>
-          ${td.trainNumber?`<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">Train: ${td.trainNumber}</p>`:''}
-          <p style="font-size:var(--text-xs);margin-top:1px">${td.jrPass===false?'<span style="color:var(--warning-text)">NOT on JR Pass</span>':'<span style="color:var(--success-text)">JR Pass ✓</span>'} · Seat reservation required</p>`;
-        jrSection.appendChild(row);
-
-        // Build share text
-        shareText += `${day?.label||''} · ${day?.date||''}\n`;
-        shareText += `  ${td.origin&&td.destination ? td.origin+' → '+td.destination : (td.service||stop.name)}\n`;
-        if (td.service) shareText += `  ${td.service}\n`;
-        shareText += `  Depart: ${stop.time||'TBD'}  Arrive: ${td.arriveTime||'TBD'}  ${td.duration||''}\n`;
-        if (td.trainNumber) shareText += `  Train no: ${td.trainNumber}\n`;
-        shareText += `  ${td.jrPass===false?'NOT on JR Pass':'JR Pass ✓'} · Seat reservation required\n\n`;
-      });
-
-      jrSection.appendChild(Object.assign(document.createElement('div'),{style:'height:1px'}));
-      frag.appendChild(jrSection);
-
-      // Wire share button directly to element ref
-      const jrShareBtn = jrHeader.querySelector('#jr-share-btn');
-      if (jrShareBtn) {
-        jrShareBtn.addEventListener('click', () => {
-          if (navigator.share) {
-            navigator.share({ title:'JR Pass Reservations — Japan 2027', text: shareText });
-          } else {
-            navigator.clipboard?.writeText(shareText).then(() => Toast.show('Copied to clipboard','success'));
-          }
-        });
-      }
     }
 
     return frag;
