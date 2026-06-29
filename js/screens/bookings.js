@@ -101,7 +101,7 @@ const BookingsScreen = (() => {
             </div>
             <p style="font-weight:500;font-size:var(--text-sm);color:var(--text-primary)">${o.name}</p>
             ${o.ref?`<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">Ref: ${o.ref}</p>`:''}
-            ${o.cost?`<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">¥${o.cost.toLocaleString()}</p>`:''}
+            ${o.cost?`<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">USD ${o.cost.toLocaleString()}</p>`:''}
             ${o.deadline?`<p style="font-size:var(--text-xs);color:var(--danger-text);margin-top:1px">Book by ${new Date(o.deadline).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</p>`:''}
           </div>
           ${statusBadge(o.status)}
@@ -192,9 +192,9 @@ const BookingsScreen = (() => {
     const frag = document.createDocumentFragment();
     const travelers = Data.getTravelers();
     const expenses  = Data.getExpenses();
-    const totalJPY  = Data.getTotalSpentJPY();
-    const budgetJPY = Config.BUDGET_MYR * Config.EXCHANGE_RATE_JPY;
-    const pct       = Math.min(100, totalJPY ? Math.round(totalJPY/budgetJPY*100) : 0);
+    const totalUSD  = Data.getTotalSpentJPY(); // field name kept for compat, stores USD
+    const budgetUSD = Config.BUDGET_MYR || 0;  // BUDGET_MYR stores total USD budget
+    const pct       = Math.min(100, (totalUSD && budgetUSD) ? Math.round(totalUSD/budgetUSD*100) : 0);
 
     if (!travelers.length) {
       const notice = document.createElement('div');
@@ -209,10 +209,10 @@ const BookingsScreen = (() => {
     summary.style.marginTop = 'var(--s3)';
     let summaryHTML = `
       <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s2);text-transform:uppercase;letter-spacing:.04em;font-weight:500">Total spent</p>
-      <p style="font-size:22px;font-weight:500;color:var(--text-primary)">¥${totalJPY.toLocaleString()}</p>
-      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:6px">of ¥${budgetJPY.toLocaleString()} (RM${Config.BUDGET_MYR.toLocaleString()})</p>
+      <p style="font-size:22px;font-weight:500;color:var(--text-primary)">USD ${totalUSD.toLocaleString()}</p>
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:6px">Budget: USD ${budgetUSD.toLocaleString()}</p>
       <div class="budget-bar"><div class="budget-fill" style="width:${pct}%;background:${pct>90?'var(--danger-text)':pct>70?'var(--warning-text)':'var(--accent)'}"></div></div>
-      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">¥${(budgetJPY-totalJPY).toLocaleString()} remaining</p>`;
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">USD ${Math.max(0,budgetUSD-totalUSD).toLocaleString()} remaining</p>`;
 
     if (travelers.length && expenses.length) {
       const paid = {}; const share = {};
@@ -226,7 +226,7 @@ const BookingsScreen = (() => {
       });
       summaryHTML += `<div style="margin-top:var(--s3);padding-top:var(--s3);border-top:1px solid var(--border-subtle)">`;
       travelers.forEach(t => {
-        summaryHTML += `<div class="settlement-row"><span style="font-weight:500">${t}</span><span style="color:var(--text-muted)">paid ¥${(paid[t]||0).toLocaleString()} · share ¥${Math.round(share[t]||0).toLocaleString()}</span></div>`;
+        summaryHTML += `<div class="settlement-row"><span style="font-weight:500">${t}</span><span style="color:var(--text-muted)">paid USD ${(paid[t]||0).toLocaleString()} · share USD ${Math.round(share[t]||0).toLocaleString()}</span></div>`;
       });
       summaryHTML += `</div>`;
       const balances = Data.calcSettlement();
@@ -239,7 +239,7 @@ const BookingsScreen = (() => {
         negatives.forEach(debtor => {
           positives.forEach(creditor => {
             const amt = Math.round(Math.min(Math.abs(balances[debtor]), balances[creditor]));
-            if (amt>0) summaryHTML += `<p class="settlement-owed">💸 ${debtor} owes ${creditor} ¥${amt.toLocaleString()}</p>`;
+            if (amt>0) summaryHTML += `<p class="settlement-owed">💸 ${debtor} owes ${creditor} USD ${amt.toLocaleString()}</p>`;
           });
         });
       }
@@ -269,7 +269,7 @@ const BookingsScreen = (() => {
       <select id="exp-day" class="bs-input"><option value="">Day…</option>${Data.getDays().map(d=>`<option value="${d.id}">${d.label} · ${d.date}</option>`).join('')}</select>
       <select id="exp-cat" class="bs-input"><option value="">Category…</option>${EXPENSE_CATS.map(c=>`<option>${c}</option>`).join('')}</select>
       <input id="exp-desc" class="bs-input" type="text" placeholder="Description">
-      <input id="exp-amt" class="bs-input" type="number" placeholder="Amount (¥)">
+      <input id="exp-amt" class="bs-input" type="number" placeholder="Amount (USD)">
       ${travelers.length?`
         <div class="bs-edit-group"><label class="bs-edit-label">Paid by</label><div class="split-chips" id="paid-by-chips">${paidByChips}</div></div>
         <div class="bs-edit-group"><label class="bs-edit-label">Split between</label><div class="split-chips" id="split-chips">${splitChips}</div></div>`
@@ -313,7 +313,7 @@ const BookingsScreen = (() => {
         const day = Data.getDays().find(d=>d.id===dayId);
         const sec = document.createElement('div');
         sec.className = 'expense-section';
-        sec.innerHTML = `<div class="expense-day-header"><span>${day?.label||dayId} · ${day?.date||''}</span><span>¥${exps.reduce((s,e)=>s+e.amountJPY,0).toLocaleString()}</span></div>`;
+        sec.innerHTML = `<div class="expense-day-header"><span>${day?.label||dayId} · ${day?.date||''}</span><span>USD ${exps.reduce((s,e)=>s+e.amountJPY,0).toLocaleString()}</span></div>`;
         exps.forEach(exp => {
           const splitPax = Math.max(1, exp.splitBetween?.length||1);
           const perHead  = Math.round(exp.amountJPY/splitPax);
@@ -323,11 +323,11 @@ const BookingsScreen = (() => {
             <span class="expense-cat">${exp.category}</span>
             <div class="expense-info">
               <p class="expense-desc">${exp.description}</p>
-              <p class="expense-split-line">${exp.paidBy?exp.paidBy+' paid':''} ${exp.splitBetween?.length?'· '+exp.splitBetween.join('+'):''} · ¥${perHead.toLocaleString()} pp</p>
+              <p class="expense-split-line">${exp.paidBy?exp.paidBy+' paid':''} ${exp.splitBetween?.length?'· '+exp.splitBetween.join('+'):''} · USD ${perHead.toLocaleString()} pp</p>
             </div>
             <div style="text-align:right;flex-shrink:0">
-              <p class="expense-amt">¥${exp.amountJPY.toLocaleString()}</p>
-              <p class="expense-per">¥${perHead.toLocaleString()} pp</p>
+              <p class="expense-amt">USD ${exp.amountJPY.toLocaleString()}</p>
+              <p class="expense-per">USD ${perHead.toLocaleString()} pp</p>
             </div>
             <button class="expense-del">×</button>`;
           row.querySelector('.expense-del').addEventListener('click', async e => {
@@ -415,8 +415,8 @@ const BookingsScreen = (() => {
     budgetSection.className = 'settings-section';
     budgetSection.innerHTML = `
       <p class="settings-section-title">Budget</p>
-      <div class="bs-edit-group"><label class="bs-edit-label">Budget (RM)</label><input id="cfg-budget" class="bs-input" type="number" value="${Config.BUDGET_MYR}"></div>
-      <div class="bs-edit-group"><label class="bs-edit-label">Exchange rate (1 MYR = ? JPY)</label><input id="cfg-rate" class="bs-input" type="number" value="${Config.EXCHANGE_RATE_JPY}"></div>
+      <div class="bs-edit-group"><label class="bs-edit-label">Total Budget (USD)</label><input id="cfg-budget" class="bs-input" type="number" value="${Config.BUDGET_MYR}"></div>
+      
       <button class="btn btn-primary" id="cfg-save-btn" style="width:100%;margin-top:var(--s2)">Save budget settings</button>`;
     const tripSection = document.createElement('div');
     tripSection.className = 'settings-section';
@@ -473,7 +473,7 @@ const BookingsScreen = (() => {
     });
     budgetSection.querySelector('#cfg-save-btn')?.addEventListener('click', () => {
       Config.BUDGET_MYR        = parseInt(budgetSection.querySelector('#cfg-budget')?.value)||Config.BUDGET_MYR;
-      Config.EXCHANGE_RATE_JPY = parseInt(budgetSection.querySelector('#cfg-rate')?.value)||Config.EXCHANGE_RATE_JPY;
+      
       Toast.show('Budget settings saved','success'); render();
     });
     return frag;
