@@ -2,34 +2,28 @@
 
 const ItineraryScreen = (() => {
 
-  /* -- Static guide link mapping -- */
-  const STOP_LINKS = {
-    sk09: [{title:'Bus: Kii-Tanabe to Hongu', url:'http://www2.tb-kumano.jp/en/transport/pdf/Tanabe-Shirahama-to-Hongu-bus.pdf'}],
-    sk10: [{title:'Nakahechi Route Map (PDF)', url:'https://www2.tb-kumano.jp/en/kumano-kodo/pdf/Kumano-Kodo-Nakahechi-Route-Maps-Takijiri-Takahara.pdf'}],
-    sk16: [{title:'Bus: Hongu-Kawayu-Yunomine', url:'http://www2.tb-kumano.jp/en/transport/pdf/Hongu-Kawayu-Yunomine-bus.pdf'}],
-    sk20: [{title:'Bus: Hongu to Shingu', url:'http://www2.tb-kumano.jp/en/transport/pdf/Hongu-Koguchi-Shingu-bus.pdf'}],
-    sk22: [{title:'Nachisan Travel Guide', url:'https://visitwakayama.jp/en/stories/detail_539.html'}],
-    sk23: [{title:'Bus: Nachi-Kii-Katsuura', url:'https://www2.tb-kumano.jp/en/transport/pdf/Nachi-Kii-Katsuura-bus.pdf'}],
-    sk30: [{title:'Alpine Route timetable (PDF)', url:'https://www.alpen-route.com/en/wp-content/uploads/2026/04/2026_timetable_nagano-toyamaedit.pdf'}],
-    sk34: [{title:'Murodo Walks Map (PDF)', url:'https://www.alpen-route.com/en/assets_v2/file/walks_map.pdf'}],
-  };
-
   let root;
-
-  /* ── Accordion state (module-level — survives re-renders) ── */
   const daysExpanded = {};
   let _toggling = false;
 
+  /* ── Segment → country label + colour ───────────────────────── */
   const SEG_COLOR = {
-    transit: '#AAAAAA',
-    kumano:  '#C1440E',
-    nagano:  '#7B4EA0',
-    alpine:  '#2A7A4B',
-    osaka:   '#888888',
+    transit:  'var(--seg-transit)',
+    tanzania: 'var(--seg-tanzania)',
+    kenya:    'var(--seg-kenya)',
+    uganda:   'var(--seg-uganda)',
+  };
+
+  /* Country divider shown once when segment changes ──────────── */
+  const SEGMENT_LABEL = {
+    transit:  { label:'Transit', flag:'✈️',  pill:'transit'  },
+    tanzania: { label:'Tanzania', flag:'🇹🇿', pill:'tanzania' },
+    kenya:    { label:'Kenya',    flag:'🇰🇪', pill:'kenya'    },
+    uganda:   { label:'Uganda',   flag:'🇺🇬', pill:'uganda'   },
   };
 
   function getDayExpanded(dayId) {
-    if (daysExpanded[dayId] === undefined) daysExpanded[dayId] = true; // default open
+    if (daysExpanded[dayId] === undefined) daysExpanded[dayId] = true;
     return daysExpanded[dayId];
   }
 
@@ -41,6 +35,7 @@ const ItineraryScreen = (() => {
     setTimeout(() => { _toggling = false; }, 250);
   }
 
+  /* ── Booking badge ──────────────────────────────────────────── */
   function badge(status) {
     const m = {
       booked:  ['badge-booked',  '✓ Booked'],
@@ -52,7 +47,29 @@ const ItineraryScreen = (() => {
     return `<span class="badge ${cls}">${lbl}</span>`;
   }
 
-  /* ─── Day header (accordion) ────────────────────────────── */
+  /* ── Flight badge (green = included, gold = excluded) ───────── */
+  function flightBadge(stop) {
+    if (stop.transportType !== 'plane') return '';
+    if (stop.flightIncluded)
+      return `<span class="tl-flight-badge tl-flight-badge--in">✓ Included</span>`;
+    if (stop.flightExcluded)
+      return `<span class="tl-flight-badge tl-flight-badge--out">Buy separately</span>`;
+    return '';
+  }
+
+  /* ── Country divider ────────────────────────────────────────── */
+  function countryDivider(segment) {
+    const info = SEGMENT_LABEL[segment] || SEGMENT_LABEL.transit;
+    const div = document.createElement('div');
+    div.className = 'country-divider';
+    div.innerHTML = `
+      <div class="country-divider-line"></div>
+      <span class="country-pill country-pill--${info.pill}">${info.flag} ${info.label}</span>
+      <div class="country-divider-line"></div>`;
+    return div;
+  }
+
+  /* ── Day header ─────────────────────────────────────────────── */
   function dayHeader(day, stops, isOpen) {
     const wrap = document.createElement('div');
     wrap.className = 'tl-day-block';
@@ -72,14 +89,13 @@ const ItineraryScreen = (() => {
     if (!isOpen && stops.length === 0) {
       const hint = document.createElement('p');
       hint.className = 'tl-empty-hint';
-      hint.textContent = 'No stops · tap to expand and add';
+      hint.textContent = 'No stops · tap to expand';
       wrap.appendChild(hint);
     }
-
     return wrap;
   }
 
-  /* ─── Overnight card ────────────────────────────────────── */
+  /* ── Overnight card ─────────────────────────────────────────── */
   function overnightCard(day) {
     const o = Data.getOvernight(day.id);
     if (!o?.name) return null;
@@ -96,13 +112,15 @@ const ItineraryScreen = (() => {
             ${o.address ? `<p class="overnight-addr">${o.address}</p>` : ''}
           </div>
         </div>
-        <span class="badge ${statusCls[o.status]||'badge-open'}">${o.status==='booked'?'✓':o.status==='urgent'?'⚡':o.status==='pending'?'Pending':'Open'}</span>
+        <span class="badge ${statusCls[o.status]||'badge-open'}">${
+          o.status==='booked'?'✓ Booked':o.status==='urgent'?'⚡ Urgent':o.status==='pending'?'Pending':'Open'
+        }</span>
       </div>`;
     card.addEventListener('click', () => BottomSheet.openOvernight(day));
     return card;
   }
 
-  /* ─── Add stop button ───────────────────────────────────── */
+  /* ── Add stop button ────────────────────────────────────────── */
   function addStopBtn(dayId) {
     const btn = document.createElement('button');
     btn.className = 'add-stop-btn';
@@ -111,12 +129,11 @@ const ItineraryScreen = (() => {
     return btn;
   }
 
-  /* ─── Stop row ──────────────────────────────────────────── */
+  /* ── Stop row ───────────────────────────────────────────────── */
   function stopRow(stop, isLast) {
     const day = Data.getDays().find(d => d.id === stop.dayId);
     const iconKey = stop.transportType || 'walk';
-    const stampCollected = stop.hasStamp && Data.isStampCollected(stop.id);
-    const segColor = SEG_COLOR[stop.segment] || '#888';
+    const segColor = SEG_COLOR[stop.segment] || 'var(--seg-transit)';
 
     const row = document.createElement('div');
     row.className = 'tl-row';
@@ -134,44 +151,116 @@ const ItineraryScreen = (() => {
       <div class="tl-content">
         <div class="tl-name-row">
           <p class="tl-name">${stop.name}</p>
-          ${stop.hasStamp ? `<span class="tl-stamp-dot ${stampCollected?'tl-stamp-dot--on':''}">${stop.stampKanji||'判'}</span>` : ''}
         </div>
         <p class="tl-activity">${stop.activity || ''}</p>
-        ${stop.openingHours ? `<p class="tl-hours">◷ ${stop.openingHours}</p>` : ''}
         ${stop.transport ? `<div class="tl-transport">${Icons[iconKey]?Icons[iconKey]():''}<span>${stop.transport}</span></div>` : ''}
-        ${stop.transportType==='train' && stop.trainDetail?.jrPass===false
-          ? '<p class="tl-platform" style="color:var(--warning-text)">⚠ Not on JR Pass · buy separately</p>'
-          : stop.transportType==='train' && stop.trainDetail?.jrPass
-            ? '<p class="tl-platform">JR Pass ✓</p>' : ''}
-        ${stop.transportType==='train' && stop.trainDetail?.platform
-          ? `<p class="tl-platform">Platform: ${stop.trainDetail.platform}</p>` : ''}
         ${stop.notes ? `<p class="tl-note">${stop.notes}</p>` : ''}
         <div class="tl-footer">
           ${badge(stop.booking.status)}
+          ${flightBadge(stop)}
           ${stop.category==='transport' ? '<span class="cat-chip cat-chip--transport">Transport</span>' :
-            stop.category==='activity'  ? '<span class="cat-chip cat-chip--activity">Activity</span>' : ''}
-          ${stop.trainDetail?.seatReservation ? '<span class="cat-chip cat-chip--jr">Seat res.</span>' : ''}
+            stop.category==='activity'  ? '<span class="cat-chip cat-chip--activity">Activity</span>'  : ''}
+          ${stop.booking.cost ? `<span class="cat-chip cat-chip--activity">USD ${stop.booking.cost.toLocaleString()}</span>` : ''}
         </div>
-        ${(STOP_LINKS[stop.id]||[]).map(l=>`<a href="${l.url}" target="_blank" rel="noopener" class="tl-link-chip" onclick="event.stopPropagation()">\u2197 ${l.title}</a>`).join('')}
       </div>`;
     row.addEventListener('click', () => BottomSheet.openStop(stop, day));
     return row;
   }
 
-  /* ─── Main render ───────────────────────────────────────── */
+  /* ── Inclusions / exclusions mini-screen ────────────────────── */
+  function renderIncExc() {
+    const wrap = document.createElement('div');
+    wrap.style.paddingBottom = 'var(--s6)';
+
+    const header = document.createElement('div');
+    header.style.cssText = 'padding:var(--s4) var(--s4) var(--s2);border-bottom:1.5px solid var(--border)';
+    header.innerHTML = `
+      <p style="font-size:var(--text-lg);font-weight:500;color:var(--text-primary)">What's included</p>
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">Wildsenses Holidays · East Africa Safari & Mountain Gorilla</p>`;
+    wrap.appendChild(header);
+
+    // Inclusions
+    const incSec = document.createElement('div');
+    incSec.className = 'inc-section';
+    const incTitle = document.createElement('p');
+    incTitle.className = 'inc-section-title';
+    incTitle.textContent = '✓ Included in your package';
+    incSec.appendChild(incTitle);
+    (Data.getInclusions?.() || []).forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'inc-item';
+      row.innerHTML = `<span class="inc-item-dot inc-item-dot--in">✓</span><span class="inc-item-text">${item}</span>`;
+      incSec.appendChild(row);
+    });
+    wrap.appendChild(incSec);
+
+    // Exclusions
+    const excSec = document.createElement('div');
+    excSec.className = 'inc-section';
+    excSec.style.marginTop = 'var(--s3)';
+    const excTitle = document.createElement('p');
+    excTitle.className = 'inc-section-title';
+    excTitle.textContent = '✗ Not included — arrange separately';
+    excSec.appendChild(excTitle);
+    (Data.getExclusions?.() || []).forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'inc-item';
+      row.innerHTML = `<span class="inc-item-dot inc-item-dot--out">✗</span><span class="inc-item-text">${item}</span>`;
+      excSec.appendChild(row);
+    });
+    wrap.appendChild(excSec);
+
+    return wrap;
+  }
+
+  /* ── Sub-tab bar (Itinerary / What's included) ──────────────── */
+  let activeTab = 'itinerary';
+
+  function subTabBar() {
+    const bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;border-bottom:1.5px solid var(--border);background:var(--surface);flex-shrink:0;padding:0 var(--s2);overflow-x:auto;scrollbar-width:none';
+    [['itinerary','Itinerary'],['included',"What's included"]].forEach(([id, label]) => {
+      const btn = document.createElement('button');
+      btn.style.cssText = `flex-shrink:0;padding:10px var(--s3);font-size:var(--text-sm);font-weight:${activeTab===id?'500':'400'};color:${activeTab===id?'var(--accent)':'var(--text-muted)'};background:none;border:none;border-bottom:${activeTab===id?'2px solid var(--accent)':'2px solid transparent'};margin-bottom:-1.5px;cursor:pointer;font-family:var(--font);transition:color .15s`;
+      btn.textContent = label;
+      btn.addEventListener('click', () => { activeTab = id; render(); });
+      bar.appendChild(btn);
+    });
+    return bar;
+  }
+
+  /* ── Main render ────────────────────────────────────────────── */
   function render() {
     if (!root) return;
     root.innerHTML = '';
+
+    root.appendChild(subTabBar());
+
+    if (activeTab === 'included') {
+      root.appendChild(renderIncExc());
+      return;
+    }
+
+    // Itinerary tab — day timeline with country dividers
+    let lastSegment = null;
 
     Data.getDays().forEach(day => {
       const stops  = Data.getStopsByDay(day.id);
       const isOpen = getDayExpanded(day.id);
 
-      // Day header (always visible)
+      // Determine the primary segment for this day (from first stop, or transit)
+      const primarySeg = stops.length ? stops[0].segment : 'transit';
+
+      // Insert country divider when segment changes
+      if (primarySeg !== lastSegment) {
+        root.appendChild(countryDivider(primarySeg));
+        lastSegment = primarySeg;
+      }
+
       root.appendChild(dayHeader(day, stops, isOpen));
 
       if (isOpen) {
-        // Weather strip -- use day locality; multi-point for transit days
+        // Weather strip
         if (navigator.onLine) {
           const wxEl = document.createElement('div');
           wxEl.className = 'wx-container';
@@ -184,26 +273,22 @@ const ItineraryScreen = (() => {
           }
         }
 
-        // Day divider
         root.appendChild(Object.assign(document.createElement('div'), {className:'tl-day-divider'}));
 
-        // Stop rows
         stops.forEach((s, i) => root.appendChild(stopRow(s, i === stops.length - 1)));
 
-        // Overnight card
         const accom = overnightCard(day);
         if (accom) root.appendChild(accom);
 
-        // Add stop button
         root.appendChild(addStopBtn(day.id));
 
-        // Custom links tagged to this day
+        // Custom links for this day
         const dayLinks = (Data.getCustomLinks?.() || []).filter(l => l.dayId === day.id);
         if (dayLinks.length) {
           const dlWrap = document.createElement('div');
           dlWrap.className = 'day-links-wrap';
           dlWrap.innerHTML = '<p class="day-links-head">🔖 Resources</p>'
-            + dayLinks.map(l => `<a href="${l.url}" target="_blank" rel="noopener" class="tl-link-chip">\u2197 ${l.title}</a>`).join('');
+            + dayLinks.map(l => `<a href="${l.url}" target="_blank" rel="noopener" class="tl-link-chip">↗ ${l.title}</a>`).join('');
           root.appendChild(dlWrap);
         }
       }
