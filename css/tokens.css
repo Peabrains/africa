@@ -1,38 +1,41 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500&display=swap');
 
-/* ─── Light mode ─────────────────────────────────────────────── */
+/* ─── Light mode — safari earth tones ───────────────────────── */
 :root {
-  --bg:             #F5F2EC; /* washi paper cream */
+  --bg:             #F4F0E8; /* warm savannah sand */
   --surface:        #FFFFFF;
-  --surface-raised: #EDEBE4; /* cream tint for headers/pills */
-  --accent:         #C84B35; /* torii gate red */
-  --accent-hover:   #B44030;
-  --accent-pressed: #9A3528;
-  --accent-subtle:  #FBEAE7;
+  --surface-raised: #EDE8DE; /* dry grass tint */
+  --accent:         #7A5C2E; /* safari khaki brown */
+  --accent-hover:   #6A4E24;
+  --accent-pressed: #5A4020;
+  --accent-subtle:  #F2EBD9;
 
-  --border:         #D8D4CC;
-  --border-subtle:  #E8E4DC;
+  --border:         #D4CCBB;
+  --border-subtle:  #E4DDD0;
 
-  --text-primary:   #1C1A18;
-  --text-secondary: #5C5852;
-  --text-muted:     #9C9690;
+  --text-primary:   #1C1A14;
+  --text-secondary: #5C5442;
+  --text-muted:     #9C9080;
 
-  /* Status — semantic, never overridden */
+  /* Status — semantic */
   --success-bg:     #DCFCE7; --success-text: #166534; --success-border: #A7F3C0;
   --warning-bg:     #FEF3C7; --warning-text: #92400E; --warning-border: #FCD87D;
   --danger-bg:      #FEF2F2; --danger-text:  #991B1B; --danger-border:  #FECACA;
   --neutral-bg:     #F3F4F6; --neutral-text: #374151; --neutral-border: #D1D5DB;
 
-  /* Stamp accent */
-  --stamp:          #C84B35;
-  --stamp-bg:       #FBEAE7;
-  --stamp-border:   #F0BFB5;
+  /* Flight badge colours — core to this itinerary */
+  --flight-included-bg:     #DCFCE7; /* green — included in package */
+  --flight-included-text:   #166534;
+  --flight-included-border: #A7F3C0;
+  --flight-excluded-bg:     #FFFBEB; /* gold — buy separately */
+  --flight-excluded-text:   #92400E;
+  --flight-excluded-border: #FCD87D;
 
-  /* Segment colours for map */
-  --seg-kumano:  #2B41B0;
-  --seg-alpine:  #2A7A4B;
-  --seg-hakuba:  #1E6FA8;
-  --seg-osaka:   #888888;
+  /* Segment / country colours */
+  --seg-transit:   #9C9080; /* grey — transit days */
+  --seg-tanzania:  #C1440E; /* burnt sienna — Tanzania */
+  --seg-kenya:     #2A7A4B; /* savannah green — Kenya */
+  --seg-uganda:    #7B4EA0; /* forest purple — Uganda */
 
   --font:    'Plus Jakarta Sans', sans-serif;
   --text-xs: 10px; --text-sm: 12px; --text-base: 14px;
@@ -44,22 +47,24 @@
   --ease: cubic-bezier(0.4,0,0.2,1);
 }
 
-/* ─── Dark mode — warm darks ─────────────────────────────────── */
+/* ─── Dark mode — warm safari darks ─────────────────────────── */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg:             #1A1714;
-    --surface:        #252220;
-    --surface-raised: #2E2B28;
-    --accent:         #E8705A;
-    --accent-hover:   #EF8070;
-    --accent-subtle:  #3A1F18;
-    --border:         #3A3630;
-    --border-subtle:  #302D28;
-    --text-primary:   #F0EDE8;
-    --text-secondary: #A8A49E;
-    --text-muted:     #706C66;
-    --stamp-bg:       #3A1F18;
-    --stamp-border:   #5A2C1E;
+    --bg:             #1A1712;
+    --surface:        #24201A;
+    --surface-raised: #2E2922;
+    --accent:         #C49A5A; /* warm gold in dark mode */
+    --accent-hover:   #D4AA6A;
+    --accent-subtle:  #3A2C14;
+    --border:         #3A3428;
+    --border-subtle:  #302C22;
+    --text-primary:   #F0EDE6;
+    --text-secondary: #A8A090;
+    --text-muted:     #706858;
+    --seg-transit:    #706858;
+    --seg-tanzania:   #E86040;
+    --seg-kenya:      #4AAA6B;
+    --seg-uganda:     #9B6EC0;
   }
 }
 
@@ -74,6 +79,23 @@ button { font-family:var(--font); cursor:pointer; }
 .badge-pending { background:var(--warning-bg); color:var(--warning-text); border-color:var(--warning-border); }
 .badge-urgent  { background:var(--danger-bg);  color:var(--danger-text);  border-color:var(--danger-border);  }
 .badge-open    { background:var(--neutral-bg); color:var(--neutral-text); border-color:var(--neutral-border); }
+
+/* Flight badges — green (included) and gold (excluded) */
+.badge-flight-in  { background:var(--flight-included-bg); color:var(--flight-included-text); border-color:var(--flight-included-border); }
+.badge-flight-out { background:var(--flight-excluded-bg); color:var(--flight-excluded-text); border-color:var(--flight-excluded-border); }
+
+/* Country section header pills */
+.country-header { display:flex; align-items:center; gap:var(--s2); padding:var(--s3) var(--s4) var(--s1); margin-top:var(--s3); }
+.country-pill { display:inline-flex; align-items:center; gap:5px; font-size:var(--text-xs); font-weight:500; padding:3px 10px; border-radius:var(--r-pill); border:1.5px solid; }
+.country-pill--tanzania { background:#FEF2EE; color:#C1440E; border-color:#F5C4B4; }
+.country-pill--kenya    { background:#EDFDF5; color:#2A7A4B; border-color:#A7F3C0; }
+.country-pill--uganda   { background:#F5F0FD; color:#7B4EA0; border-color:#D8BEF5; }
+.country-pill--transit  { background:var(--neutral-bg); color:var(--neutral-text); border-color:var(--neutral-border); }
+@media (prefers-color-scheme: dark) {
+  .country-pill--tanzania { background:#3A1A0A; color:#E86040; border-color:#7A3020; }
+  .country-pill--kenya    { background:#0A2A1A; color:#4AAA6B; border-color:#1A6A3A; }
+  .country-pill--uganda   { background:#2A1A3A; color:#9B6EC0; border-color:#5A3080; }
+}
 
 /* ─── Buttons ────────────────────────────────────────────────── */
 .btn { display:inline-flex; align-items:center; justify-content:center; gap:var(--s2); font-size:var(--text-sm); font-weight:500; border-radius:var(--r-md); min-height:40px; padding:0 var(--s4); border:1.5px solid transparent; transition:background .15s; font-family:var(--font); }
