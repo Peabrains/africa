@@ -1,82 +1,52 @@
-# Japan Trip 2026 — PWA
+# Africa Safari 2026 — PWA
 
-Kumano Kodo → Kurobe Alpine Route → Hakuba → Osaka  
-Apr 10–26 · 2 pax · Travel planning & on-trail companion
+East Africa Safari & Mountain Gorilla · Vivien  
+Tanzania → Kenya → Uganda · 31 Aug – 17 Sep · 15 Nights
+
+**Live:** https://peabrains.github.io/africa/
 
 ---
 
-## Phase 1 — What's in this build
+## What's in this build
 
 | Screen | What it does |
 |--------|-------------|
-| **Itinerary** | Day-by-day stops, collapsible cards, booking status badges, kebab action menu |
-| **Map** | Leaflet map with all 32 stops, day filter, tap a marker for details |
-| **Bookings** | Urgency-sorted booking tracker with stats |
-| **SOS Card** | Offline emergency contacts, hotel addresses in Japanese, tap-to-copy |
+| **Itinerary** | Day-by-day timeline with country dividers (Tanzania / Kenya / Uganda), green/gold flight badges, collapsible cards, "What's included" tab |
+| **Map** | Leaflet map with all stops across 3 countries, colour-coded by country segment |
+| **Bookings** | Booking tracker — accommodations, flights, gorilla permit, balloon |
+| **Kit (SOS)** | Offline emergency contacts, hospitals in TZ/KE/UG, Swahili phrases, Wildsenses operator card, first aid protocols |
 
-**Components built:** toast notifications, bottom sheet, offline service worker, design token system.
-
-Data is hardcoded from your Google Sheet. Phase 2 connects live sync.
-
----
-
-## Deploy in 5 minutes (GitHub Pages)
-
-### 1. Create a GitHub repo
-
-Go to [github.com/new](https://github.com/new) and create a new **public** repo called `japan-trip-pwa`.
-
-### 2. Push this folder
-
-```bash
-cd japan-trip-pwa
-git init
-git add .
-git commit -m "Phase 1 — PWA scaffold"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/japan-trip-pwa.git
-git push -u origin main
-```
-
-### 3. Enable GitHub Pages
-
-- Go to repo **Settings → Pages**
-- Source: **Deploy from a branch**
-- Branch: `main` / `/ (root)`
-- Save
-
-Your PWA will be live at `https://YOUR_USERNAME.github.io/japan-trip-pwa/` in ~60 seconds.
-
-### 4. Install on iPhone (Safari)
-
-1. Open the URL in Safari
-2. Tap the **Share** button → **Add to Home Screen**
-3. Tap **Add**
-
-The app icon (mountain + torii) appears on your home screen. It now works offline.
+**Security:** PIN gate on every fresh session · InstantDB sync · Security headers
 
 ---
 
 ## File structure
 
 ```
-japan-trip-pwa/
-├── index.html          ← App shell + all styles
-├── manifest.json       ← PWA install config
-├── sw.js               ← Service worker (offline)
+africa/
+├── index.html            ← App shell + all styles
+├── manifest.json         ← PWA install config
+├── sw.js                 ← Service worker (offline)
+├── _headers              ← GitHub Pages security headers
 ├── css/
-│   └── tokens.css      ← Design system (colors, spacing, font)
+│   ├── tokens.css        ← Safari earth-tone design system
+│   └── print.css
 ├── js/
-│   ├── data.js         ← All trip data (edit this to update stops)
-│   ├── icons.js        ← SVG icon library (Hugeicons style)
-│   ├── toast.js        ← Toast notification system
-│   ├── bottom-sheet.js ← Action bottom sheet
-│   ├── app.js          ← Router + header + lifecycle
+│   ├── config.js         ← Trip config + InstantDB App ID
+│   ├── auth.js           ← PIN gate (SHA-256 hash, sessionStorage)
+│   ├── data.js           ← All trip data — 47 stops, 18 days
+│   ├── db.js             ← IndexedDB (africa-safari store)
+│   ├── sync.js           ← InstantDB real-time sync
+│   ├── app.js            ← Router + lifecycle
+│   ├── icons.js          ← SVG icon library
+│   ├── toast.js          ← Toast notifications
+│   ├── bottom-sheet.js   ← Action sheet
+│   ├── weather.js        ← Open-Meteo weather strip
 │   └── screens/
-│       ├── itinerary.js
-│       ├── map.js
-│       ├── bookings.js
-│       └── sos.js
+│       ├── itinerary.js  ← Day timeline + inclusions screen
+│       ├── map.js        ← Leaflet map (Africa segments)
+│       ├── bookings.js   ← Booking tracker
+│       └── sos.js        ← Emergency kit
 └── icons/
     ├── icon-192.png
     ├── icon-512.png
@@ -85,34 +55,38 @@ japan-trip-pwa/
 
 ---
 
-## Editing trip data (before Phase 2 sync)
+## PIN setup
 
-Open `js/data.js`. Each stop looks like:
+First time you open the app, you'll be prompted to choose a 4-digit PIN.  
+To reset: Browser DevTools → Application → Local Storage → delete `africa-pin-hash` → reload.
 
-```javascript
-{ id:'s05', dayId:'d1', order:2, name:'Takahara Lodge',
-  activity:'Arrive ridge village; onsen at the lodge',
-  transport:'On foot', transportType:'walk',
-  accommodation:'Kiri-no-Sato Takahara Lodge', notes:'...',
-  lat:33.7959, lng:135.5321,
-  booking:{ status:'pending', ref:'', cost:18000, deadline:'2026-01-15' } },
-```
+## InstantDB sync
 
-Change `status` to `'booked'` once confirmed. Push to GitHub — the PWA updates within seconds.
+App ID is set in `js/config.js`. Data syncs across devices in real time.  
+Manage your database at https://instantdb.com
 
----
+## Install on iPhone (Safari)
 
-## Phase 2 — Coming next
+1. Open https://peabrains.github.io/africa/ in Safari
+2. Tap Share → **Add to Home Screen**
+3. Tap **Add**
 
-- Google Apps Script web app pasted into your Sheet
-- Live two-way sync: edits in the PWA write back to the Sheet
-- IndexedDB for offline queue — changes sync when you reconnect
-- Conflict resolution UI when both the Sheet and PWA are edited offline
+Works fully offline once installed — critical for bush connectivity.
 
 ---
 
-## Phase 3–5 — Planned
+## Itinerary overview
 
-- **3** Inline note editing, date changes, booking ref storage
-- **4** Budget tracker (¥), packing list from Sheet, weather widget
-- **5** PDF export, pilgrim stamp tracker, companion sync
+| Days | Location | Camp |
+|------|----------|------|
+| D0 | KUL → Doha (overnight flight) | — |
+| D1–2 | Ngorongoro Crater, Tanzania | Asilia The Highlands |
+| D3–4 | Central Serengeti, Tanzania | Asilia Dunia Camp |
+| D5–8 | Northern Serengeti + Hot Air Balloon, Tanzania | Asilia Olakira Camp |
+| D9 | Transit: Serengeti → Kilimanjaro → Nairobi | Radisson Blu Nairobi |
+| D10–12 | Amboseli National Park, Kenya | Tortilis Camp |
+| D13 | Transit: Amboseli → Nairobi → Entebbe | No.5 Boutique Hotel |
+| D14–15 | Bwindi + Gorilla Habituation, Uganda | Nkuringo Gorilla Lodge |
+| D16–17 | Entebbe → Doha → KUL | — |
+
+Operator: Wildsenses Holidays · +60 28138778 · www.wildsensesholidays.com
