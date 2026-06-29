@@ -5,8 +5,7 @@
    East Africa Safari & Mountain Gorilla · Vivien · Sep 2026
    ============================================================ */
 const Config = {
-  INSTANT_APP_ID: '',           // ← Create a NEW InstantDB app at instantdb.com
-                                //   Paste the new appId here (Session 3)
+  INSTANT_APP_ID: 'f217adb6-3cfc-4593-a69f-b25876c7117f',
 
   TRIP_NAME:    'Africa Safari 2026',
   TRIP_DATE:    '2026-08-31',   // Departure date KUL → Doha
