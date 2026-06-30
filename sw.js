@@ -87,6 +87,21 @@ self.addEventListener('fetch', e => {
     return;
   }
 
+  // Swahili phrase audio (Google Translate TTS) — cache first, same phrase plays offline forever after first listen
+  if (url.hostname.includes('translate.google.com') && url.pathname.includes('translate_tts')) {
+    e.respondWith(
+      caches.match(e.request).then(cached => {
+        if (cached) return cached;
+        return fetch(e.request, { mode: 'no-cors' }).then(res => {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+          return res;
+        });
+      })
+    );
+    return;
+  }
+
   // App shell — network first with cache fallback
   // This means: always try to get the freshest version,
   // fall back to cache if offline (critical for bush connectivity)
