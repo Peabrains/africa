@@ -160,9 +160,9 @@
     .sos-country-chip{font-size:9px;font-weight:500;padding:2px 6px;border-radius:var(--r-pill);border:1px solid;white-space:nowrap;display:inline-block;margin-bottom:4px}
 
     /* Sub-tab bar (SOS tabs) */
-    .sub-tab-bar{display:flex;overflow-x:auto;scrollbar-width:none;border-bottom:1.5px solid var(--border);background:var(--surface);flex-shrink:0;padding:0 var(--s2)}
+    .sub-tab-bar{display:flex;justify-content:center;overflow-x:auto;scrollbar-width:none;border-bottom:1.5px solid var(--border);background:var(--surface);flex-shrink:0;padding:0 var(--s2)}
     .sub-tab-bar::-webkit-scrollbar{display:none}
-    .sub-tab{flex-shrink:0;padding:10px var(--s3);font-size:var(--text-sm);font-weight:400;color:var(--text-muted);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1.5px;cursor:pointer;font-family:var(--font);transition:color .15s}
+    .sub-tab{flex:1 1 0;min-width:0;text-align:center;padding:10px 6px;font-size:var(--text-sm);font-weight:400;color:var(--text-muted);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1.5px;cursor:pointer;font-family:var(--font);transition:color .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .sub-tab--active{color:var(--accent);font-weight:500;border-bottom-color:var(--accent)}
 
     /* Map legend */
