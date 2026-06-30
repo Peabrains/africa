@@ -4,6 +4,7 @@ const App = (() => {
   const SCREENS = {
     itinerary: () => window.ItineraryScreen,
     map:       () => window.MapScreen,
+    dex:       () => window.DexScreen,
     bookings:  () => window.BookingsScreen,
     sos:       () => window.SOSScreen,
   };
