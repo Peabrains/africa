@@ -9,8 +9,9 @@
      the raw PIN).
    • On every subsequent fresh session (new tab/browser open),
      the user must enter the PIN before the app loads.
-   • Verified sessions are flagged in sessionStorage so the
-     prompt doesn't appear again within the same browser tab.
+   • Once verified on a device, that device is remembered via
+     localStorage — the PIN prompt won't appear again unless
+     the browser data is cleared or it's a different device.
    • There is no "forgot PIN" — delete localStorage to reset.
 
    TO SET YOUR PIN:
@@ -26,8 +27,8 @@
 
 const Auth = (() => {
 
-  const HASH_KEY    = 'africa-pin-hash';    // localStorage — stores SHA-256 hash only
-  const SESSION_KEY = 'africa-authed';      // sessionStorage — cleared when tab closes
+  const HASH_KEY   = 'africa-pin-hash';     // localStorage — stores SHA-256 hash only
+  const DEVICE_KEY = 'africa-device-ok';    // localStorage — remembers this device permanently
 
   /* ── SHA-256 a string ───────────────────────────────────────── */
   async function sha256(str) {
@@ -35,13 +36,13 @@ const Auth = (() => {
     return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
   }
 
-  /* ── Check if session is already verified ───────────────────── */
-  function isSessionAuthed() {
-    try { return sessionStorage.getItem(SESSION_KEY) === '1'; } catch(_) { return false; }
+  /* ── Check if this device is already remembered ────────────── */
+  function isDeviceTrusted() {
+    try { return localStorage.getItem(DEVICE_KEY) === '1'; } catch(_) { return false; }
   }
 
-  function markSessionAuthed() {
-    try { sessionStorage.setItem(SESSION_KEY, '1'); } catch(_) {}
+  function trustThisDevice() {
+    try { localStorage.setItem(DEVICE_KEY, '1'); } catch(_) {}
   }
 
   /* ── Get stored PIN hash ────────────────────────────────────── */
@@ -209,7 +210,7 @@ const Auth = (() => {
   /* ── Public: gate the app ───────────────────────────────────── */
   async function gate() {
     // Already verified this session — let straight through
-    if (isSessionAuthed()) return;
+    if (isDeviceTrusted()) return;
 
     const storedHash = getStoredHash();
     const mode       = storedHash ? 'verify' : 'set';
@@ -218,7 +219,7 @@ const Auth = (() => {
     const ok      = await runPinPad(overlay, mode);
 
     if (ok) {
-      markSessionAuthed();
+      trustThisDevice();
       overlay.style.transition = 'opacity .3s';
       overlay.style.opacity    = '0';
       setTimeout(() => overlay.remove(), 300);
