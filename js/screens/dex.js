@@ -70,7 +70,7 @@ const DexScreen = (() => {
 
     const nameP = document.createElement('p');
     nameP.style.cssText = `font-size:10px; font-weight:500; text-align:center; padding:0 4px; color:${caught ? 'var(--text-primary)' : 'var(--text-muted)'}`;
-    nameP.textContent = caught ? animal.name : '???';
+    nameP.textContent = animal.name;
 
     card.appendChild(emojiSpan);
     card.appendChild(nameP);
@@ -138,7 +138,7 @@ const DexScreen = (() => {
         <div style="display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s3)">
           <span style="font-size:48px;${caught ? '' : 'filter:brightness(0) opacity(0.25);'}">${animal.emoji}</span>
           <div>
-            <p style="font-size:var(--text-lg);font-weight:500;color:var(--text-primary)">${caught ? animal.name : '???'}</p>
+            <p style="font-size:var(--text-lg);font-weight:500;color:var(--text-primary)">${animal.name}</p>
             <span style="display:inline-flex;align-items:center;font-size:10px;font-weight:500;color:#fff;background:${tierColor};border-radius:var(--r-pill);padding:2px 8px;margin-top:4px">${TIER_LABEL[animal.tier]}${animal.big5 ? ' · Big Five ⭐' : ''}</span>
           </div>
         </div>
