@@ -552,7 +552,7 @@ const HOSPITALS = [
   {region:'Tanzania (Arusha / Kilimanjaro)',
    name:'Arusha Lutheran Medical Centre (ALMC)',
    tel:'+255 272 548 030',
-   maps:'https://maps.google.com/?q=-3.3705,36.6791',
+   maps:'https://maps.google.com/?q=-3.36641,36.68261',
    note:'Fr. Babu Road, Levolosi, Arusha. Best private hospital near Kilimanjaro — 45min from JRO airport'},
   {region:'Tanzania (Serengeti / bush emergency)',
    name:'AMREF Flying Doctors',
@@ -577,8 +577,8 @@ const HOSPITALS = [
   {region:'Uganda (nearest to Nkuringo / Bwindi south)',
    name:'Bwindi Community Hospital',
    tel:'+256 792 964 920',
-   maps:'https://maps.google.com/?q=-0.9617,29.6997',
-   note:'Buhoma, Kanungu District. ~2 hrs drive from Nkuringo Lodge via Ruhija road. Emergency contact only'},
+   maps:'https://maps.google.com/?q=-0.9617,29.7003',
+   note:'Buhoma village, northern Bwindi entrance, Kanungu District. ~2 hrs from Nkuringo via Ruhija road. Emergency only'},
 ];
 
 /* ── First aid — Africa-specific ────────────────────────── */
