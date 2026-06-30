@@ -229,6 +229,87 @@ const ItineraryScreen = (() => {
     return bar;
   }
 
+  /* ── Glossary popup ──────────────────────────────────────── */
+  function openGlossary(term) {
+    const entry = Data.getGlossary(term);
+    if (!entry) return;
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:250;background:rgba(0,0,0,.5);display:flex;align-items:flex-end';
+    const sheet = document.createElement('div');
+    sheet.style.cssText = 'background:var(--bg);width:100%;max-height:60vh;border-radius:20px 20px 0 0;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom)';
+    sheet.innerHTML = `
+      <div style="display:flex;justify-content:center;padding:8px 0 0"><div style="width:36px;height:4px;background:var(--border);border-radius:2px"></div></div>
+      <div style="padding:var(--s4)">
+        <p style="font-size:var(--text-lg);font-weight:500;color:var(--accent);margin-bottom:var(--s2)">📖 ${entry.title}</p>
+        <p style="font-size:var(--text-sm);color:var(--text-secondary);line-height:1.6">${entry.body}</p>
+      </div>
+      <div style="padding:0 var(--s4) var(--s5)">
+        <button id="gloss-close" class="btn btn-ghost bs-full-btn">Close</button>
+      </div>`;
+    overlay.appendChild(sheet);
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    sheet.querySelector('#gloss-close').addEventListener('click', () => overlay.remove());
+  }
+
+  /* ── Render story paragraph with [[glossary]] terms tappable ── */
+  function renderStoryParagraph(text) {
+    const p = document.createElement('p');
+    p.style.cssText = 'font-size:var(--text-sm);color:var(--text-secondary);line-height:1.65;margin-bottom:var(--s3)';
+
+    const parts = text.split(/(\[\[.*?\]\])/g);
+    parts.forEach(part => {
+      const match = part.match(/^\[\[(.*?)\]\]$/);
+      if (match) {
+        const term = match[1];
+        const span = document.createElement('span');
+        span.textContent = term;
+        span.style.cssText = 'color:var(--accent);font-weight:500;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;cursor:pointer';
+        span.addEventListener('click', () => openGlossary(term));
+        p.appendChild(span);
+      } else if (part) {
+        p.appendChild(document.createTextNode(part));
+      }
+    });
+    return p;
+  }
+
+  /* ── "The Story" expandable card ─────────────────────────── */
+  let storyExpanded = {};
+
+  function storyCard(day) {
+    const story = Data.getStory(day.id);
+    if (!story) return null;
+
+    const isOpen = !!storyExpanded[day.id];
+
+    const card = document.createElement('div');
+    card.style.cssText = 'margin:var(--s2) var(--s4);border:1.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;background:var(--surface)';
+
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:var(--s3);cursor:pointer;user-select:none;background:var(--accent-subtle)';
+    header.innerHTML = `
+      <span style="font-size:var(--text-sm);font-weight:500;color:var(--accent)">📖 The Story — ${story.title}</span>
+      <span class="story-arrow" style="color:var(--accent);font-size:13px;transition:transform .2s;${isOpen?'transform:rotate(90deg)':''}">▸</span>`;
+    card.appendChild(header);
+
+    const body = document.createElement('div');
+    body.style.cssText = `padding:${isOpen?'var(--s4)':'0 var(--s4)'};display:${isOpen?'block':'none'}`;
+    story.paragraphs.forEach(para => body.appendChild(renderStoryParagraph(para)));
+    card.appendChild(body);
+
+    header.addEventListener('click', () => {
+      storyExpanded[day.id] = !storyExpanded[day.id];
+      const nowOpen = storyExpanded[day.id];
+      body.style.display = nowOpen ? 'block' : 'none';
+      body.style.padding = nowOpen ? 'var(--s4)' : '0 var(--s4)';
+      header.querySelector('.story-arrow').style.transform = nowOpen ? 'rotate(90deg)' : '';
+    });
+
+    return card;
+  }
+
   /* ── Main render ────────────────────────────────────────────── */
   function render() {
     if (!root) return;
@@ -274,6 +355,10 @@ const ItineraryScreen = (() => {
         }
 
         root.appendChild(Object.assign(document.createElement('div'), {className:'tl-day-divider'}));
+
+        // The Story — background & cultural context, if this day has one
+        const story = storyCard(day);
+        if (story) root.appendChild(story);
 
         stops.forEach((s, i) => root.appendChild(stopRow(s, i === stops.length - 1)));
 
