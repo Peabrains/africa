@@ -182,6 +182,7 @@ const SOSScreen = (() => {
 
     wrap.appendChild(infoSection('Emergency numbers', sos.emergency, 'phone'));
     wrap.appendChild(renderHospitals());
+    wrap.appendChild(renderPhrases());
     wrap.appendChild(renderFirstAid());
     return wrap;
   }
@@ -269,26 +270,53 @@ const SOSScreen = (() => {
     }));
     wrap.appendChild(infoSection('Camp & hotel addresses', addrRows, 'language'));
 
-    // Useful phrases for East Africa (Swahili + English)
+    return wrap;
+  }
+
+  /* ══ PHRASES — Swahili audio (Google Translate TTS, real voice) ══ */
+  const PHRASES = [
+    {en:'Please call an ambulance', sw:'Tafadhali piga simu gari la wagonjwa', rom:'Swahili (Tanzania & Kenya)'},
+    {en:'I need a doctor',          sw:'Ninahitaji daktari',                    rom:''},
+    {en:'Help me please',           sw:'Nisaidie tafadhali',                    rom:''},
+    {en:'Where is the hospital?',   sw:'Hospitali iko wapi?',                   rom:''},
+    {en:'I am in pain',             sw:'Ninauma',                               rom:''},
+    {en:'I am allergic to ___',     sw:'Nina mzio wa ___',                      rom:''},
+    {en:'Thank you',                sw:'Asante',                                rom:'Very useful — say often!'},
+    {en:'Good morning',             sw:'Habari ya asubuhi',                     rom:'Greeting for guides & camp staff'},
+  ];
+
+  let _currentAudio = null;
+
+  function playSwahili(text, btn) {
+    // Stop any currently playing phrase
+    if (_currentAudio) { _currentAudio.pause(); _currentAudio = null; }
+
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=sw&q=${encodeURIComponent(text)}`;
+    const audio = new Audio(url);
+    _currentAudio = audio;
+    btn.textContent = '🔊 Playing…';
+    audio.play().catch(() => {
+      btn.textContent = '🔊 Listen';
+      Toast.show('Audio needs an internet connection the first time', 'warning');
+    });
+    audio.onended = () => { btn.textContent = '🔊 Listen'; _currentAudio = null; };
+    audio.onerror = () => { btn.textContent = '🔊 Listen'; _currentAudio = null; };
+  }
+
+  function renderPhrases() {
     const phraseDiv = document.createElement('div');
     phraseDiv.className = 'sos-section';
     const phraseTitle = document.createElement('p');
     phraseTitle.className = 'sos-section-title';
-    phraseTitle.textContent = 'Useful Swahili phrases — show your screen';
+    phraseTitle.textContent = 'Useful Swahili phrases — tap to hear';
     phraseDiv.appendChild(phraseTitle);
 
-    const phrases = [
-      {en:'Please call an ambulance', sw:'Tafadhali piga simu gari la wagonjwa', rom:'Swahili (Tanzania & Kenya)'},
-      {en:'I need a doctor',          sw:'Ninahitaji daktari',                    rom:''},
-      {en:'Help me please',           sw:'Nisaidie tafadhali',                    rom:''},
-      {en:'Where is the hospital?',   sw:'Hospitali iko wapi?',                   rom:''},
-      {en:'I am in pain',             sw:'Ninauma',                               rom:''},
-      {en:'I am allergic to ___',     sw:'Nina mzio wa ___',                      rom:''},
-      {en:'Thank you',                sw:'Asante',                                rom:'Very useful — say often!'},
-      {en:'Good morning',             sw:'Habari ya asubuhi',                     rom:'Greeting for guides & camp staff'},
-    ];
+    const hint = document.createElement('p');
+    hint.style.cssText = 'font-size:var(--text-xs);color:var(--text-muted);padding:0 0 var(--s2);line-height:1.4';
+    hint.textContent = 'Real native pronunciation (not robotic). Needs internet the first time you play each phrase — then it\'s cached for offline use.';
+    phraseDiv.appendChild(hint);
 
-    phrases.forEach(p => {
+    PHRASES.forEach(p => {
       const card = document.createElement('div');
       card.className = 'card';
       card.style.cssText = 'margin-bottom:var(--s2);padding:10px var(--s3);display:flex;flex-direction:column;gap:3px';
@@ -298,24 +326,13 @@ const SOSScreen = (() => {
         ${p.rom ? `<p style="font-size:var(--text-xs);color:var(--text-secondary);font-style:italic">${p.rom}</p>` : ''}`;
       const btnRow = document.createElement('div');
       btnRow.style.cssText = 'display:flex;gap:6px;align-self:flex-end;margin-top:6px';
-      // Audio button — Web Speech API
-      if ('speechSynthesis' in window) {
-        const audioBtn = document.createElement('button');
-        audioBtn.className = 'kit-copy-btn';
-        audioBtn.textContent = '🔊 Listen';
-        audioBtn.addEventListener('click', () => {
-          window.speechSynthesis.cancel();
-          const utt = new SpeechSynthesisUtterance(p.sw);
-          utt.lang = 'sw-TZ'; // Swahili Tanzania
-          utt.rate = 0.85;
-          utt.pitch = 1;
-          audioBtn.textContent = '🔊 Playing…';
-          utt.onend = () => { audioBtn.textContent = '🔊 Listen'; };
-          utt.onerror = () => { audioBtn.textContent = '🔊 Listen'; };
-          window.speechSynthesis.speak(utt);
-        });
-        btnRow.appendChild(audioBtn);
-      }
+
+      const audioBtn = document.createElement('button');
+      audioBtn.className = 'kit-copy-btn';
+      audioBtn.textContent = '🔊 Listen';
+      audioBtn.addEventListener('click', () => playSwahili(p.sw, audioBtn));
+      btnRow.appendChild(audioBtn);
+
       const copyBtn = document.createElement('button');
       copyBtn.className = 'kit-copy-btn';
       copyBtn.textContent = 'Copy';
@@ -326,11 +343,12 @@ const SOSScreen = (() => {
         });
       });
       btnRow.appendChild(copyBtn);
+
       card.appendChild(btnRow);
       phraseDiv.appendChild(card);
     });
-    wrap.appendChild(phraseDiv);
-    return wrap;
+
+    return phraseDiv;
   }
 
   /* ══ GUIDES TAB ════════════════════════════════════════════ */
