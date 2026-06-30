@@ -988,12 +988,57 @@ const STORIES = {
     ],
   },
 
+
+  d1: { // Kilimanjaro + Ngorongoro arrival
+    title: 'The mountain nobody could name',
+    paragraphs: [
+      'The name Kilimanjaro is still debated. The Chagga people — who have farmed its fertile slopes for around 400 years and believe it was created as a gift by their god Ruwa — do not actually call it Kilimanjaro at all. They name it by its two separate peaks: Kibo ("spotted," for the dark rocks against the snow) and Mawenzi ("broken top," for its jagged summit). The name Europeans recorded may derive from the [[Chagga]] word kilemajyaro — meaning "that which defeats" — misheard as its proper name by the first missionaries who arrived in the 1840s.',
+      'The Maasai call it Ol Doinyo Oibor — "White Mountain" — and believe their god Enkai lives on its summit. A mountain that different peoples named independently, from different languages, each capturing only what they could see from where they stood: whiteness, greatness, impossibility.',
+      'The Maasai cultural village visit on the drive up to camp offers the first real encounter with the people this landscape belongs to. Cattle are everything — wealth, identity, spiritual duty. The [[Adamu]] jumping dance performed for visitors is not a performance for tourists: it is a genuine warrior tradition, a centuries-old display of strength that young men practice their whole adolescence to perfect.',
+    ],
+  },
+
+  d9: { // Serengeti → Kilimanjaro → Nairobi
+    title: 'Cool waters and a railway depot that became a capital',
+    paragraphs: [
+      'Nairobi means "the place of cool waters" — from the [[Maasai]] phrase Enkare Nyirobi, a reference to the cold-water streams that once ran through a swampland here. It was nobody\'s idea of a city. In 1899, British engineers building a railway from Mombasa to Uganda needed a flat midpoint to rest workers and store supplies — and this unremarkable swamp, at a cool 1,800m elevation free of malarial mosquitoes, fit the brief. Within a decade it had become the capital of British East Africa. The Maasai who called the land home were displaced to make room for it.',
+      'Today it is East Africa\'s largest city — notably the only capital in the world that contains a national park within its own boundaries, where lions still roam a few kilometers from the financial district. It grew from a railway depot into a city of nearly five million in under a century, possibly the fastest urban growth on the continent.',
+      'An overnight stay here is a contrast the rest of the trip won\'t prepare you for: city sounds after ten days of near-silence on the plains, a glass of wine in a hotel restaurant, the strange feeling of being very far from anywhere and also right in the middle of everything.',
+    ],
+  },
+
+  d12: { // Amboseli Maasai day
+    title: 'What cattle mean',
+    paragraphs: [
+      'The Maasai believe Enkai — their god — gave all the world\'s cattle to them at the beginning of time. It is not metaphor or folklore: it is the foundation of how they understand their purpose on Earth. Cattle are wealth, yes, but also identity, spiritual duty, and social currency. A man\'s standing in his community is counted in cows. Marriages are negotiated in cows. Ceremonies, healings, and rites of passage all involve cattle.',
+      'The [[Adamu]] jumping dance has a similar weight — it is a warrior tradition in which young men compete to jump highest, a display of strength and readiness that precedes the real test of manhood. What looks celebratory to an outsider carries years of preparation and social meaning behind it. The beadwork worn by both men and women is equally coded: every color has significance, patterns indicate age, marital status, and clan.',
+      'A Maasai cultural walk in Amboseli offers something the vehicle can\'t — the experience of moving through the same landscape on foot, through eyes that have read it for centuries, with a guide pointing to what the game drive would pass without stopping: tracks, plants, the small things that sustain a life lived here.',
+    ],
+  },
+
+  d13: { // Amboseli → Nairobi → Entebbe
+    title: 'A seat on the lake',
+    paragraphs: [
+      'Entebbe means "seat" in Luganda — from e ntebe, the word for a chair — named because a chief of the Mamba clan once sat here to adjudicate disputes. The British chose it in 1893 as their colonial administrative base, drawn by its position on a peninsula jutting into [[Lake Victoria]] and the natural defense that offered. It remained Uganda\'s capital until 1958, when Kampala took over — and it still feels more like a garden town than a city: calm, green, and laid out with the unhurried logic of a British colonial administration that had nowhere urgent to be.',
+      'The airport here carries a particular piece of history. In 1952, a young Queen Elizabeth II departed from this runway after learning her father had died and that she was now Queen. In 1976, Israeli commandos landed here in darkness to free over a hundred hostages in one of the most audacious rescue operations of the 20th century. Today it is simply where safaris begin and end — though the scale of what has passed through it is easy to miss while waiting for a transfer.',
+      'Arriving here from the Kenyan plains, the shift is immediate: equatorial green replaces dry savannah, the air is warmer and heavier, the lake glitters through the trees. Uganda announces itself differently to Tanzania and Kenya — slower, lusher, less famous, and about to offer something neither of the others can.',
+    ],
+  },
+
+  d14: { // Entebbe → Bwindi
+    title: 'Into the Pearl of Africa',
+    paragraphs: [
+      'Winston Churchill visited Uganda in 1907 and called it "the Pearl of Africa" — noting that for sheer beauty of landscape, fertility of soil, and variety of climate, it stood apart from anything else he had seen on the continent. The journey from Entebbe to Bwindi gives a sense of why: the road climbs through banana plantations, terraced hillsides, and tea estates before the landscape shifts entirely into the volcanic hills of southwestern Uganda, densely forested, draped in mist.',
+      '[[Bwindi Impenetrable Forest]] sits at between 1,160 and 2,607 meters altitude — an ancient montane rainforest that survived the ice ages when much of Africa\'s forest contracted, making it one of the most biodiverse places on Earth: 120 mammal species, 348 birds, half the world\'s remaining mountain gorillas. The word "impenetrable" is not marketing. The forest closes in on itself, dense and layered, and until the roads were built, reaching its interior required days of machete work.',
+      'The drive is long — typically five to six hours — and deliberately arrives in late afternoon, giving a night to rest before the early start tomorrow. It is worth sitting with the journey itself: the gradual disappearance of the savannah world left behind in Tanzania and Kenya, replaced by something older, cooler, and entirely its own.',
+    ],
+  },
   d15: { // Bwindi — Gorilla Habituation
     title: 'The Keepers of the Forest',
     paragraphs: [
       `The forest had another name first. Long before it was known for gorillas, Bwindi was home to the [[Batwa]] — "the Keepers of the Forest," believed to have lived here for 60,000 years, considering the gorillas part of their forest family. In 1991, when Bwindi became a national park to protect the gorillas, the Batwa were evicted without land or compensation — a complicated truth underneath every trek made here since.`,
       `This is the [[habituation experience]], not standard trekking — up to four hours, in a small group of four, with a gorilla family still mid-way through the slow process of learning to tolerate humans. It tends to feel rawer and less polished than a typical one-hour visit, because it is.`,
-      `Then, at some point, a [[silverback]] looks directly back. It registers differently than any other wildlife encounter — gorillas share roughly 98% of human evolutionary history, and the moment is rarely remembered as "I saw gorillas." It's remembered as "I was seen by one."`,
+      `Then, at some point, a [[silverback]] looks directly back. It registers differently than any other wildlife encounter — gorillas share roughly 98% of human evolutionary history, and the moment is rarely remembered as "I saw gorillas." It\'s remembered as "I was seen by one."`,
     ],
   },
 
@@ -1001,6 +1046,22 @@ const STORIES = {
 
 /* ── Glossary — tappable terms inside story paragraphs ──────── */
 const GLOSSARY = {
+  'chagga': {
+    title: 'The Chagga',
+    body: 'The Bantu-speaking people who have farmed the fertile slopes of Kilimanjaro for around 400 years. Unlike the nomadic Maasai, the Chagga were settled agriculturalists, growing bananas, millet, and later coffee on the mountain\'s slopes. They believe Kilimanjaro was created by their god Ruwa as a gift to them, and each of the mountain\'s two peaks has a separate Chagga name: Kibo ("spotted") and Mawenzi ("broken top").',
+  },
+  'adamu': {
+    title: 'The Adamu — Maasai jumping dance',
+    body: 'The Maasai jumping dance, also called Adamu or the Maasai jumping ceremony, is a warrior tradition in which young men compete to leap as high as possible while singing in a group. It is not purely a performance — it signals physical strength, endurance, and readiness for warrior duties. The highest jumper earns social status within the group.',
+  },
+  'lake victoria': {
+    title: 'Lake Victoria',
+    body: 'The largest lake in Africa and the largest tropical lake in the world, covering 68,800 km² across Uganda, Kenya, and Tanzania. It is the main source of the White Nile. Entebbe sits directly on its northern shores. The lake was named by British explorer John Hanning Speke in 1858 after Queen Victoria — it had of course been known and lived beside for millennia before his arrival.',
+  },
+  'bwindi impenetrable forest': {
+    title: 'Bwindi Impenetrable Forest',
+    body: 'A UNESCO World Heritage Site in southwestern Uganda, one of the most biodiverse forests in Africa. It survived the last ice age when much of Africa\'s forest contracted, creating a refuge for species found nowhere else. Today it holds 120 mammal species, 348 bird species, and roughly half the world\'s remaining mountain gorilla population — around 400 individuals.',
+  },
   'maasai': {
     title: 'The Maasai',
     body: 'A semi-nomadic pastoralist people of East Africa, known for cattle-herding, distinctive red shuka clothing, and beaded jewelry. The Maasai have lived across Tanzania and Kenya for centuries, and many of the parks on this trip were once Maasai grazing land before becoming protected areas.',
