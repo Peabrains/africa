@@ -321,6 +321,7 @@
   <nav id="app-nav">
     <button class="nav-btn active" data-screen="itinerary" aria-label="Itinerary"></button>
     <button class="nav-btn" data-screen="map"              aria-label="Map"></button>
+    <button class="nav-btn" data-screen="dex"               aria-label="Dex"></button>
     <button class="nav-btn" data-screen="bookings"         aria-label="Bookings"></button>
     <button class="nav-btn" data-screen="sos"              aria-label="Kit"></button>
   </nav>
@@ -337,6 +338,7 @@
 <script src="js/sync.js"></script>
 <script src="js/screens/itinerary.js"></script>
 <script src="js/screens/map.js"></script>
+<script src="js/screens/dex.js"></script>
 <script src="js/screens/bookings.js"></script>
 <script src="js/screens/sos.js"></script>
 <script src="js/app.js"></script>
@@ -345,6 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const navCfg = [
     {screen:'itinerary', icon:'calendar', label:'Itinerary'},
     {screen:'map',       icon:'map',      label:'Map'},
+    {screen:'dex',       icon:'star',     label:'Dex'},
     {screen:'bookings',  icon:'bookmark', label:'Bookings'},
     {screen:'sos',       icon:'kit',      label:'Kit'},
   ];
