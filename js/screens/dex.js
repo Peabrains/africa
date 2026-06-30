@@ -225,6 +225,9 @@ const DexScreen = (() => {
       input.type = 'file';
       input.accept = 'image/*';
       input.multiple = true;
+      input.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+      document.body.appendChild(input); // must be in DOM — iOS Safari blocks click() otherwise
+
       input.addEventListener('change', async () => {
         const files = Array.from(input.files || []);
         for (const file of files) {
@@ -234,7 +237,9 @@ const DexScreen = (() => {
         if (files.length) Toast.show(`${files.length} photo${files.length>1?'s':''} added`, 'success');
         renderPhotos();
         render();
+        input.remove();
       });
+
       input.click();
     });
   }
