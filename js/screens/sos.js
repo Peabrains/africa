@@ -134,10 +134,11 @@ const SOSScreen = (() => {
     const bar = document.createElement('div');
     bar.className = 'sub-tab-bar';
     [
-      ['help',   'Help'],
-      ['stay',   'Stay'],
-      ['places', 'Places'],
-      ['guides', 'Guides'],
+      ['help',     'Help'],
+      ['phrases',  'Phrases'],
+      ['stay',     'Stay'],
+      ['places',   'Places'],
+      ['guides',   'Guides'],
     ].forEach(([id, label]) => {
       const btn = document.createElement('button');
       btn.className = `sub-tab ${activeTab===id?'sub-tab--active':''}`;
@@ -182,7 +183,6 @@ const SOSScreen = (() => {
 
     wrap.appendChild(infoSection('Emergency numbers', sos.emergency, 'phone'));
     wrap.appendChild(renderHospitals());
-    wrap.appendChild(renderPhrases());
     wrap.appendChild(renderFirstAid());
     return wrap;
   }
@@ -273,17 +273,82 @@ const SOSScreen = (() => {
     return wrap;
   }
 
-  /* ══ PHRASES — Swahili audio (Google Translate TTS, real voice) ══ */
-  const PHRASES = [
-    {en:'Please call an ambulance', sw:'Tafadhali piga simu gari la wagonjwa', rom:'Swahili (Tanzania & Kenya)'},
-    {en:'I need a doctor',          sw:'Ninahitaji daktari',                    rom:''},
-    {en:'Help me please',           sw:'Nisaidie tafadhali',                    rom:''},
-    {en:'Where is the hospital?',   sw:'Hospitali iko wapi?',                   rom:''},
-    {en:'I am in pain',             sw:'Ninauma',                               rom:''},
-    {en:'I am allergic to ___',     sw:'Nina mzio wa ___',                      rom:''},
-    {en:'Thank you',                sw:'Asante',                                rom:'Very useful — say often!'},
-    {en:'Good morning',             sw:'Habari ya asubuhi',                     rom:'Greeting for guides & camp staff'},
+  /* ══ PHRASES — categorized Swahili phrasebook ══════════════ */
+  const PHRASE_GROUPS = [
+    {
+      title: 'Greetings & politeness',
+      icon: '👋',
+      items: [
+        {en:'Good morning',       sw:'Habari ya asubuhi',  rom:''},
+        {en:'Good afternoon',     sw:'Habari ya mchana',   rom:''},
+        {en:'Good evening',       sw:'Habari ya jioni',    rom:''},
+        {en:'How are you?',      sw:'Habari yako?',        rom:'Genuinely used a lot — expect this back too'},
+        {en:'I am fine',         sw:'Nzuri / Salama',      rom:'Common reply to "Habari yako?"'},
+        {en:'Please',            sw:'Tafadhali',           rom:''},
+        {en:'Thank you',         sw:'Asante',              rom:'Say often!'},
+        {en:'Thank you very much', sw:'Asante sana',       rom:''},
+        {en:'You are welcome',   sw:'Karibu',              rom:''},
+        {en:'Excuse me',         sw:'Samahani',            rom:''},
+        {en:'Goodbye',           sw:'Kwaheri',             rom:''},
+      ]
+    },
+    {
+      title: 'Camp & daily logistics',
+      icon: '🏕️',
+      items: [
+        {en:'Where is the bathroom?',  sw:'Choo kiko wapi?',          rom:''},
+        {en:'What time is dinner?',    sw:'Chakula cha jioni ni saa ngapi?', rom:''},
+        {en:'Do you have wifi?',       sw:'Una wifi?',                rom:''},
+        {en:'Can I have more water?',  sw:'Naomba maji zaidi',        rom:''},
+        {en:'I am cold',               sw:'Nina baridi',              rom:'Useful at Ngorongoro & Bwindi altitude'},
+        {en:'I am hot',                sw:'Nina joto',                rom:''},
+      ]
+    },
+    {
+      title: 'On safari',
+      icon: '🦁',
+      items: [
+        {en:'What animal is that?',    sw:'Mnyama huyo ni nini?',     rom:''},
+        {en:'Can we stop here?',       sw:'Tunaweza kusimama hapa?',  rom:'For photos'},
+        {en:'Slowly please',           sw:'Pole pole tafadhali',      rom:''},
+        {en:'Can you wait a moment?',  sw:'Unaweza kusubiri kidogo?', rom:''},
+        {en:'Beautiful!',              sw:'Nzuri sana!',              rom:'Guides love hearing this'},
+      ]
+    },
+    {
+      title: 'Money & shopping',
+      icon: '💵',
+      items: [
+        {en:'How much is this?',           sw:'Hii ni bei gani?',         rom:''},
+        {en:'That is too expensive',       sw:'Ni ghali sana',            rom:'Said with a smile — friendly bargaining is normal'},
+        {en:'I do not have small change', sw:'Sina chenji',              rom:''},
+      ]
+    },
+    {
+      title: 'Gorilla trek (Day 15)',
+      icon: '🦍',
+      items: [
+        {en:'I need to rest',          sw:'Nahitaji kupumzika',       rom:''},
+        {en:'How much further?',       sw:'Bado mbali kiasi gani?',   rom:''},
+        {en:'I am ready to continue',  sw:'Niko tayari kuendelea',    rom:''},
+      ]
+    },
+    {
+      title: 'Emergency',
+      icon: '🚨',
+      items: [
+        {en:'Please call an ambulance', sw:'Tafadhali piga simu gari la wagonjwa', rom:''},
+        {en:'I need a doctor',          sw:'Ninahitaji daktari',                    rom:''},
+        {en:'Help me please',           sw:'Nisaidie tafadhali',                    rom:''},
+        {en:'Where is the hospital?',   sw:'Hospitali iko wapi?',                   rom:''},
+        {en:'I am in pain',             sw:'Ninauma',                               rom:''},
+        {en:'I am allergic to ___',     sw:'Nina mzio wa ___',                      rom:''},
+      ]
+    },
   ];
+
+  // Flat list kept for any code that still expects PHRASES (back-compat)
+  const PHRASES = PHRASE_GROUPS.flatMap(g => g.items);
 
   let _currentUtterance = null;
   let _voicesReady = false;
@@ -366,65 +431,89 @@ const SOSScreen = (() => {
     window.speechSynthesis.speak(utt);
   }
 
-  function renderPhrases() {
-    const phraseDiv = document.createElement('div');
-    phraseDiv.className = 'sos-section';
-    const phraseTitle = document.createElement('p');
-    phraseTitle.className = 'sos-section-title';
-    phraseTitle.textContent = 'Useful Swahili phrases — tap to hear';
-    phraseDiv.appendChild(phraseTitle);
+  /* ── Single phrase card (used inside each category group) ─── */
+  function phraseCard(p) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.cssText = 'margin-bottom:var(--s2);padding:10px var(--s3);display:flex;flex-direction:column;gap:3px';
+    card.innerHTML = `
+      <p style="font-size:var(--text-xs);color:var(--text-muted)">${p.en}</p>
+      <p style="font-size:var(--text-base);font-weight:500;color:var(--text-primary);margin:2px 0 1px">${p.sw}</p>
+      ${p.rom ? `<p style="font-size:var(--text-xs);color:var(--text-secondary);font-style:italic">${p.rom}</p>` : ''}`;
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;margin-top:6px';
 
-    const hint = document.createElement('p');
-    hint.style.cssText = 'font-size:var(--text-xs);color:var(--text-muted);padding:0 0 var(--s2);line-height:1.4';
-    hint.textContent = '🔊 Listen works offline (quality varies by phone). 🌐 Hear on Google opens Google Translate with a real native-sounding voice — needs internet, opens in a new tab.';
-    phraseDiv.appendChild(hint);
+    const audioBtn = document.createElement('button');
+    audioBtn.className = 'kit-copy-btn';
+    audioBtn.textContent = '🔊 Listen';
+    audioBtn.addEventListener('click', () => playSwahili(p.sw, audioBtn));
+    btnRow.appendChild(audioBtn);
 
-    PHRASES.forEach(p => {
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.style.cssText = 'margin-bottom:var(--s2);padding:10px var(--s3);display:flex;flex-direction:column;gap:3px';
-      card.innerHTML = `
-        <p style="font-size:var(--text-xs);color:var(--text-muted)">${p.en}</p>
-        <p style="font-size:var(--text-base);font-weight:500;color:var(--text-primary);margin:2px 0 1px">${p.sw}</p>
-        ${p.rom ? `<p style="font-size:var(--text-xs);color:var(--text-secondary);font-style:italic">${p.rom}</p>` : ''}`;
-      const btnRow = document.createElement('div');
-      btnRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;margin-top:6px';
+    // Open Google Translate directly — tap the speaker icon there for a
+    // real native-sounding voice. This is a normal link the user's own
+    // browser navigates to, so it isn't blocked the way a background
+    // fetch from inside the app would be.
+    const gtBtn = document.createElement('a');
+    gtBtn.className = 'kit-copy-btn';
+    gtBtn.textContent = '🌐 Hear on Google';
+    gtBtn.target = '_blank';
+    gtBtn.rel = 'noopener';
+    gtBtn.style.textDecoration = 'none';
+    gtBtn.href = `https://translate.google.com/?sl=sw&tl=en&text=${encodeURIComponent(p.sw)}&op=translate`;
+    btnRow.appendChild(gtBtn);
 
-      const audioBtn = document.createElement('button');
-      audioBtn.className = 'kit-copy-btn';
-      audioBtn.textContent = '🔊 Listen';
-      audioBtn.addEventListener('click', () => playSwahili(p.sw, audioBtn));
-      btnRow.appendChild(audioBtn);
-
-      // Open Google Translate directly — tap the speaker icon there for a
-      // real native-sounding voice. This is a normal link the user's own
-      // browser navigates to, so it isn't blocked the way a background
-      // fetch from inside the app would be.
-      const gtBtn = document.createElement('a');
-      gtBtn.className = 'kit-copy-btn';
-      gtBtn.textContent = '🌐 Hear on Google';
-      gtBtn.target = '_blank';
-      gtBtn.rel = 'noopener';
-      gtBtn.style.textDecoration = 'none';
-      gtBtn.href = `https://translate.google.com/?sl=sw&tl=en&text=${encodeURIComponent(p.sw)}&op=translate`;
-      btnRow.appendChild(gtBtn);
-
-      const copyBtn = document.createElement('button');
-      copyBtn.className = 'kit-copy-btn';
-      copyBtn.textContent = 'Copy';
-      copyBtn.addEventListener('click', () => {
-        navigator.clipboard?.writeText(p.sw).then(() => {
-          copyBtn.textContent = '✓';
-          setTimeout(() => copyBtn.textContent = 'Copy', 1500);
-        });
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'kit-copy-btn';
+    copyBtn.textContent = 'Copy';
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard?.writeText(p.sw).then(() => {
+        copyBtn.textContent = '✓';
+        setTimeout(() => copyBtn.textContent = 'Copy', 1500);
       });
-      btnRow.appendChild(copyBtn);
+    });
+    btnRow.appendChild(copyBtn);
 
-      card.appendChild(btnRow);
-      phraseDiv.appendChild(card);
+    card.appendChild(btnRow);
+    return card;
+  }
+
+  /* ══ PHRASES TAB — categorized, collapsible groups ═════════ */
+  function renderPhrasesTab() {
+    const wrap = document.createElement('div');
+
+    const header = document.createElement('div');
+    header.style.cssText = 'padding:var(--s4) var(--s4) var(--s2);border-bottom:1.5px solid var(--border)';
+    header.innerHTML = `
+      <p style="font-size:var(--text-lg);font-weight:500;color:var(--text-primary)">🗣️ Swahili Phrasebook</p>
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px;line-height:1.4">🔊 Listen works offline. 🌐 Hear on Google opens a real native voice (needs internet, new tab).</p>`;
+    wrap.appendChild(header);
+
+    PHRASE_GROUPS.forEach((group, idx) => {
+      const section = document.createElement('div');
+      section.className = 'sos-section';
+
+      const groupHeader = document.createElement('div');
+      groupHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px 0;cursor:pointer;user-select:none';
+      groupHeader.innerHTML = `
+        <span style="font-size:var(--text-sm);font-weight:500;color:var(--text-primary)">${group.icon} ${group.title}</span>
+        <span class="phrase-group-arrow" style="color:var(--text-muted);font-size:13px;transition:transform .2s">▸</span>`;
+      section.appendChild(groupHeader);
+
+      const body = document.createElement('div');
+      body.style.display = idx === 0 ? 'block' : 'none'; // first group open by default
+      group.items.forEach(p => body.appendChild(phraseCard(p)));
+      section.appendChild(body);
+
+      groupHeader.addEventListener('click', () => {
+        const isOpen = body.style.display !== 'none';
+        body.style.display = isOpen ? 'none' : 'block';
+        groupHeader.querySelector('.phrase-group-arrow').style.transform = isOpen ? '' : 'rotate(90deg)';
+      });
+
+      wrap.appendChild(section);
     });
 
-    return phraseDiv;
+    return wrap;
   }
 
   /* ══ GUIDES TAB ════════════════════════════════════════════ */
@@ -501,10 +590,11 @@ const SOSScreen = (() => {
     scrollWrap.style.cssText = 'overflow-y:auto;flex:1;padding-bottom:var(--s6)';
 
     switch (activeTab) {
-      case 'help':   scrollWrap.appendChild(renderHelp(sos));   break;
-      case 'stay':   scrollWrap.appendChild(renderStay(sos));   break;
-      case 'places': scrollWrap.appendChild(renderPlaces(sos)); break;
-      case 'guides': scrollWrap.appendChild(renderGuides());    break;
+      case 'help':     scrollWrap.appendChild(renderHelp(sos));     break;
+      case 'phrases':  scrollWrap.appendChild(renderPhrasesTab());  break;
+      case 'stay':     scrollWrap.appendChild(renderStay(sos));     break;
+      case 'places':   scrollWrap.appendChild(renderPlaces(sos));   break;
+      case 'guides':   scrollWrap.appendChild(renderGuides());      break;
     }
 
     root.appendChild(scrollWrap);
