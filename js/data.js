@@ -945,6 +945,74 @@ Object.assign(Data, {
 });
 
 
+/* ════════════════════════════════════════════════════════════
+   STORIES — background & cultural context per day
+   Tap "Read the story" on a day card to expand this content.
+   Glossary terms inside [[double brackets]] become tappable.
+   ════════════════════════════════════════════════════════════ */
+const STORIES = {
+
+  d2: { // Ngorongoro Crater
+    title: 'A name from a cowbell, a cradle of humankind',
+    paragraphs: [
+      `"Ngorongoro" is onomatopoeic — [[Maasai]] pastoralists named the crater after the sound of a cowbell, ngoro ngoro, a small domestic detail at the root of one of the most dramatic landscapes on Earth. The crater itself formed when a massive volcano, once perhaps as tall as Kilimanjaro, erupted and collapsed in on itself around 2.5 million years ago — leaving behind the vast, walled bowl that exists today.`,
+      `This is one of the only places on the planet where people, wildlife, and deep human history occupy the same ground at once. Unlike a typical national park, Ngorongoro was deliberately created as something different: a multiple land-use area where wildlife coexists with semi-nomadic [[Maasai]] pastoralists, who still graze cattle within its boundaries — the Maasai make up about 98% of the resident population here, living, herding, and moving through the same landscape your vehicle will descend into.`,
+      `And underneath all of it, quite literally, lies the story of where humans came from. A short drive from the crater rim sits [[Olduvai Gorge]] — often called the "Cradle of Mankind." Its name comes from a Maasai phrase, oldupai, meaning "the place of the wild sisal," for the plant that still grows there. In the 1950s, archaeologists Mary and Louis Leakey spent over thirty years excavating this gorge, uncovering fossil remains of more than 60 individual early humans — the most continuous known record of human evolution over the past two million years. Nearby, at Laetoli, footprints preserved in volcanic ash — left by an upright-walking human ancestor 3.6 million years ago — are some of the earliest direct evidence that our ancestors walked on two feet at all.`,
+      `It means the descent into the crater isn't just entering a wildlife reserve. It's stepping into ground that has been continuously inhabited — by early hominins, then pastoralist communities, then today's Maasai — for nearly four million years. Whether you're marveling at the wildlife on the crater floor or standing at the edge of the gorge, every moment here invites a kind of reflection most safari stops don't ask for: a sense of standing exactly where the human story itself may have begun.`,
+      `Then the descent itself. Vehicles queue at the gate just before dawn, the air crisp, mist still clinging to the rim. The descent is steep and winding — ancient forest pressing in on both sides, sweeping views opening with every turn. It feels like entering a hidden world. By the time the vehicle reaches the floor, the crater may reveal lions resting in the open, elephants moving across the grass, and — if the light and the day cooperate — all of the [[Big Five]] within a single morning, a density of life rarely matched anywhere else in Africa.`,
+    ],
+  },
+
+  d15: { // Bwindi — Gorilla Habituation
+    title: 'The Keepers of the Forest, and the family you will meet',
+    paragraphs: [
+      `The forest has another name first. Long before it was known for gorillas, Bwindi was home to the [[Batwa]] — a people anthropologists estimate have lived in central Africa's equatorial forests for 60,000 years or more, known as "the Keepers of the Forest." They survived by hunting small game and gathering fruit, moving constantly through the forest, living in small huts that were never meant to be permanent. They considered the gorillas part of their forest family, sharing the same food, coexisting without threat for centuries.`,
+      `That changed in 1991. When Bwindi was gazetted as a national park to protect the critically endangered mountain gorillas, the Batwa were evicted — without land, without compensation, without an alternative way to live. It's a complicated truth sitting underneath every gorilla trek today: the same conservation effort that saved the gorillas displaced the people who had lived alongside them peacefully for millennia. Some lodges and tour operators now run Batwa cultural visits as a way of channeling tourism revenue back to the community — a small, imperfect repair for what was lost.`,
+      `Then there's the forest itself. Bwindi means "impenetrable" for a reason — not metaphor, just description. It holds 120 mammal species, 348 species of birds, 220 species of butterflies. Half of the entire world's remaining mountain gorilla population lives within its borders.`,
+      `The day will start before light. A pre-sunrise briefing with the ranger team — what to expect, ground rules, and what's known so far about the specific gorilla family being visited that day. Then into the forest — steep, often muddy trails through dense rainforest, with porters available to help carry gear, and rangers ensuring safety the entire way.`,
+      `This isn't standard trekking — it's the [[habituation experience]], a different and rarer thing. Habituation is the gradual process by which wild gorillas are slowly taught to tolerate human presence — researchers and trackers spend years following a group, mimicking non-threatening gorilla behavior, until fear responses fade. The gorillas met on this trek are still mid-process — not fully accustomed to humans, which makes the encounter feel more raw and authentic than a standard trek.`,
+      `Four hours, not one. Standard trekking allows a single hour with a gorilla family. Habituation allows up to four — in a small group of just four visitors, accompanied by a dedicated ranger and research team, enough time to watch a family actually live its ordinary life: feeding, grooming, resting, juveniles wrestling and climbing, low rumbling vocalizations during feeding that signal contentment.`,
+      `And then, at some point, a moment that's hard to describe until it happens. Nothing fully prepares a person for the first time a [[silverback]] looks directly back at them from a few meters away. It registers differently than seeing any other animal — the brain's social circuitry responds to it as a genuine social signal, not just an observation, because gorillas share roughly 98% of human evolutionary history. People don't usually remember it as "I saw gorillas." They remember it as "I was seen by a gorilla."`,
+      `It tends to be remembered, afterward, as humbling and quietly grounding — a reminder that in the heart of this particular forest, the visitor is the guest.`,
+    ],
+  },
+
+};
+
+/* ── Glossary — tappable terms inside story paragraphs ──────── */
+const GLOSSARY = {
+  'maasai': {
+    title: 'The Maasai',
+    body: 'A semi-nomadic pastoralist people of East Africa, known for cattle-herding, distinctive red shuka clothing, and beaded jewelry. The Maasai make up roughly 98% of the resident population within the Ngorongoro Conservation Area, one of the only protected areas in Tanzania where traditional grazing is still legally permitted alongside wildlife conservation.',
+  },
+  'olduvai gorge': {
+    title: 'Olduvai Gorge',
+    body: 'A 48km-long ravine in the Great Rift Valley, often called the "Cradle of Mankind." Archaeologists Mary and Louis Leakey spent over 30 years here uncovering fossils of more than 60 early humans, including Homo habilis and Paranthropus boisei — among the most important paleoanthropological discoveries of the 20th century.',
+  },
+  'big five': {
+    title: 'The Big Five',
+    body: 'A term coined by big-game hunters in colonial-era Africa for the five animals considered most dangerous to hunt on foot: lion, African elephant, Cape buffalo, leopard, and rhino. Today it is used by safari guides to describe the five most sought-after sightings — Ngorongoro is one of the few places where all five can realistically appear in a single morning.',
+  },
+  'batwa': {
+    title: 'The Batwa',
+    body: 'An indigenous forest people, sometimes called "the Keepers of the Forest," believed to have lived in the equatorial forests of central Africa for 60,000+ years. When Bwindi was made a national park in 1991 to protect mountain gorillas, the Batwa were evicted without land or compensation. Some now lead cultural visits for travelers, sharing traditional skills like fire-starting and herbal medicine.',
+  },
+  'habituation experience': {
+    title: 'Gorilla Habituation',
+    body: 'The gradual, multi-year process by which wild mountain gorillas are taught to tolerate calm human presence, used both for conservation monitoring and limited tourism. Unlike standard one-hour gorilla trekking, the habituation experience allows up to four hours with a gorilla family still partway through this process — a rawer, less polished encounter, in small groups of just four visitors.',
+  },
+  'silverback': {
+    title: 'Silverback',
+    body: 'A mature male mountain gorilla, typically over 12 years old, named for the saddle of silver-grey hair that develops across his back. A silverback leads and protects his family group, and is usually the calmest, most confident individual in the group — often the one who maintains the longest, steadiest eye contact with visitors.',
+  },
+};
+
+Object.assign(Data, {
+  getStory:    (dayId) => STORIES[dayId] || null,
+  hasStory:    (dayId) => !!STORIES[dayId],
+  getGlossary: (term) => GLOSSARY[term?.toLowerCase()] || null,
+});
+
 window.Data = Data;
 
 /* ── Compatibility stubs (called by bookings.js) ──────────── */
