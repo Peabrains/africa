@@ -21,15 +21,24 @@ const BottomSheet = (() => {
     document.body.appendChild(overlay);
     document.body.appendChild(sheet);
 
-    sheet.addEventListener('touchstart', e => { startY = e.touches[0].clientY; currentY = startY; }, { passive:true });
+    sheet.addEventListener('touchstart', e => {
+      startY = e.touches[0].clientY; currentY = startY;
+    }, { passive:true });
     sheet.addEventListener('touchmove', e => {
+      // Don't interfere if user is focused on an input/textarea/select
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       currentY = e.touches[0].clientY;
       const dy = currentY - startY;
-      if (dy > 15) { sheet.style.transition='none'; sheet.style.transform=`translateY(${dy}px)`; e.preventDefault(); }
+      if (dy > 20) { sheet.style.transition='none'; sheet.style.transform=`translateY(${dy}px)`; e.preventDefault(); }
     }, { passive:false });
     sheet.addEventListener('touchend', () => {
       sheet.style.transition = 'transform 0.3s cubic-bezier(0.32,0.72,0,1)';
-      if ((currentY - startY) > 90) close(); else sheet.style.transform = 'translateY(0)';
+      // Require a larger swipe (140px) to close when near inputs
+      const tag = document.activeElement?.tagName;
+      const hasInput = sheet.querySelector('input,textarea,select');
+      const threshold = hasInput ? 140 : 90;
+      if ((currentY - startY) > threshold) close(); else sheet.style.transform = 'translateY(0)';
     }, { passive:true });
   }
 
