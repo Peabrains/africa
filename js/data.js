@@ -646,6 +646,7 @@ const Data = {
       if (storedName) TRIP_NAME = storedName;
       const storedLinks = await DB.loadCustomLinks().catch(() => []);
       if (storedLinks?.length) CUSTOM_LINKS = storedLinks;
+      await dexInit();
     } catch(e) { console.warn('[Data.init]', e); }
   },
 
@@ -837,6 +838,112 @@ const Data = {
     return balances;
   },
 };
+
+
+
+/* ════════════════════════════════════════════════════════════
+   SAFARI DEX — "catch" wildlife sightings, Pokédex-style
+   Tap silhouette → mark caught → attach photos from camera roll
+   ════════════════════════════════════════════════════════════ */
+const ANIMALS = [
+  // Big Five — the headline collection
+  {id:'lion',      name:'Lion',            tier:'common',    emoji:'🦁', big5:true,  fact:'Only cats that live in social prides. Males roar to mark territory up to 8km away.'},
+  {id:'elephant',  name:'African Elephant',tier:'common',    emoji:'🐘', big5:true,  fact:'Largest land mammal. Can detect water sources up to 19km away by smell.'},
+  {id:'buffalo',   name:'Cape Buffalo',    tier:'common',    emoji:'🐃', big5:true,  fact:'Considered the most dangerous of the Big Five — unpredictable and powerful.'},
+  {id:'leopard',   name:'Leopard',         tier:'rare',      emoji:'🐆', big5:true,  fact:'Solitary and mostly nocturnal. Can drag prey twice its body weight up a tree.'},
+  {id:'rhino',     name:'Black Rhino',     tier:'legendary', emoji:'🦏', big5:true,  fact:'Critically endangered — fewer than 6,500 left in the wild today.'},
+
+  // Bonus — common
+  {id:'zebra',      name:'Zebra',           tier:'common', emoji:'🦓', big5:false, fact:'Every zebra\'s stripe pattern is unique — like a fingerprint.'},
+  {id:'giraffe',    name:'Giraffe',         tier:'common', emoji:'🦒', big5:false, fact:'Tallest land animal. Its heart weighs about 11kg to pump blood up that neck.'},
+  {id:'wildebeest', name:'Wildebeest',      tier:'common', emoji:'🐂', big5:false, fact:'Stars of the Great Migration — over 1.5 million cross the Serengeti-Mara yearly.'},
+  {id:'hippo',      name:'Hippopotamus',    tier:'common', emoji:'🦛', big5:false, fact:'Kill more people in Africa each year than lions, despite being herbivores.'},
+  {id:'impala',     name:'Impala',          tier:'common', emoji:'🦌', big5:false, fact:'Can leap up to 3m high and 10m in a single bound to escape predators.'},
+  {id:'baboon',     name:'Baboon',          tier:'common', emoji:'🐒', big5:false, fact:'Live in troops of up to 150, with a strict social hierarchy.'},
+  {id:'warthog',    name:'Warthog',         tier:'common', emoji:'🐗', big5:false, fact:'Often share burrows with other warthogs — and sometimes mongooses too.'},
+
+  // Bonus — rare
+  {id:'cheetah',    name:'Cheetah',         tier:'rare', emoji:'🐆', big5:false, fact:'Fastest land animal — 0 to 100km/h in about 3 seconds.'},
+  {id:'hyena',      name:'Spotted Hyena',   tier:'rare', emoji:'🐕', big5:false, fact:'Far better hunters than scavengers — they kill most of their own food.'},
+  {id:'crocodile',  name:'Nile Crocodile',  tier:'rare', emoji:'🐊', big5:false, fact:'Ambush predators in the Mara River during wildebeest crossings.'},
+  {id:'ostrich',    name:'Ostrich',         tier:'rare', emoji:'🦤', big5:false, fact:'Largest living bird. Can run at 70km/h — faster than most predators.'},
+  {id:'flamingo',   name:'Flamingo',        tier:'rare', emoji:'🦩', big5:false, fact:'Their pink colour comes entirely from the algae and shrimp they eat.'},
+  {id:'serval',     name:'Serval',          tier:'rare', emoji:'🐈', big5:false, fact:'Has the largest ears relative to body size of any cat — incredible hearing.'},
+
+  // Legendary
+  {id:'gorilla',    name:'Mountain Gorilla',tier:'legendary', emoji:'🦍', big5:false, fact:'Fewer than 1,100 left in the wild — Bwindi is home to nearly half of them.'},
+  {id:'aardvark',   name:'Aardvark',        tier:'legendary', emoji:'🐾', big5:false, fact:'Nocturnal and rarely seen — most safari guides go years without a sighting.'},
+];
+
+/* ── DB-backed catch state ───────────────────────────────── */
+let DEX_CAUGHT = {}; // { animalId: { caughtAt, note, dayId, photoIds:[] } }
+
+async function dexInit() {
+  try {
+    const stored = await DB.loadDex();
+    if (stored) DEX_CAUGHT = stored;
+  } catch(e) { console.warn('[Dex] init failed', e); }
+}
+
+Object.assign(Data, {
+  getAnimals:  () => ANIMALS,
+  getAnimal:   (id) => ANIMALS.find(a => a.id === id),
+  getDexState: () => DEX_CAUGHT,
+  isCaught:    (id) => !!DEX_CAUGHT[id],
+
+  getDexProgress() {
+    const all      = ANIMALS;
+    const caught   = all.filter(a => DEX_CAUGHT[a.id]);
+    const big5     = all.filter(a => a.big5);
+    const big5Caught = big5.filter(a => DEX_CAUGHT[a.id]);
+    return {
+      total: all.length, caught: caught.length,
+      big5Total: big5.length, big5Caught: big5Caught.length,
+      big5Complete: big5Caught.length === big5.length,
+    };
+  },
+
+  async markCaught(animalId, { note = '', dayId = null } = {}) {
+    DEX_CAUGHT[animalId] = {
+      caughtAt: Date.now(), note, dayId,
+      photoIds: DEX_CAUGHT[animalId]?.photoIds || [],
+    };
+    await DB.saveDex(DEX_CAUGHT);
+    Sync?.pushDex?.();
+    return DEX_CAUGHT[animalId];
+  },
+
+  async unmarkCaught(animalId) {
+    delete DEX_CAUGHT[animalId];
+    await DB.saveDex(DEX_CAUGHT);
+    Sync?.pushDex?.();
+  },
+
+  async addDexPhoto(animalId, fileDataUrl) {
+    if (!DEX_CAUGHT[animalId]) await this.markCaught(animalId, {});
+    const photoId = 'ph_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    await DB.saveDexPhoto(photoId, fileDataUrl);
+    DEX_CAUGHT[animalId].photoIds.push(photoId);
+    await DB.saveDex(DEX_CAUGHT);
+    Sync?.pushDex?.();
+    return photoId;
+  },
+
+  async removeDexPhoto(animalId, photoId) {
+    if (!DEX_CAUGHT[animalId]) return;
+    DEX_CAUGHT[animalId].photoIds = DEX_CAUGHT[animalId].photoIds.filter(id => id !== photoId);
+    await DB.deleteDexPhoto(photoId);
+    await DB.saveDex(DEX_CAUGHT);
+    Sync?.pushDex?.();
+  },
+
+  async getDexPhoto(photoId) {
+    return await DB.loadDexPhoto(photoId);
+  },
+
+  setDexState(state) { DEX_CAUGHT = state; },
+});
+
 
 window.Data = Data;
 
