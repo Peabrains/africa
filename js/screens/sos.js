@@ -376,7 +376,7 @@ const SOSScreen = (() => {
 
     const hint = document.createElement('p');
     hint.style.cssText = 'font-size:var(--text-xs);color:var(--text-muted);padding:0 0 var(--s2);line-height:1.4';
-    hint.textContent = 'Tap to hear it spoken aloud. Works fully offline — voice quality depends on your phone\'s available languages.';
+    hint.textContent = '🔊 Listen works offline (quality varies by phone). 🌐 Hear on Google opens Google Translate with a real native-sounding voice — needs internet, opens in a new tab.';
     phraseDiv.appendChild(hint);
 
     PHRASES.forEach(p => {
@@ -388,13 +388,26 @@ const SOSScreen = (() => {
         <p style="font-size:var(--text-base);font-weight:500;color:var(--text-primary);margin:2px 0 1px">${p.sw}</p>
         ${p.rom ? `<p style="font-size:var(--text-xs);color:var(--text-secondary);font-style:italic">${p.rom}</p>` : ''}`;
       const btnRow = document.createElement('div');
-      btnRow.style.cssText = 'display:flex;gap:6px;align-self:flex-end;margin-top:6px';
+      btnRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;margin-top:6px';
 
       const audioBtn = document.createElement('button');
       audioBtn.className = 'kit-copy-btn';
       audioBtn.textContent = '🔊 Listen';
       audioBtn.addEventListener('click', () => playSwahili(p.sw, audioBtn));
       btnRow.appendChild(audioBtn);
+
+      // Open Google Translate directly — tap the speaker icon there for a
+      // real native-sounding voice. This is a normal link the user's own
+      // browser navigates to, so it isn't blocked the way a background
+      // fetch from inside the app would be.
+      const gtBtn = document.createElement('a');
+      gtBtn.className = 'kit-copy-btn';
+      gtBtn.textContent = '🌐 Hear on Google';
+      gtBtn.target = '_blank';
+      gtBtn.rel = 'noopener';
+      gtBtn.style.textDecoration = 'none';
+      gtBtn.href = `https://translate.google.com/?sl=sw&tl=en&text=${encodeURIComponent(p.sw)}&op=translate`;
+      btnRow.appendChild(gtBtn);
 
       const copyBtn = document.createElement('button');
       copyBtn.className = 'kit-copy-btn';
