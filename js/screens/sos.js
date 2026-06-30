@@ -296,17 +296,37 @@ const SOSScreen = (() => {
         <p style="font-size:var(--text-xs);color:var(--text-muted)">${p.en}</p>
         <p style="font-size:var(--text-base);font-weight:500;color:var(--text-primary);margin:2px 0 1px">${p.sw}</p>
         ${p.rom ? `<p style="font-size:var(--text-xs);color:var(--text-secondary);font-style:italic">${p.rom}</p>` : ''}`;
-      const btn = document.createElement('button');
-      btn.className = 'kit-copy-btn';
-      btn.style.cssText = 'align-self:flex-end;margin-top:4px';
-      btn.textContent = 'Copy';
-      btn.addEventListener('click', () => {
+      const btnRow = document.createElement('div');
+      btnRow.style.cssText = 'display:flex;gap:6px;align-self:flex-end;margin-top:6px';
+      // Audio button — Web Speech API
+      if ('speechSynthesis' in window) {
+        const audioBtn = document.createElement('button');
+        audioBtn.className = 'kit-copy-btn';
+        audioBtn.textContent = '🔊 Listen';
+        audioBtn.addEventListener('click', () => {
+          window.speechSynthesis.cancel();
+          const utt = new SpeechSynthesisUtterance(p.sw);
+          utt.lang = 'sw-TZ'; // Swahili Tanzania
+          utt.rate = 0.85;
+          utt.pitch = 1;
+          audioBtn.textContent = '🔊 Playing…';
+          utt.onend = () => { audioBtn.textContent = '🔊 Listen'; };
+          utt.onerror = () => { audioBtn.textContent = '🔊 Listen'; };
+          window.speechSynthesis.speak(utt);
+        });
+        btnRow.appendChild(audioBtn);
+      }
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'kit-copy-btn';
+      copyBtn.textContent = 'Copy';
+      copyBtn.addEventListener('click', () => {
         navigator.clipboard?.writeText(p.sw).then(() => {
-          btn.textContent = '✓';
-          setTimeout(() => btn.textContent = 'Copy', 1500);
+          copyBtn.textContent = '✓';
+          setTimeout(() => copyBtn.textContent = 'Copy', 1500);
         });
       });
-      card.appendChild(btn);
+      btnRow.appendChild(copyBtn);
+      card.appendChild(btnRow);
       phraseDiv.appendChild(card);
     });
     wrap.appendChild(phraseDiv);
@@ -340,7 +360,7 @@ const SOSScreen = (() => {
     if (!customLinks.length) {
       const em = document.createElement('p');
       em.style.cssText = 'font-size:var(--text-xs);color:var(--text-muted);font-style:italic;padding:var(--s2) 0';
-      em.textContent = 'No custom links yet — add from the itinerary screen.';
+      em.textContent = 'No custom links yet.';
       wrap.appendChild(em);
     } else {
       customLinks.forEach(link => {
@@ -350,6 +370,27 @@ const SOSScreen = (() => {
         }));
       });
     }
+
+    // Add custom link form — right here in Kit/Guides tab
+    const addForm = document.createElement('div');
+    addForm.style.cssText = 'margin-top:var(--s3);background:var(--surface-raised);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:var(--s3);display:flex;flex-direction:column;gap:var(--s2)';
+    addForm.innerHTML = `
+      <p style="font-size:var(--text-xs);font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Add link</p>
+      <input id="cl-title" placeholder="Title (e.g. Asilia Camps)" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 10px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
+      <input id="cl-url" placeholder="URL (https://...)" type="url" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 10px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
+      <button id="cl-add-btn" style="background:var(--accent);color:#fff;border:none;border-radius:var(--r-md);padding:8px 16px;font-size:var(--text-sm);font-weight:500;cursor:pointer;font-family:var(--font);align-self:flex-end">Add link</button>`;
+    addForm.querySelector('#cl-add-btn').addEventListener('click', async () => {
+      const title = addForm.querySelector('#cl-title').value.trim();
+      const url   = addForm.querySelector('#cl-url').value.trim();
+      if (!title || !url) { Toast.show('Title and URL are required', 'warning'); return; }
+      if (!url.startsWith('http')) { Toast.show('URL must start with https://', 'warning'); return; }
+      await Data.addCustomLink({ title, url });
+      addForm.querySelector('#cl-title').value = '';
+      addForm.querySelector('#cl-url').value = '';
+      Toast.show('Link added ✓', 'success');
+      render();
+    });
+    wrap.appendChild(addForm);
 
     return wrap;
   }
