@@ -61,21 +61,21 @@ const Weather = (() => {
     return days;
   }
 
-  const REL_LABELS = ['Today', 'Tomorrow', '+2 days'];
+  const REL_LABELS = ['Today', 'Tmrw', '+2d'];
 
   function dayCard(d, idx) {
     const { label, emoji } = wmo(d.code);
-    const dateLabel = REL_LABELS[idx] || '+' + idx + ' days';
+    const dateLabel = REL_LABELS[idx] || '+' + idx + 'd';
     const hasRain = d.precipProb != null && d.precipProb > 0;
-    const isWet   = hasRain && d.precipProb >= 50;
+    const isWet   = hasRain && d.precipProb >= 40;
     const rainLine = hasRain
       ? `<span class="wx-rain${isWet ? ' wx-rain--wet' : ''}">☂ ${d.precipProb}%${d.precip > 0 ? ' · ' + d.precip + 'mm' : ''}</span>`
-      : '';
+      : `<span class="wx-rain">—</span>`;
     return `
       <div class="wx-day">
         <span class="wx-date">${dateLabel}</span>
         <span class="wx-icon" title="${label}">${emoji}</span>
-        <span class="wx-temp">${d.max}° / ${d.min}°</span>
+        <span class="wx-temp">${d.max}° <span class="wx-temp-min">/ ${d.min}°</span></span>
         ${rainLine}
       </div>`;
   }
@@ -87,8 +87,8 @@ const Weather = (() => {
       const days = await fetch3Day(lat, lng);
       el.innerHTML = `
         <div class="wx-strip">
-          <span class="wx-location">${label}</span>
-          ${days.map((d, i) => dayCard(d, i)).join('')}
+          <div class="wx-location">${label}</div>
+          <div class="wx-days-row">${days.map((d, i) => dayCard(d, i)).join('')}</div>
         </div>`;
     } catch(_) { el.innerHTML = ''; }
   }
@@ -100,8 +100,8 @@ const Weather = (() => {
       const allDays = await Promise.all(points.map(p => fetch3Day(p.lat, p.lng)));
       el.innerHTML = allDays.map((days, i) => `
         <div class="wx-strip">
-          <span class="wx-location">${points[i].label}</span>
-          ${days.map((d, j) => dayCard(d, j)).join('')}
+          <div class="wx-location">${points[i].label}</div>
+          <div class="wx-days-row">${days.map((d, j) => dayCard(d, j)).join('')}</div>
         </div>`).join('');
     } catch(_) { el.innerHTML = ''; }
   }
