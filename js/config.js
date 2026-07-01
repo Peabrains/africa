@@ -10,7 +10,7 @@ const Config = {
   TRIP_NAME:    'Africa Safari 2026',
   TRIP_DATE:    '2026-08-31',   // Departure date KUL → Doha
   DATA_VERSION: 1,              // Bump when SEED_STOPS change fundamentally
-  APP_VERSION:  'v18',           // Auto-incremented by deploy script — do not edit manually
+  APP_VERSION:  'v19',           // Auto-incremented by deploy script — do not edit manually
 
   BUDGET_MYR:   0,              // Set your total trip budget in MYR
   CURRENCY:     'USD',          // Primary foreign currency for this trip
