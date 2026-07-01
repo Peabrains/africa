@@ -3,8 +3,8 @@
    Cache version auto-bumps on every deploy via BUILD_TS
    BUILD: 202606292258
    ============================================================ */
-const CACHE   = 'africa-safari-202606292258';
-const VERSION = '202606292258';
+const CACHE   = 'africa-safari-202607010103';
+const VERSION = '202607010103';
 
 const PRECACHE = [
   './', './index.html', './css/tokens.css', './css/print.css',
