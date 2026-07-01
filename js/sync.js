@@ -102,6 +102,11 @@ const Sync = (() => {
   function applyRemote(record) {
     if (!record) return;
 
+    // Never apply remote data when offline — local writes are the source
+    // of truth until we're back online. Without this guard, an offline
+    // InstantDB response clobbers freshly-added local expenses/packing/etc.
+    if (!navigator.onLine) return;
+
     // Version check
     const blobVersion   = parseInt(record.dataVersion || '1');
     const targetVersion = Config.DATA_VERSION || 1;
