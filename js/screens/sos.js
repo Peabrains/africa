@@ -177,7 +177,7 @@ const SOSScreen = (() => {
         <p style="font-size:var(--text-sm);font-weight:500;color:var(--text-primary)">Wildsenses Holidays</p>
         <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">24hr trip support</p>
       </div>
-      <a href="tel:+6028138778" style="background:var(--accent);color:#fff;border:none;border-radius:var(--r-sm);padding:6px 12px;font-size:var(--text-sm);font-weight:500;text-decoration:none;font-family:var(--font)">📞 +60 28138778</a>`;
+      <a href="tel:+85228138778" style="background:var(--accent);color:#fff;border:none;border-radius:var(--r-sm);padding:6px 12px;font-size:var(--text-sm);font-weight:500;text-decoration:none;font-family:var(--font)">📞 +852 2813 8778</a>`;
     opSection.appendChild(opCard);
     wrap.appendChild(opSection);
 
