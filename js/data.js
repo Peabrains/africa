@@ -5,7 +5,7 @@
    Vivien · East Africa Safari & Mountain Gorilla · 15 Nights
    KUL → Tanzania → Kenya → Uganda → KUL
    31 Aug – 17 Sep 2026
-   Operator: Wildsenses Holidays (+60 28138778)
+   Operator: Wildsenses Holidays (+852 2813 8778)
    www.wildsensesholidays.com
    ============================================================ */
 
@@ -518,7 +518,7 @@ const SOS_DATA = {
     {label:'MY Embassy Nairobi',         value:'+254 20 2697 000'},
     {label:'MY Embassy Kampala',         value:'+256 41 4343 850'},
     // Tour Operator
-    {label:'Wildsenses Holidays (24hr)', value:'+60 28138778', note:'Your operator — call first for any trip issue'},
+    {label:'Wildsenses Holidays (24hr)', value:'+852 2813 8778', note:'Your operator — call first for any trip issue'},
   ],
   lodging:[
     {label:'D1–2 Ngorongoro',  value:'Asilia The Highlands',                  address:'Ngorongoro Conservation Area, Tanzania'},
