@@ -68,15 +68,18 @@ const Weather = (() => {
     const dateLabel = REL_LABELS[idx] || '+' + idx + 'd';
     const hasRain = d.precipProb != null && d.precipProb > 0;
     const isWet   = hasRain && d.precipProb >= 40;
+    const mmPart  = (d.precip != null && d.precip > 0) ? ' · ' + d.precip + 'mm' : '';
     const rainLine = hasRain
-      ? `<span class="wx-rain${isWet ? ' wx-rain--wet' : ''}">☂ ${d.precipProb}%${d.precip > 0 ? ' · ' + d.precip + 'mm' : ''}</span>`
+      ? `<span class="wx-rain${isWet ? ' wx-rain--wet' : ''}">☂ ${d.precipProb}%${mmPart}</span>`
       : `<span class="wx-rain">—</span>`;
     return `
       <div class="wx-day">
-        <span class="wx-date">${dateLabel}</span>
         <span class="wx-icon" title="${label}">${emoji}</span>
-        <span class="wx-temp">${d.max}° <span class="wx-temp-min">/ ${d.min}°</span></span>
-        ${rainLine}
+        <div class="wx-text">
+          <span class="wx-date">${dateLabel}</span>
+          <span class="wx-temp">${d.max}° <span class="wx-temp-min">${d.min}°</span></span>
+          ${rainLine}
+        </div>
       </div>`;
   }
 
