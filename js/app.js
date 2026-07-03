@@ -141,12 +141,15 @@ const App = (() => {
     registerSW();
     await DB.init();
 
-    // DEBUG: show status on screen
-    function dbg(msg) {
-      const el = document.getElementById('screen-content');
-      if (el) el.innerHTML += `<p style="font-size:12px;padding:4px 16px;color:#666;font-family:monospace">${msg}</p>`;
-    }
+    // DEBUG: write directly to body so it always shows
+    const _dbgBox = document.createElement('div');
+    _dbgBox.style.cssText = 'position:fixed;bottom:80px;left:0;right:0;background:rgba(0,0,0,.85);color:#0f0;font-size:11px;font-family:monospace;padding:8px;z-index:9998;max-height:40vh;overflow-y:auto';
+    document.body.appendChild(_dbgBox);
+    function dbg(msg) { _dbgBox.innerHTML += msg + '<br>'; }
 
+    // Check if Supabase loaded
+    dbg('SB loaded: ' + (typeof SB !== 'undefined'));
+    dbg('Data loaded: ' + (typeof Data !== 'undefined'));
     dbg('1. DB init done');
 
     let trips = [];
