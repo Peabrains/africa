@@ -43,7 +43,7 @@ const Auth = (() => {
         <div id="auth-mode" data-mode="login" style="display:flex;flex-direction:column;gap:var(--s3)">
           <div id="auth-name-field" style="display:none;flex-direction:column;gap:4px">
             <label style="font-size:var(--text-xs);font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Your name</label>
-            <input id="auth-name" type="text" placeholder="Vivien"
+            <input id="auth-name" type="text" placeholder="Traveler"
               style="border:1.5px solid var(--border);border-radius:var(--r-md);padding:12px var(--s3);font-size:var(--text-base);background:var(--surface);color:var(--text-primary);font-family:var(--font);width:100%;box-sizing:border-box">
           </div>
           <div style="display:flex;flex-direction:column;gap:4px">
