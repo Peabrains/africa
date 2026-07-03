@@ -206,7 +206,18 @@ const App = (() => {
     try {
       switchTo(start);
       dbg('switchTo ✓');
-    } catch(e) { dbg('switchTo ✗ ' + e.message, '#f66'); }
+      // Check if screen actually rendered
+      const sc = document.getElementById('screen-content');
+      dbg('screen-content children: ' + (sc ? sc.children.length : 'null'));
+      dbg('days available: ' + Data.getDays().length);
+      if (Data.getDays().length > 0) {
+        const d = Data.getDays()[0];
+        dbg('day[0]: ' + JSON.stringify({id:d.id, label:d.label, title:d.title}));
+      }
+    } catch(e) { 
+      dbg('switchTo ✗ ' + e.message, '#f66');
+      dbg('stack: ' + (e.stack||'').split('\n')[1], '#f66');
+    }
 
     // Sync disabled on platform branch (uses Supabase, not InstantDB)
     try { scheduleDayBeforeReminders(); } catch(_) {}
