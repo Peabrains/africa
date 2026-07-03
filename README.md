@@ -1,6 +1,6 @@
 # Africa Safari 2026 — PWA
 
-East Africa Safari & Mountain Gorilla · Vivien  
+East Africa Safari & Mountain Gorilla 
 Tanzania → Kenya → Uganda · 31 Aug – 17 Sep · 15 Nights
 
 **Live:** https://peabrains.github.io/africa/
