@@ -139,37 +139,45 @@ const App = (() => {
   /* ── Init (called by Auth.gate().then(() => App.init())) ─────── */
   async function init() {
     registerSW();
-    await DB.init();
+    // Debug panel
+    const _dbg = document.createElement('div');
+    _dbg.style.cssText = 'position:fixed;bottom:80px;left:0;right:0;background:rgba(0,0,0,.9);color:#0f0;font-size:11px;font-family:monospace;padding:8px 12px;z-index:9998;max-height:50vh;overflow-y:auto';
+    document.body.appendChild(_dbg);
+    function dbg(msg, col) { _dbg.innerHTML += `<div style="color:${col||'#0f0'}">${msg}</div>`; }
 
-    console.log('[App] DB init done, SB:', typeof SB, 'Data:', typeof Data);
+    dbg('SB: ' + (typeof SB) + ' | Data: ' + (typeof Data));
+
+    try {
+      await DB.init();
+      dbg('DB.init ✓');
+    } catch(e) { dbg('DB.init ✗ ' + e.message, '#f66'); }
 
     let trips = [];
     try {
       trips = await Data.loadTrips?.() || [];
-      console.log('[App] loadTrips count:', trips.length);
-    } catch(e) {
-      console.error('[App] loadTrips ERROR:', e.message);
-    }
+      dbg('loadTrips ✓ count:' + trips.length);
+      if (trips[0]) dbg('trip: ' + trips[0].name);
+    } catch(e) { dbg('loadTrips ✗ ' + e.message, '#f66'); }
 
     if (!trips.length) {
+      dbg('NO TRIPS — stopping', '#f66');
       const content = document.getElementById('screen-content');
       if (content) content.innerHTML = `
         <div style="padding:var(--s6);text-align:center">
           <span style="font-size:48px">🌍</span>
-          <p style="margin-top:var(--s3);font-size:var(--text-base);color:var(--text-primary);font-weight:500">No trips found</p>
-          <button onclick="Auth.signOut()" style="margin-top:var(--s4);background:none;border:1.5px solid var(--border);border-radius:var(--r-md);padding:10px 20px;font-size:var(--text-sm);color:var(--text-secondary);cursor:pointer;font-family:var(--font)">Sign out</button>
+          <p style="margin-top:var(--s3);font-size:var(--text-base);font-weight:500">No trips found</p>
+          <button onclick="Auth.signOut()" style="margin-top:var(--s4);background:none;border:1.5px solid var(--border);border-radius:var(--r-md);padding:10px 20px;font-size:var(--text-sm);cursor:pointer;font-family:var(--font)">Sign out</button>
         </div>`;
       return;
     }
 
     try {
       await Data.init();
-      console.log('[App] Data.init done — days:', Data.getDays().length);
-    } catch(e) {
-      console.error('[App] Data.init ERROR:', e.message);
-    }
+      dbg('Data.init ✓ days:' + Data.getDays().length);
+    } catch(e) { dbg('Data.init ✗ ' + e.message, '#f66'); }
 
     TripSwitcher?.init();
+    dbg('TripSwitcher ✓');
 
 
     watchConnectivity();
@@ -194,7 +202,11 @@ const App = (() => {
 
     let start = 'itinerary';
     try { start = sessionStorage.getItem('lastScreen') || 'itinerary'; } catch(_) {}
-    switchTo(start);
+    dbg('switching to: ' + start);
+    try {
+      switchTo(start);
+      dbg('switchTo ✓');
+    } catch(e) { dbg('switchTo ✗ ' + e.message, '#f66'); }
 
     // Sync disabled on platform branch (uses Supabase, not InstantDB)
     try { scheduleDayBeforeReminders(); } catch(_) {}
