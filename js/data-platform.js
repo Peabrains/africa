@@ -37,16 +37,37 @@ const Data = (() => {
   /* ── Load all trips for the current user ─────────────────── */
   async function loadTrips() {
     try {
-      const { data, error } = await SB
+      // Fetch trips where user is owner OR a member
+      const { data: ownedTrips, error: e1 } = await SB
         .from('trips')
-        .select(`
-          *,
-          trip_members!inner(role, status)
-        `)
+        .select('*')
+        .eq('owner_id', (await SB.auth.getUser()).data.user?.id)
         .order('start_date', { ascending: true });
 
-      if (error) throw error;
-      TRIPS = data || [];
+      if (e1) throw e1;
+
+      const { data: memberTrips, error: e2 } = await SB
+        .from('trip_members')
+        .select('trip_id, trips(*)')
+        .eq('status', 'active');
+
+      if (e2) throw e2;
+
+      // Merge and deduplicate
+      const memberTripRecords = (memberTrips || [])
+        .map(m => m.trips)
+        .filter(Boolean);
+
+      const allTrips = [...(ownedTrips || [])];
+      memberTripRecords.forEach(t => {
+        if (!allTrips.find(a => a.id === t.id)) allTrips.push(t);
+      });
+
+      TRIPS = allTrips.sort((a, b) =>
+        new Date(a.start_date) - new Date(b.start_date)
+      );
+
+      await DB.setMeta(CACHE_KEYS.trips, TRIPS);
       return TRIPS;
     } catch(e) {
       console.warn('[Data] loadTrips failed, using cache:', e.message);
@@ -516,7 +537,7 @@ const Data = (() => {
   function setExpenses(exps)  { EXPENSES = exps; }
 
   return {
-    init,
+    init, loadTrips,
     // Days
     getDays,
     // Stops
