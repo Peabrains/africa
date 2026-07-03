@@ -179,19 +179,30 @@ const App = (() => {
     TripSwitcher?.init();
     dbg('TripSwitcher ✓');
 
+    try { watchConnectivity(); dbg('watchConnectivity ✓'); } 
+    catch(e) { dbg('watchConnectivity ✗ ' + e.message, '#f66'); }
 
-    watchConnectivity();
-    updateUrgentBadge();
-    renderCountdown();
+    try { updateUrgentBadge(); dbg('updateUrgentBadge ✓'); } 
+    catch(e) { dbg('updateUrgentBadge ✗ ' + e.message, '#f66'); }
 
-    const tnEl = document.getElementById('app-trip-name');
-    if (tnEl && Data.getTripName) tnEl.textContent = Data.getTripName();
+    try { renderCountdown(); dbg('renderCountdown ✓'); } 
+    catch(e) { dbg('renderCountdown ✗ ' + e.message, '#f66'); }
 
-    updateSyncStatus(Config.INSTANT_APP_ID && navigator.onLine ? 'syncing' : 'offline');
+    try {
+      const tnEl = document.getElementById('app-trip-name');
+      if (tnEl && Data.getTripName) tnEl.textContent = Data.getTripName();
+      dbg('tripName ✓ ' + Data.getTripName?.());
+    } catch(e) { dbg('tripName ✗ ' + e.message, '#f66'); }
 
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-      btn.addEventListener('click', () => switchTo(btn.dataset.screen));
-    });
+    try { updateSyncStatus('offline'); dbg('syncStatus ✓'); }
+    catch(e) { dbg('syncStatus ✗ ' + e.message, '#f66'); }
+
+    try {
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchTo(btn.dataset.screen));
+      });
+      dbg('navBtns ✓');
+    } catch(e) { dbg('navBtns ✗ ' + e.message, '#f66'); }
 
     document.getElementById('sync-btn')?.addEventListener('click', async () => {
       Toast.show('Syncing with Supabase…', 'info');
@@ -206,17 +217,16 @@ const App = (() => {
     try {
       switchTo(start);
       dbg('switchTo ✓');
-      // Check if screen actually rendered
       const sc = document.getElementById('screen-content');
-      dbg('screen-content children: ' + (sc ? sc.children.length : 'null'));
-      dbg('days available: ' + Data.getDays().length);
+      dbg('children: ' + (sc ? sc.children.length : 'null'));
+      dbg('days: ' + Data.getDays().length);
       if (Data.getDays().length > 0) {
         const d = Data.getDays()[0];
-        dbg('day[0]: ' + JSON.stringify({id:d.id, label:d.label, title:d.title}));
+        dbg('d[0]: ' + d.label + ' stops:' + (d.stops?.length||0));
       }
     } catch(e) { 
       dbg('switchTo ✗ ' + e.message, '#f66');
-      dbg('stack: ' + (e.stack||'').split('\n')[1], '#f66');
+      dbg('stack: ' + (e.stack||'').split('\n').slice(0,3).join(' | '), '#f66');
     }
 
     // Sync disabled on platform branch (uses Supabase, not InstantDB)
