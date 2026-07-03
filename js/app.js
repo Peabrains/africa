@@ -143,7 +143,15 @@ const App = (() => {
     // Load trips then initialise with the first available trip
     const trips = await Data.loadTrips?.() || [];
     if (!trips.length) {
-      Toast.show('No trips found for your account.', 'warning');
+      // Show a clear message instead of a broken app
+      const content = document.getElementById('screen-content');
+      if (content) content.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:var(--s3);padding:var(--s6);text-align:center">
+          <span style="font-size:48px">🌍</span>
+          <p style="font-size:var(--text-lg);font-weight:500;color:var(--text-primary)">No trips yet</p>
+          <p style="font-size:var(--text-sm);color:var(--text-muted);line-height:1.5">Your trip hasn't been set up yet. Contact your operator to get access.</p>
+          <button onclick="Auth.signOut()" style="margin-top:var(--s3);background:none;border:1.5px solid var(--border);border-radius:var(--r-md);padding:10px 20px;font-size:var(--text-sm);color:var(--text-secondary);cursor:pointer;font-family:var(--font)">Sign out</button>
+        </div>`;
       return;
     }
     await Data.init();
