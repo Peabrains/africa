@@ -176,7 +176,7 @@ const App = (() => {
     updateUrgentBadge();
     renderCountdown();
 
-    const tnEl = document.getElementById('header-trip-name');
+    const tnEl = document.getElementById('app-trip-name');
     if (tnEl && Data.getTripName) tnEl.textContent = Data.getTripName();
 
     updateSyncStatus(Config.INSTANT_APP_ID && navigator.onLine ? 'syncing' : 'offline');
@@ -186,27 +186,18 @@ const App = (() => {
     });
 
     document.getElementById('sync-btn')?.addEventListener('click', async () => {
-      if (!Config.INSTANT_APP_ID) {
-        Toast.show('No InstantDB App ID configured', 'warning');
-        return;
-      }
-      updateSyncStatus('syncing');
-      try {
-        await Sync.pushAll();
-        updateSyncStatus('synced');
-        Toast.show('All data synced \u2713', 'success');
-      } catch(e) {
-        updateSyncStatus('error');
-        Toast.show('Sync failed: ' + e.message, 'warning');
-      }
+      Toast.show('Syncing with Supabase…', 'info');
+      await Data.loadTrips?.();
+      await Data.init();
+      App.reload?.();
     });
 
     let start = 'itinerary';
     try { start = sessionStorage.getItem('lastScreen') || 'itinerary'; } catch(_) {}
     switchTo(start);
 
-    await Sync.init();
-    scheduleDayBeforeReminders().catch(() => {});
+    // Sync disabled on platform branch (uses Supabase, not InstantDB)
+    try { scheduleDayBeforeReminders(); } catch(_) {}
   }
 
   return {
