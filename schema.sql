@@ -1,18 +1,23 @@
 /* ============================================================
-   SAFARI APP — Supabase Database Schema v2
-   Fixed: policies added AFTER all tables exist
-   Run this entire file in Supabase SQL Editor
+   SAFARI APP — Supabase Database Schema v3
+   
+   IMPORTANT: Run each section ONE AT A TIME.
+   Copy from one "-- RUN X" comment to the next, run it,
+   confirm success, then run the next section.
    ============================================================ */
 
--- ── Extensions ──────────────────────────────────────────────
+
+/* ══════════════════════════════════════════════════════════
+   RUN 1 — Extensions + Helper function stubs
+   ══════════════════════════════════════════════════════════ */
+
 create extension if not exists "uuid-ossp";
 
 
--- ════════════════════════════════════════════════════════════
--- STEP 1: CREATE ALL TABLES FIRST (no cross-references yet)
--- ════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════════
+   RUN 2 — PROFILES table
+   ══════════════════════════════════════════════════════════ */
 
--- PROFILES
 create table if not exists public.profiles (
   id          uuid primary key references auth.users(id) on delete cascade,
   email       text,
@@ -22,7 +27,19 @@ create table if not exists public.profiles (
   created_at  timestamptz default now()
 );
 
--- TRIPS
+alter table public.profiles enable row level security;
+
+create policy "Users can read own profile"
+  on public.profiles for select using (auth.uid() = id);
+
+create policy "Users can update own profile"
+  on public.profiles for update using (auth.uid() = id);
+
+
+/* ══════════════════════════════════════════════════════════
+   RUN 3 — TRIPS table (no member policies yet)
+   ══════════════════════════════════════════════════════════ */
+
 create table if not exists public.trips (
   id            uuid primary key default uuid_generate_v4(),
   name          text not null,
@@ -39,7 +56,30 @@ create table if not exists public.trips (
   updated_at    timestamptz default now()
 );
 
--- TRIP MEMBERS
+alter table public.trips enable row level security;
+
+-- Simple owner-only policies for now (member policies added in RUN 5)
+create policy "Owners can read own trips"
+  on public.trips for select
+  using (auth.uid() = owner_id);
+
+create policy "Owners can create trips"
+  on public.trips for insert
+  with check (auth.uid() = owner_id);
+
+create policy "Owners can update trips"
+  on public.trips for update
+  using (auth.uid() = owner_id);
+
+create policy "Owners can delete trips"
+  on public.trips for delete
+  using (auth.uid() = owner_id);
+
+
+/* ══════════════════════════════════════════════════════════
+   RUN 4 — TRIP_MEMBERS table
+   ══════════════════════════════════════════════════════════ */
+
 create table if not exists public.trip_members (
   id            uuid primary key default uuid_generate_v4(),
   trip_id       uuid references public.trips(id) on delete cascade,
@@ -51,7 +91,59 @@ create table if not exists public.trip_members (
   unique(trip_id, user_id)
 );
 
--- ITINERARY DAYS
+alter table public.trip_members enable row level security;
+
+create policy "Members can see their own memberships"
+  on public.trip_members for select
+  using (auth.uid() = user_id);
+
+create policy "Trip owners can manage members"
+  on public.trip_members for all
+  using (
+    exists (
+      select 1 from public.trips
+      where trips.id = trip_members.trip_id
+      and trips.owner_id = auth.uid()
+    )
+  );
+
+create index if not exists idx_trip_members_user on public.trip_members(user_id);
+create index if not exists idx_trip_members_trip on public.trip_members(trip_id);
+
+
+/* ══════════════════════════════════════════════════════════
+   RUN 5 — Helper functions + upgrade trips policy
+   (both trips and trip_members now exist)
+   ══════════════════════════════════════════════════════════ */
+
+-- Helper: is current user a member of this trip?
+create or replace function public.is_trip_member(p_trip_id uuid)
+returns boolean language sql security definer stable as $$
+  select
+    exists (select 1 from public.trips where id = p_trip_id and owner_id = auth.uid())
+    or
+    exists (select 1 from public.trip_members where trip_id = p_trip_id and user_id = auth.uid() and status = 'active');
+$$;
+
+-- Helper: is current user an owner or editor?
+create or replace function public.is_trip_editor(p_trip_id uuid)
+returns boolean language sql security definer stable as $$
+  select
+    exists (select 1 from public.trips where id = p_trip_id and owner_id = auth.uid())
+    or
+    exists (select 1 from public.trip_members where trip_id = p_trip_id and user_id = auth.uid() and role in ('owner','editor') and status = 'active');
+$$;
+
+-- Now add member-read policy to trips (trip_members exists now)
+create policy "Members can read their trips"
+  on public.trips for select
+  using (public.is_trip_member(id));
+
+
+/* ══════════════════════════════════════════════════════════
+   RUN 6 — ITINERARY_DAYS + STOPS + OVERNIGHTS
+   ══════════════════════════════════════════════════════════ */
+
 create table if not exists public.itinerary_days (
   id          uuid primary key default uuid_generate_v4(),
   trip_id     uuid references public.trips(id) on delete cascade,
@@ -65,6 +157,18 @@ create table if not exists public.itinerary_days (
   story_body  jsonb,
   created_at  timestamptz default now()
 );
+
+alter table public.itinerary_days enable row level security;
+
+create policy "Trip members can read days"
+  on public.itinerary_days for select
+  using (public.is_trip_member(trip_id));
+
+create policy "Trip editors can manage days"
+  on public.itinerary_days for all
+  using (public.is_trip_editor(trip_id));
+
+create index if not exists idx_itinerary_days_trip on public.itinerary_days(trip_id);
 
 -- STOPS
 create table if not exists public.stops (
@@ -90,6 +194,17 @@ create table if not exists public.stops (
   updated_at      timestamptz default now()
 );
 
+alter table public.stops enable row level security;
+
+create policy "Trip members can read stops"
+  on public.stops for select using (public.is_trip_member(trip_id));
+
+create policy "Trip editors can manage stops"
+  on public.stops for all using (public.is_trip_editor(trip_id));
+
+create index if not exists idx_stops_trip on public.stops(trip_id);
+create index if not exists idx_stops_day  on public.stops(day_id);
+
 -- OVERNIGHTS
 create table if not exists public.overnights (
   id          uuid primary key default uuid_generate_v4(),
@@ -109,7 +224,19 @@ create table if not exists public.overnights (
   created_at  timestamptz default now()
 );
 
--- EXPENSES
+alter table public.overnights enable row level security;
+
+create policy "Trip members can read overnights"
+  on public.overnights for select using (public.is_trip_member(trip_id));
+
+create policy "Trip editors can manage overnights"
+  on public.overnights for all using (public.is_trip_editor(trip_id));
+
+
+/* ══════════════════════════════════════════════════════════
+   RUN 7 — EXPENSES + PACKING
+   ══════════════════════════════════════════════════════════ */
+
 create table if not exists public.expenses (
   id            uuid primary key default uuid_generate_v4(),
   trip_id       uuid references public.trips(id) on delete cascade,
@@ -123,7 +250,24 @@ create table if not exists public.expenses (
   created_at    timestamptz default now()
 );
 
--- PACKING ITEMS
+alter table public.expenses enable row level security;
+
+create policy "Trip members can read expenses"
+  on public.expenses for select using (public.is_trip_member(trip_id));
+
+create policy "Trip members can add expenses"
+  on public.expenses for insert with check (public.is_trip_member(trip_id));
+
+create policy "Expense creator or owner can delete"
+  on public.expenses for delete
+  using (
+    auth.uid() = created_by or
+    exists (select 1 from public.trips where id = trip_id and owner_id = auth.uid())
+  );
+
+create index if not exists idx_expenses_trip on public.expenses(trip_id);
+
+-- PACKING
 create table if not exists public.packing_items (
   id          uuid primary key default uuid_generate_v4(),
   trip_id     uuid references public.trips(id) on delete cascade,
@@ -136,7 +280,21 @@ create table if not exists public.packing_items (
   created_at  timestamptz default now()
 );
 
--- DEX CATCHES
+alter table public.packing_items enable row level security;
+
+create policy "Trip members can read packing"
+  on public.packing_items for select using (public.is_trip_member(trip_id));
+
+create policy "Trip members can manage packing"
+  on public.packing_items for all using (public.is_trip_member(trip_id));
+
+create index if not exists idx_packing_trip on public.packing_items(trip_id);
+
+
+/* ══════════════════════════════════════════════════════════
+   RUN 8 — DEX CATCHES + PHOTOS
+   ══════════════════════════════════════════════════════════ */
+
 create table if not exists public.dex_catches (
   id          uuid primary key default uuid_generate_v4(),
   trip_id     uuid references public.trips(id) on delete cascade,
@@ -146,6 +304,16 @@ create table if not exists public.dex_catches (
   day_label   text,
   caught_at   timestamptz default now()
 );
+
+alter table public.dex_catches enable row level security;
+
+create policy "Trip members can read catches"
+  on public.dex_catches for select using (public.is_trip_member(trip_id));
+
+create policy "Trip members can manage catches"
+  on public.dex_catches for all using (public.is_trip_member(trip_id));
+
+create index if not exists idx_dex_catches_trip on public.dex_catches(trip_id);
 
 -- DEX PHOTOS
 create table if not exists public.dex_photos (
@@ -158,7 +326,22 @@ create table if not exists public.dex_photos (
   created_at    timestamptz default now()
 );
 
--- GLOSSARY TERMS
+alter table public.dex_photos enable row level security;
+
+create policy "Trip members can read dex photos"
+  on public.dex_photos for select using (public.is_trip_member(trip_id));
+
+create policy "Trip members can manage dex photos"
+  on public.dex_photos for all using (public.is_trip_member(trip_id));
+
+create index if not exists idx_dex_photos_trip  on public.dex_photos(trip_id);
+create index if not exists idx_dex_photos_catch on public.dex_photos(catch_id);
+
+
+/* ══════════════════════════════════════════════════════════
+   RUN 9 — GLOSSARY + CUSTOM LINKS
+   ══════════════════════════════════════════════════════════ */
+
 create table if not exists public.glossary_terms (
   id          uuid primary key default uuid_generate_v4(),
   trip_id     uuid references public.trips(id) on delete cascade,
@@ -168,6 +351,14 @@ create table if not exists public.glossary_terms (
   created_at  timestamptz default now(),
   unique(trip_id, term)
 );
+
+alter table public.glossary_terms enable row level security;
+
+create policy "Trip members can read glossary"
+  on public.glossary_terms for select using (public.is_trip_member(trip_id));
+
+create policy "Trip editors can manage glossary"
+  on public.glossary_terms for all using (public.is_trip_editor(trip_id));
 
 -- CUSTOM LINKS
 create table if not exists public.custom_links (
@@ -179,217 +370,36 @@ create table if not exists public.custom_links (
   created_at  timestamptz default now()
 );
 
+alter table public.custom_links enable row level security;
 
--- ════════════════════════════════════════════════════════════
--- STEP 2: ENABLE RLS ON ALL TABLES
--- ════════════════════════════════════════════════════════════
-
-alter table public.profiles       enable row level security;
-alter table public.trips          enable row level security;
-alter table public.trip_members   enable row level security;
-alter table public.itinerary_days enable row level security;
-alter table public.stops          enable row level security;
-alter table public.overnights     enable row level security;
-alter table public.expenses       enable row level security;
-alter table public.packing_items  enable row level security;
-alter table public.dex_catches    enable row level security;
-alter table public.dex_photos     enable row level security;
-alter table public.glossary_terms enable row level security;
-alter table public.custom_links   enable row level security;
-
-
--- ════════════════════════════════════════════════════════════
--- STEP 3: ADD ALL POLICIES (all tables exist now)
--- ════════════════════════════════════════════════════════════
-
--- Helper function: is user a member of this trip?
-create or replace function public.is_trip_member(p_trip_id uuid)
-returns boolean language sql security definer as $$
-  select exists (
-    select 1 from public.trips
-    where id = p_trip_id and owner_id = auth.uid()
-  ) or exists (
-    select 1 from public.trip_members
-    where trip_id = p_trip_id
-    and user_id = auth.uid()
-    and status = 'active'
-  );
-$$;
-
--- Helper function: is user an owner or editor of this trip?
-create or replace function public.is_trip_editor(p_trip_id uuid)
-returns boolean language sql security definer as $$
-  select exists (
-    select 1 from public.trips
-    where id = p_trip_id and owner_id = auth.uid()
-  ) or exists (
-    select 1 from public.trip_members
-    where trip_id = p_trip_id
-    and user_id = auth.uid()
-    and role in ('owner','editor')
-    and status = 'active'
-  );
-$$;
-
--- PROFILES policies
-create policy "Users can read own profile"
-  on public.profiles for select using (auth.uid() = id);
-
-create policy "Users can update own profile"
-  on public.profiles for update using (auth.uid() = id);
-
--- TRIPS policies
-create policy "Trip members can read trips"
-  on public.trips for select
-  using (public.is_trip_member(id));
-
-create policy "Authenticated users can create trips"
-  on public.trips for insert
-  with check (auth.uid() = owner_id);
-
-create policy "Trip owners can update trips"
-  on public.trips for update
-  using (auth.uid() = owner_id);
-
-create policy "Trip owners can delete trips"
-  on public.trips for delete
-  using (auth.uid() = owner_id);
-
--- TRIP MEMBERS policies
-create policy "Members can read their memberships"
-  on public.trip_members for select
-  using (auth.uid() = user_id or public.is_trip_editor(trip_id));
-
-create policy "Trip owners/editors can manage members"
-  on public.trip_members for all
-  using (public.is_trip_editor(trip_id));
-
--- ITINERARY DAYS policies
-create policy "Trip members can read days"
-  on public.itinerary_days for select
-  using (public.is_trip_member(trip_id));
-
-create policy "Trip editors can manage days"
-  on public.itinerary_days for all
-  using (public.is_trip_editor(trip_id));
-
--- STOPS policies
-create policy "Trip members can read stops"
-  on public.stops for select
-  using (public.is_trip_member(trip_id));
-
-create policy "Trip editors can manage stops"
-  on public.stops for all
-  using (public.is_trip_editor(trip_id));
-
--- OVERNIGHTS policies
-create policy "Trip members can read overnights"
-  on public.overnights for select
-  using (public.is_trip_member(trip_id));
-
-create policy "Trip editors can manage overnights"
-  on public.overnights for all
-  using (public.is_trip_editor(trip_id));
-
--- EXPENSES policies
-create policy "Trip members can read expenses"
-  on public.expenses for select
-  using (public.is_trip_member(trip_id));
-
-create policy "Trip members can add expenses"
-  on public.expenses for insert
-  with check (public.is_trip_member(trip_id));
-
-create policy "Expense creators and trip owners can delete"
-  on public.expenses for delete
-  using (
-    auth.uid() = created_by or
-    exists (select 1 from public.trips where id = trip_id and owner_id = auth.uid())
-  );
-
--- PACKING ITEMS policies
-create policy "Trip members can read packing"
-  on public.packing_items for select
-  using (public.is_trip_member(trip_id));
-
-create policy "Trip members can manage packing"
-  on public.packing_items for all
-  using (public.is_trip_member(trip_id));
-
--- DEX CATCHES policies
-create policy "Trip members can read catches"
-  on public.dex_catches for select
-  using (public.is_trip_member(trip_id));
-
-create policy "Trip members can manage catches"
-  on public.dex_catches for all
-  using (public.is_trip_member(trip_id));
-
--- DEX PHOTOS policies
-create policy "Trip members can read dex photos"
-  on public.dex_photos for select
-  using (public.is_trip_member(trip_id));
-
-create policy "Trip members can manage dex photos"
-  on public.dex_photos for all
-  using (public.is_trip_member(trip_id));
-
--- GLOSSARY policies
-create policy "Trip members can read glossary"
-  on public.glossary_terms for select
-  using (public.is_trip_member(trip_id));
-
-create policy "Trip editors can manage glossary"
-  on public.glossary_terms for all
-  using (public.is_trip_editor(trip_id));
-
--- CUSTOM LINKS policies
 create policy "Trip members can read links"
-  on public.custom_links for select
-  using (public.is_trip_member(trip_id));
+  on public.custom_links for select using (public.is_trip_member(trip_id));
 
 create policy "Trip members can manage links"
-  on public.custom_links for all
-  using (public.is_trip_member(trip_id));
+  on public.custom_links for all using (public.is_trip_member(trip_id));
 
 
--- ════════════════════════════════════════════════════════════
--- STEP 4: STORAGE BUCKET FOR DEX PHOTOS
--- ════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════════
+   RUN 10 — STORAGE BUCKET + TRIGGERS
+   ══════════════════════════════════════════════════════════ */
 
 insert into storage.buckets (id, name, public)
 values ('dex-photos', 'dex-photos', false)
 on conflict (id) do nothing;
 
-create policy "Authenticated users can upload dex photos"
+create policy "Auth users can upload dex photos"
   on storage.objects for insert
   with check (bucket_id = 'dex-photos' and auth.uid() is not null);
 
-create policy "Authenticated users can read dex photos"
+create policy "Auth users can read dex photos"
   on storage.objects for select
   using (bucket_id = 'dex-photos' and auth.uid() is not null);
 
-create policy "Photo owners can delete their photos"
+create policy "Photo owners can delete"
   on storage.objects for delete
   using (bucket_id = 'dex-photos' and auth.uid()::text = (storage.foldername(name))[1]);
 
-
--- ════════════════════════════════════════════════════════════
--- STEP 5: INDEXES + TRIGGERS
--- ════════════════════════════════════════════════════════════
-
-create index if not exists idx_trip_members_user    on public.trip_members(user_id);
-create index if not exists idx_trip_members_trip    on public.trip_members(trip_id);
-create index if not exists idx_itinerary_days_trip  on public.itinerary_days(trip_id);
-create index if not exists idx_stops_trip           on public.stops(trip_id);
-create index if not exists idx_stops_day            on public.stops(day_id);
-create index if not exists idx_expenses_trip        on public.expenses(trip_id);
-create index if not exists idx_packing_trip         on public.packing_items(trip_id);
-create index if not exists idx_dex_catches_trip     on public.dex_catches(trip_id);
-create index if not exists idx_dex_photos_trip      on public.dex_photos(trip_id);
-create index if not exists idx_dex_photos_catch     on public.dex_photos(catch_id);
-
--- Auto-update updated_at
+-- updated_at trigger
 create or replace function public.set_updated_at()
 returns trigger language plpgsql as $$
 begin new.updated_at = now(); return new; end;
