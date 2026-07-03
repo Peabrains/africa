@@ -141,29 +141,19 @@ const App = (() => {
     registerSW();
     await DB.init();
 
-    // DEBUG: write directly to body so it always shows
-    const _dbgBox = document.createElement('div');
-    _dbgBox.style.cssText = 'position:fixed;bottom:80px;left:0;right:0;background:rgba(0,0,0,.85);color:#0f0;font-size:11px;font-family:monospace;padding:8px;z-index:9998;max-height:40vh;overflow-y:auto';
-    document.body.appendChild(_dbgBox);
-    function dbg(msg) { _dbgBox.innerHTML += msg + '<br>'; }
-
-    // Check if Supabase loaded
-    dbg('SB loaded: ' + (typeof SB !== 'undefined'));
-    dbg('Data loaded: ' + (typeof Data !== 'undefined'));
-    dbg('1. DB init done');
+    console.log('[App] DB init done, SB:', typeof SB, 'Data:', typeof Data);
 
     let trips = [];
     try {
       trips = await Data.loadTrips?.() || [];
-      dbg('2. loadTrips done — count: ' + trips.length);
-      if (trips[0]) dbg('   First trip: ' + trips[0].name + ' / owner: ' + trips[0].owner_id);
+      console.log('[App] loadTrips count:', trips.length);
     } catch(e) {
-      dbg('2. loadTrips ERROR: ' + e.message);
+      console.error('[App] loadTrips ERROR:', e.message);
     }
 
     if (!trips.length) {
       const content = document.getElementById('screen-content');
-      if (content) content.innerHTML += `
+      if (content) content.innerHTML = `
         <div style="padding:var(--s6);text-align:center">
           <span style="font-size:48px">🌍</span>
           <p style="margin-top:var(--s3);font-size:var(--text-base);color:var(--text-primary);font-weight:500">No trips found</p>
@@ -172,12 +162,11 @@ const App = (() => {
       return;
     }
 
-    dbg('3. calling Data.init...');
     try {
       await Data.init();
-      dbg('4. Data.init done — days: ' + Data.getDays().length);
+      console.log('[App] Data.init done — days:', Data.getDays().length);
     } catch(e) {
-      dbg('4. Data.init ERROR: ' + e.message);
+      console.error('[App] Data.init ERROR:', e.message);
     }
 
     TripSwitcher?.init();
