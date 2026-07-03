@@ -1,0 +1,52 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main, platform]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: site
+
+      - name: Checkout platform into subfolder
+        uses: actions/checkout@v4
+        with:
+          ref: platform
+          path: site/platform
+
+      - name: Clean git folders
+        run: |
+          rm -rf site/.git
+          rm -rf site/platform/.git
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
