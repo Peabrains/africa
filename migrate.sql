@@ -1,5 +1,5 @@
 /* ============================================================
-   MIGRATION — Seed Vivien's Africa Safari 2026 into Supabase
+   MIGRATION — Seed the traveler's Africa Safari 2026 into Supabase
    
    RUN THIS IN SUPABASE SQL EDITOR after creating your user account.
    
@@ -52,7 +52,7 @@ insert into public.trips (
     "timezone": "Africa/Nairobi",
     "currency": "USD",
     "budget_usd": 0,
-    "travelers": ["Vivien"],
+    "travelers": ["Traveler"],
     "operator_name": "Wildsenses Holidays",
     "operator_phone": "+852 2813 8778",
     "operator_website": "www.wildsensesholidays.com"
