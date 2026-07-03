@@ -140,21 +140,43 @@ const App = (() => {
   async function init() {
     registerSW();
     await DB.init();
-    // Load trips then initialise with the first available trip
-    const trips = await Data.loadTrips?.() || [];
+
+    // DEBUG: show status on screen
+    function dbg(msg) {
+      const el = document.getElementById('screen-content');
+      if (el) el.innerHTML += `<p style="font-size:12px;padding:4px 16px;color:#666;font-family:monospace">${msg}</p>`;
+    }
+
+    dbg('1. DB init done');
+
+    let trips = [];
+    try {
+      trips = await Data.loadTrips?.() || [];
+      dbg('2. loadTrips done — count: ' + trips.length);
+      if (trips[0]) dbg('   First trip: ' + trips[0].name + ' / owner: ' + trips[0].owner_id);
+    } catch(e) {
+      dbg('2. loadTrips ERROR: ' + e.message);
+    }
+
     if (!trips.length) {
-      // Show a clear message instead of a broken app
       const content = document.getElementById('screen-content');
-      if (content) content.innerHTML = `
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:var(--s3);padding:var(--s6);text-align:center">
+      if (content) content.innerHTML += `
+        <div style="padding:var(--s6);text-align:center">
           <span style="font-size:48px">🌍</span>
-          <p style="font-size:var(--text-lg);font-weight:500;color:var(--text-primary)">No trips yet</p>
-          <p style="font-size:var(--text-sm);color:var(--text-muted);line-height:1.5">Your trip hasn't been set up yet. Contact your operator to get access.</p>
-          <button onclick="Auth.signOut()" style="margin-top:var(--s3);background:none;border:1.5px solid var(--border);border-radius:var(--r-md);padding:10px 20px;font-size:var(--text-sm);color:var(--text-secondary);cursor:pointer;font-family:var(--font)">Sign out</button>
+          <p style="margin-top:var(--s3);font-size:var(--text-base);color:var(--text-primary);font-weight:500">No trips found</p>
+          <button onclick="Auth.signOut()" style="margin-top:var(--s4);background:none;border:1.5px solid var(--border);border-radius:var(--r-md);padding:10px 20px;font-size:var(--text-sm);color:var(--text-secondary);cursor:pointer;font-family:var(--font)">Sign out</button>
         </div>`;
       return;
     }
-    await Data.init();
+
+    dbg('3. calling Data.init...');
+    try {
+      await Data.init();
+      dbg('4. Data.init done — days: ' + Data.getDays().length);
+    } catch(e) {
+      dbg('4. Data.init ERROR: ' + e.message);
+    }
+
     TripSwitcher?.init();
 
 
