@@ -183,24 +183,56 @@ const Data = (() => {
     }
   }
 
+  /* ── Normalise a stop row from Supabase to match itinerary.js field names ── */
+  function normaliseStop(s) {
+    return {
+      ...s,
+      // camelCase aliases for snake_case Supabase columns
+      dayId:         s.day_id,
+      timeZone:      s.timezone || 'EAT',
+      transportType: s.transport_type || 'walk',
+      needsBooking:  s.needs_booking || false,
+      isBooked:      s.is_booked || false,
+      flightIncluded: s.flight_detail?.included === true,
+      flightExcluded: s.flight_detail?.included === false,
+      trainDetail:   null,
+      booking: {
+        status: s.is_booked ? 'booked' : 'open',
+        ref:    s.flight_detail?.ref || '',
+        cost:   null,
+      },
+      // flight detail fields itinerary.js uses
+      ...(s.flight_detail ? {
+        airline:    s.flight_detail.airline || '',
+        flightNo:   s.flight_detail.flight_no || '',
+        origin:     s.flight_detail.origin || '',
+        destination:s.flight_detail.destination || '',
+        departTime: s.flight_detail.depart_time || s.time || '',
+        arriveTime: s.flight_detail.arrive_time || '',
+      } : {}),
+    };
+  }
+
   /* ── DAYS API ────────────────────────────────────────────── */
   function getDays() {
     return DAYS.map(d => ({
       ...d,
-      // Normalise field names to match what itinerary.js expects
       id:       d.id,
       label:    d.day_label,
       date:     d.date,
       title:    d.title,
       locality: d.locality,
       segment:  d.segment,
-      stops:    STOPS.filter(s => s.day_id === d.id).sort((a,b) => a.sort_order - b.sort_order),
+      stops:    STOPS
+        .filter(s => s.day_id === d.id)
+        .sort((a,b) => a.sort_order - b.sort_order)
+        .map(normaliseStop),
       weatherPoints: d.weather_points || [],
     }));
   }
 
   /* ── STOPS API ───────────────────────────────────────────── */
-  function getStops()               { return STOPS; }
+  function getStops()               { return STOPS.map(normaliseStop); }
   function getStopsByDay(dayId)     { return STOPS.filter(s => s.day_id === dayId); }
 
   async function addStop(stop) {
