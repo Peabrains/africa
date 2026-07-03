@@ -140,7 +140,15 @@ const App = (() => {
   async function init() {
     registerSW();
     await DB.init();
+    // Load trips then initialise with the first available trip
+    const trips = await Data.loadTrips?.() || [];
+    if (!trips.length) {
+      Toast.show('No trips found for your account.', 'warning');
+      return;
+    }
     await Data.init();
+    TripSwitcher?.init();
+
 
     watchConnectivity();
     updateUrgentBadge();
@@ -187,6 +195,7 @@ const App = (() => {
     showConflict,
     hideConflict,
     renderStampBanner,
+    reload() { init(); },
   };
 })();
 
@@ -218,9 +227,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Show app version from config
+    // Show trip name in header
+    const tripNameEl = document.getElementById('app-trip-name');
+    if (tripNameEl) tripNameEl.textContent = Data.getCurrentTrip()?.name || 'Safari App';
     const vEl = document.getElementById('app-version-display');
-    if (vEl) vEl.textContent = (Config.APP_VERSION || 'v1');
+    if (vEl) vEl.textContent = Config.APP_VERSION || 'v1';
 
     navigator.serviceWorker.ready.then(reg => {
       reg.update().catch(() => {});
