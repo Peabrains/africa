@@ -19,7 +19,7 @@ const Data = (() => {
   let DEX_CATCHES   = {};     // keyed by animal_id
   let CUSTOM_LINKS  = [];
   let GLOSSARY_TERMS = {};    // keyed by term (lowercase)
-  let TRAVELERS     = ['Vivien'];
+  let TRAVELERS     = ['Traveler'];
 
   /* ── Cache keys (IndexedDB via DB module) ────────────────── */
   const CACHE_KEYS = {
@@ -178,7 +178,7 @@ const Data = (() => {
 
     if (CURRENT_TRIP) {
       // Pull travelers from trip settings
-      TRAVELERS = CURRENT_TRIP.settings?.travelers || ['Vivien'];
+      TRAVELERS = CURRENT_TRIP.settings?.travelers || ['Traveler'];
       await loadTripData(CURRENT_TRIP.id);
     }
   }
@@ -510,7 +510,7 @@ const Data = (() => {
     const trip = TRIPS.find(t => t.id === tripId);
     if (!trip) return;
     CURRENT_TRIP = trip;
-    TRAVELERS    = trip.settings?.travelers || ['Vivien'];
+    TRAVELERS    = trip.settings?.travelers || ['Traveler'];
     await loadTripData(tripId);
     App.reload();
   }
