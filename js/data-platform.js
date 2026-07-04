@@ -746,6 +746,29 @@ const Data = (() => {
     App.reload();
   }
 
+  /* ── TRIP MEMBERS ─────────────────────────────────────────── */
+  async function getTripMembers() {
+    if (!CURRENT_TRIP) return [];
+    const { data, error } = await SB.from('trip_members').select('*').eq('trip_id', CURRENT_TRIP.id);
+    if (error) { console.error('[Data] getTripMembers error:', error); return []; }
+    return data || [];
+  }
+
+  async function inviteMember(email, role) {
+    if (!CURRENT_TRIP) throw new Error('No active trip');
+    const { data, error } = await SB.functions.invoke('invite-member', {
+      body: { email, role, tripId: CURRENT_TRIP.id },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data;
+  }
+
+  async function removeMember(memberId) {
+    const { error } = await SB.from('trip_members').delete().eq('id', memberId);
+    if (error) throw error;
+  }
+
   /* ── RESERVATIONS (derived from flagged stops, matches main branch) ── */
   function getTransportReservations() {
     return STOPS.map(normaliseStop)
@@ -811,6 +834,7 @@ const Data = (() => {
     getCustomLinks, addCustomLink, updateCustomLink, deleteCustomLink, setCustomLinks,
     // Trips
     getTrips, getCurrentTrip, switchTrip,
+    getTripMembers, inviteMember, removeMember,
     // Trip info
     getTripName, setTripName,
     getActivityReservations, getTransportReservations,
