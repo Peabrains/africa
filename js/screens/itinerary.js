@@ -172,7 +172,7 @@ const ItineraryScreen = (() => {
         ${stop.isRetimed ? `<p class="tl-note" style="color:var(--danger-text)">
           <span style="text-decoration:line-through;opacity:.6">${stop.originalDepartTime}</span> → <strong>${stop.departTime}</strong>
           ${stop.lastCheckedAt ? ` · Checked ${timeSinceLabel(stop.lastCheckedAt)}` : ''}
-        </p>` : ''}
+        </p>` : (stop.transportType === 'plane' && stop.lastCheckedAt ? `<p class="tl-note" style="color:var(--text-muted);font-size:var(--text-xs)">Checked ${timeSinceLabel(stop.lastCheckedAt)}</p>` : '')}
         ${stop.notes ? `<p class="tl-note">${stop.notes}</p>` : ''}
         <div class="tl-footer">
           ${badge(stop.booking.status)}
