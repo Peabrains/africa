@@ -176,11 +176,13 @@ const Auth = (() => {
   }
 
   async function gate() {
-    // Detect an invite/recovery link landing from the URL hash — this check
-    // is synchronous and doesn't depend on when Supabase finishes async
-    // session processing, avoiding a race condition.
-    const hash = window.location.hash || '';
+    // Detect an invite/recovery link landing — read the hash captured at the
+    // very top of index.html, BEFORE Supabase's client stripped it from the
+    // URL during its own initialization (it does this almost immediately,
+    // well before this code runs).
+    const hash = window.__authRedirectHash || window.location.hash || '';
     const isInviteOrRecovery = /type=(invite|recovery)/.test(hash);
+    console.log('[Auth] redirect hash:', hash, '| isInviteOrRecovery:', isInviteOrRecovery);
 
     if (isInviteOrRecovery) {
       renderSetPasswordScreen();
