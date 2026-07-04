@@ -13,7 +13,7 @@ const SupabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON,
   auth: {
     persistSession:    true,      // keeps login across app restarts
     autoRefreshToken:  true,      // silently refreshes JWT before expiry
-    detectSessionInUrl: false,    // not needed for PWA
+    detectSessionInUrl: true,     // required: parses tokens from invite/magic-link URLs
   },
 });
 
