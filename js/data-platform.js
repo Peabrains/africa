@@ -394,6 +394,52 @@ const Data = (() => {
     await DB.setMeta(CACHE_KEYS.overnight, OVERNIGHTS);
   }
 
+  async function deleteOvernight(dayId) {
+    const o = OVERNIGHTS[dayId];
+    if (!o) return;
+    delete OVERNIGHTS[dayId];
+    if (navigator.onLine && o.id) {
+      const { error } = await SB.from('overnights').delete().eq('id', o.id);
+      if (error) console.error('[Data] deleteOvernight error:', error);
+    }
+    await DB.setMeta(CACHE_KEYS.overnight, OVERNIGHTS);
+  }
+
+  async function updateDay(dayId, changes) {
+    const day = DAYS.find(d => d.id === dayId);
+    if (!day) return;
+    const patch = {};
+    if ('title'    in changes) patch.title    = changes.title;
+    if ('locality' in changes) patch.locality = changes.locality;
+    if ('segment'  in changes) patch.segment  = changes.segment;
+    if ('date'     in changes) patch.date     = changes.date;
+    Object.assign(day, patch);
+    if (navigator.onLine) {
+      const { error } = await SB.from('itinerary_days').update(patch).eq('id', dayId);
+      if (error) { console.error('[Data] updateDay error:', error); throw error; }
+    }
+    await DB.setMeta(CACHE_KEYS.days, DAYS);
+  }
+
+  async function updateStory(dayId, { title, paragraphs }) {
+    const day = DAYS.find(d => d.id === dayId);
+    if (!day) return;
+    const patch = {
+      story_title: title || null,
+      story_body: paragraphs && paragraphs.length ? paragraphs : null,
+    };
+    Object.assign(day, patch);
+    if (navigator.onLine) {
+      const { error } = await SB.from('itinerary_days').update(patch).eq('id', dayId);
+      if (error) { console.error('[Data] updateStory error:', error); throw error; }
+    }
+    await DB.setMeta(CACHE_KEYS.days, DAYS);
+  }
+
+  async function deleteStory(dayId) {
+    await updateStory(dayId, { title: null, paragraphs: null });
+  }
+
   /* ── EXPENSES API ────────────────────────────────────────── */
   function normaliseExpense(e) {
     return {
@@ -831,11 +877,11 @@ const Data = (() => {
   return {
     init, loadTrips,
     // Days
-    getDays,
+    getDays, updateDay, updateStory, deleteStory,
     // Stops
     getStops, getStopsByDay, addStop, updateStop, deleteStop,
     // Overnight
-    getOvernight, updateOvernight, getUpcomingDeadlines,
+    getOvernight, updateOvernight, deleteOvernight, getUpcomingDeadlines,
     // Expenses
     getExpenses, addExpense, updateExpense, deleteExpense, getTotalSpentJPY,
     getTravelers, updateTravelers, calcSettlement, getBalances, setExpenses,
