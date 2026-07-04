@@ -36,8 +36,8 @@ const Auth = (() => {
     overlay.innerHTML = `
       <div style="width:100%;max-width:360px">
         <div style="text-align:center;margin-bottom:var(--s6)">
-          <div style="font-size:48px;margin-bottom:var(--s2)">🌍</div>
-          <p style="font-size:22px;font-weight:500;color:var(--text-primary)">Safari App</p>
+          <div style="font-size:48px;margin-bottom:var(--s2)">🧭</div>
+          <p style="font-size:22px;font-weight:500;color:var(--text-primary)">Trip Companion</p>
           <p style="font-size:var(--text-sm);color:var(--text-muted);margin-top:4px">Your luxury trip companion</p>
         </div>
         <div id="auth-mode" data-mode="login" style="display:flex;flex-direction:column;gap:var(--s3)">
@@ -136,7 +136,7 @@ const Auth = (() => {
     overlay.innerHTML = `
       <div style="width:100%;max-width:360px">
         <div style="text-align:center;margin-bottom:var(--s6)">
-          <div style="font-size:48px;margin-bottom:var(--s2)">🌍</div>
+          <div style="font-size:48px;margin-bottom:var(--s2)">🧭</div>
           <p style="font-size:22px;font-weight:500;color:var(--text-primary)">Welcome!</p>
           <p style="font-size:var(--text-sm);color:var(--text-muted);margin-top:4px">Set a password to finish joining the trip</p>
         </div>
