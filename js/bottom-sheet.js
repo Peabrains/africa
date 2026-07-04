@@ -212,6 +212,7 @@ const BottomSheet = (() => {
         <div class="bs-actions" style="margin-top:var(--s4)">
           <button class="btn btn-primary bs-full-btn" id="o-save-btn">Save</button>
           <button class="btn btn-ghost bs-full-btn" id="o-cancel-btn">Cancel</button>
+          ${o.id ? `<button class="btn btn-ghost bs-full-btn" id="o-delete-btn" style="color:var(--danger-text);border-color:var(--danger-text)">Clear accommodation</button>` : ''}
         </div>
       </div>`;
   }
@@ -396,6 +397,29 @@ const BottomSheet = (() => {
       window.ItineraryScreen?.refresh(); window.BookingsScreen?.refresh?.();
     });
     body.querySelector('#o-cancel-btn')?.addEventListener('click', close);
+
+    let deleteArmed = false;
+    let deleteResetTimer = null;
+    const deleteBtn = body.querySelector('#o-delete-btn');
+    deleteBtn?.addEventListener('click', async () => {
+      if (!deleteArmed) {
+        deleteArmed = true;
+        deleteBtn.textContent = 'Tap again to confirm';
+        deleteBtn.style.background = 'var(--danger-text)';
+        deleteBtn.style.color = '#fff';
+        deleteResetTimer = setTimeout(() => {
+          deleteArmed = false;
+          deleteBtn.textContent = 'Clear accommodation';
+          deleteBtn.style.background = '';
+          deleteBtn.style.color = '';
+        }, 4000);
+        return;
+      }
+      clearTimeout(deleteResetTimer);
+      await Data.deleteOvernight(day.id);
+      Toast.show('Accommodation cleared', 'info'); close();
+      window.ItineraryScreen?.refresh(); window.BookingsScreen?.refresh?.();
+    });
   }
 
   /* ─── Wire: add stop ─────────────────────────────────────── */
@@ -445,6 +469,81 @@ const BottomSheet = (() => {
     body.querySelector('#bs-addcancel-btn')?.addEventListener('click', close);
   }
 
+  /* ─── Edit day form (segment/country + story) ───────────────── */
+  const SEGMENT_OPTS = [
+    { v:'tanzania', l:'🇹🇿 Tanzania' },
+    { v:'kenya',    l:'🇰🇪 Kenya' },
+    { v:'uganda',   l:'🇺🇬 Uganda' },
+    { v:'transit',  l:'✈️ Transit' },
+  ];
+  function dayHTML(day) {
+    const story = Data.getStory(day.id);
+    const storyText = story?.paragraphs?.join('\n\n') || '';
+    return `
+      <div class="bs-detail">
+        <div class="bs-tags"><span class="badge badge-open">${day.label}</span><span class="badge badge-open">${day.date}</span></div>
+        <p class="bs-name" style="margin-bottom:var(--s4)">Edit day</p>
+        ${field('Title','d-title',day.title||'','text','e.g. Full day Ngorongoro Crater')}
+        ${field('Locality','d-locality',day.locality||'','text','e.g. Ngorongoro')}
+        ${select('Country','d-segment',day.segment||'transit',SEGMENT_OPTS)}
+        <p class="bs-section-head" style="margin-top:var(--s3)">Story</p>
+        ${field('Story title','d-story-title',story?.title||'','text','e.g. The crater at dawn')}
+        ${textarea('Story text','d-story-body',storyText,'Separate paragraphs with a blank line')}
+        <div class="bs-actions" style="margin-top:var(--s4)">
+          <button class="btn btn-primary bs-full-btn" id="d-save-btn">Save</button>
+          <button class="btn btn-ghost bs-full-btn" id="d-cancel-btn">Cancel</button>
+          ${story ? `<button class="btn btn-ghost bs-full-btn" id="d-story-delete-btn" style="color:var(--danger-text);border-color:var(--danger-text)">Delete story</button>` : ''}
+        </div>
+      </div>`;
+  }
+
+  function wireDay(day) {
+    const g = id => body.querySelector('#'+id)?.value?.trim()||'';
+    body.querySelector('#d-save-btn')?.addEventListener('click', async () => {
+      try {
+        await Data.updateDay(day.id, {
+          title: g('d-title'),
+          locality: g('d-locality'),
+          segment: body.querySelector('#d-segment')?.value || 'transit',
+        });
+        const bodyText = g('d-story-body');
+        const paragraphs = bodyText ? bodyText.split(/\n\s*\n/).map(p=>p.trim()).filter(Boolean) : [];
+        const storyTitle = g('d-story-title');
+        if (storyTitle || paragraphs.length) {
+          await Data.updateStory(day.id, { title: storyTitle, paragraphs });
+        }
+        Toast.show('Day updated', 'success'); close();
+        window.ItineraryScreen?.refresh();
+      } catch (e) {
+        Toast.show('Could not save — check connection', 'danger');
+      }
+    });
+    body.querySelector('#d-cancel-btn')?.addEventListener('click', close);
+
+    let deleteArmed = false;
+    let deleteResetTimer = null;
+    const deleteBtn = body.querySelector('#d-story-delete-btn');
+    deleteBtn?.addEventListener('click', async () => {
+      if (!deleteArmed) {
+        deleteArmed = true;
+        deleteBtn.textContent = 'Tap again to confirm';
+        deleteBtn.style.background = 'var(--danger-text)';
+        deleteBtn.style.color = '#fff';
+        deleteResetTimer = setTimeout(() => {
+          deleteArmed = false;
+          deleteBtn.textContent = 'Delete story';
+          deleteBtn.style.background = '';
+          deleteBtn.style.color = '';
+        }, 4000);
+        return;
+      }
+      clearTimeout(deleteResetTimer);
+      await Data.deleteStory(day.id);
+      Toast.show('Story deleted', 'info'); close();
+      window.ItineraryScreen?.refresh();
+    });
+  }
+
   /* ─── Public ─────────────────────────────────────────────── */
   function openStop(stop, day) {
     if (!overlay) build();
@@ -464,8 +563,14 @@ const BottomSheet = (() => {
     wireAdd(dayId);
     showSheet();
   }
+  function openDay(day) {
+    if (!overlay) build();
+    body.innerHTML = dayHTML(day);
+    wireDay(day);
+    showSheet();
+  }
 
-  return { openStop, openOvernight, openAdd, close };
+  return { openStop, openOvernight, openAdd, openDay, close };
 })();
 
 window.BottomSheet = BottomSheet;
