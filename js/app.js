@@ -139,11 +139,11 @@ const App = (() => {
   /* ── Init (called by Auth.gate().then(() => App.init())) ─────── */
   async function init() {
     registerSW();
-    // Debug panel
-    const _dbg = document.createElement('div');
-    _dbg.style.cssText = 'position:fixed;bottom:80px;left:0;right:0;background:rgba(0,0,0,.9);color:#0f0;font-size:11px;font-family:monospace;padding:8px 12px;z-index:9998;max-height:50vh;overflow-y:auto';
-    document.body.appendChild(_dbg);
-    function dbg(msg, col) { _dbg.innerHTML += `<div style="color:${col||'#0f0'}">${msg}</div>`; }
+    // Debug logging — console only (no visible overlay)
+    function dbg(msg, col) {
+      if (col === '#f66') console.error('[App]', msg);
+      else console.log('[App]', msg);
+    }
 
     dbg('SB: ' + (typeof SB) + ' | Data: ' + (typeof Data));
 
