@@ -129,7 +129,7 @@ const Auth = (() => {
     });
   }
 
-  function renderSetPasswordScreen() {
+  function renderSetPasswordScreen(onComplete) {
     const overlay = document.createElement('div');
     overlay.id = 'auth-overlay';
     overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:var(--s6)';
@@ -161,7 +161,7 @@ const Auth = (() => {
       }
       btn.disabled = true;
       btn.textContent = 'Saving…';
-      const { error } = await SB.auth.updateUser({ password: pw });
+      const { data, error } = await SB.auth.updateUser({ password: pw });
       if (error) {
         err.textContent = error.message;
         err.style.display = 'block';
@@ -172,6 +172,7 @@ const Auth = (() => {
       overlay.style.transition = 'opacity .3s';
       overlay.style.opacity = '0';
       setTimeout(() => overlay.remove(), 300);
+      onComplete(data.user);
     });
   }
 
@@ -185,12 +186,7 @@ const Auth = (() => {
     console.log('[Auth] redirect hash:', hash, '| isInviteOrRecovery:', isInviteOrRecovery);
 
     if (isInviteOrRecovery) {
-      renderSetPasswordScreen();
-      SB.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-          _resolveGate(session.user);
-        }
-      });
+      renderSetPasswordScreen((user) => _resolveGate(user));
       return _gatePromise;
     }
 
