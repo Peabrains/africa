@@ -18,6 +18,7 @@ read the next time the app loads.
 import os
 import sys
 import json
+import time
 import urllib.request
 import urllib.error
 from datetime import datetime, timezone
@@ -56,24 +57,44 @@ def get_flight_stops():
         f"&select=id,name,flight_detail,itinerary_days(date)"
     )
     rows = sb_request("GET", path) or []
-    return [r for r in rows if r.get("flight_detail", {}).get("flight_no")]
+    out = []
+    for r in rows:
+        fd = r.get("flight_detail") or {}
+        if fd.get("flight_no"):
+            # Normalize: the app field is free text, so don't trust exact formatting
+            # (strip spaces/dashes, uppercase) — "QR 648" / "qr-648" -> "QR648"
+            fd["flight_no"] = fd["flight_no"].strip().upper().replace(" ", "").replace("-", "")
+            r["flight_detail"] = fd
+            out.append(r)
+    return out
 
 
-def check_flight(flight_no, date_str):
+def check_flight(flight_no, date_str, retries=1):
     """Returns the current local departure time string, or None if no data yet."""
     url = f"https://{AERODB_HOST}/flights/number/{flight_no}/{date_str}"
-    req = urllib.request.Request(url)
-    req.add_header("X-RapidAPI-Key", RAPIDAPI_KEY)
-    req.add_header("X-RapidAPI-Host", AERODB_HOST)
-    try:
-        with urllib.request.urlopen(req, timeout=20) as r:
-            results = json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        print(f"[AeroDataBox] {flight_no}/{date_str} -> {e.code} {e.read().decode()[:200]}")
-        return None
-    except Exception as e:
-        print(f"[AeroDataBox] {flight_no}/{date_str} -> error: {e}")
-        return None
+    results = None
+
+    for attempt in range(retries + 1):
+        req = urllib.request.Request(url)
+        req.add_header("X-RapidAPI-Key", RAPIDAPI_KEY)
+        req.add_header("X-RapidAPI-Host", AERODB_HOST)
+        req.add_header("User-Agent", "Mozilla/5.0 (compatible; SafariApp-FlightCheck/1.0)")
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                results = json.loads(r.read())
+            break
+        except urllib.error.HTTPError as e:
+            body = e.read().decode()[:200]
+            print(f"[AeroDataBox] {flight_no}/{date_str} -> {e.code} {body}")
+            if e.code in (403, 429) and attempt < retries:
+                wait = 5 if e.code == 429 else 3
+                print(f"  retrying in {wait}s...")
+                time.sleep(wait)
+                continue
+            return None
+        except Exception as e:
+            print(f"[AeroDataBox] {flight_no}/{date_str} -> error: {e}")
+            return None
 
     if not results:
         print(f"[AeroDataBox] {flight_no}/{date_str} -> no schedule data yet (normal if far out)")
@@ -98,7 +119,9 @@ def main():
     print(f"Checking {len(stops)} flight-carrying stop(s)...")
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    for stop in stops:
+    for i, stop in enumerate(stops):
+        if i > 0:
+            time.sleep(2)  # stay under the BASIC plan's per-second rate limit
         fd = stop["flight_detail"]
         flight_no = fd["flight_no"]
         date_str = (stop.get("itinerary_days") or {}).get("date")
