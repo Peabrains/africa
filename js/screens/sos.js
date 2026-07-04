@@ -137,7 +137,7 @@ const SOSScreen = (() => {
       ['help',     'Help'],
       ['phrases',  'Phrases'],
       ['stay',     'Stay'],
-      ['places',   'Places'],
+      ['entry',    'Entry'],
       ['guides',   'Guides'],
     ].forEach(([id, label]) => {
       const btn = document.createElement('button');
@@ -251,24 +251,74 @@ const SOSScreen = (() => {
     return div;
   }
 
-  /* ══ STAY TAB ══════════════════════════════════════════════ */
+  /* ══ STAY TAB (accommodation + camp addresses + permits, combined) ══ */
   function renderStay(sos) {
     const wrap = document.createElement('div');
     wrap.appendChild(infoSection('Accommodation', sos.lodging, 'building'));
+    const addrRows = (sos.addresses || []).map(a => ({ label: a.label, value: a.address }));
+    wrap.appendChild(infoSection('Camp & hotel addresses', addrRows, 'language'));
     wrap.appendChild(infoSection('Permits & documents', sos.passes, 'card'));
     return wrap;
   }
 
-  /* ══ PLACES TAB ════════════════════════════════════════════ */
-  function renderPlaces(sos) {
+  /* ══ ENTRY TAB — visa / passport / yellow fever / customs by country ══ */
+  function renderEntry(sos) {
     const wrap = document.createElement('div');
+    const req = sos.entryRequirements;
 
-    // Camp addresses (useful for drivers/emergencies)
-    const addrRows = (sos.addresses || []).map(a => ({
-      label: a.label,
-      value: a.address,
-    }));
-    wrap.appendChild(infoSection('Camp & hotel addresses', addrRows, 'language'));
+    if (!req) {
+      const em = document.createElement('p');
+      em.style.cssText = 'font-size:var(--text-xs);color:var(--text-muted);font-style:italic;padding:var(--s3) var(--s4)';
+      em.textContent = 'Entry requirement info not yet added.';
+      wrap.appendChild(em);
+      return wrap;
+    }
+
+    if (req.summary) {
+      const banner = document.createElement('div');
+      banner.className = 'sos-banner';
+      banner.style.cssText = 'margin:0 var(--s4) var(--s3)';
+      banner.innerHTML = `${Icons.info ? Icons.info('icon-md') : ''}<div>
+        <p style="font-weight:500;font-size:var(--text-sm);color:var(--text-primary)">${req.summary.title || 'Key note'}</p>
+        <p style="font-size:var(--text-xs);color:var(--text-secondary);opacity:.9;margin-top:2px">${req.summary.body}</p>
+      </div>`;
+      wrap.appendChild(banner);
+    }
+
+    (req.countries || []).forEach(c => {
+      const sec = document.createElement('div');
+      sec.className = 'sos-section';
+      const h = document.createElement('p');
+      h.className = 'sos-section-title';
+      h.textContent = c.flag ? `${c.flag} ${c.name}` : c.name;
+      sec.appendChild(h);
+
+      const rows = [
+        c.visa       ? { label: 'Visa/entry',   value: c.visa } : null,
+        c.passport   ? { label: 'Passport',     value: c.passport } : null,
+        c.yellowFever? { label: 'Yellow fever', value: c.yellowFever } : null,
+        c.customs    ? { label: 'Customs',      value: c.customs } : null,
+      ].filter(Boolean);
+
+      rows.forEach(row => {
+        const item = document.createElement('div');
+        item.className = 'card sos-item';
+        item.style.cssText = 'padding:var(--s3);margin-bottom:var(--s2)';
+        item.innerHTML = `
+          <p style="font-size:var(--text-xs);color:var(--text-muted)">${row.label}</p>
+          <p style="font-size:var(--text-sm);color:var(--text-primary);margin-top:2px;line-height:1.4">${row.value}</p>`;
+        sec.appendChild(item);
+      });
+
+      wrap.appendChild(sec);
+    });
+
+    if (req.disclaimer) {
+      const note = document.createElement('p');
+      note.style.cssText = 'font-size:var(--text-xs);color:var(--text-muted);font-style:italic;padding:var(--s3) var(--s4);text-align:center';
+      note.textContent = req.disclaimer;
+      wrap.appendChild(note);
+    }
 
     return wrap;
   }
@@ -667,7 +717,7 @@ const SOSScreen = (() => {
       case 'help':     scrollWrap.appendChild(renderHelp(sos));     break;
       case 'phrases':  scrollWrap.appendChild(renderPhrasesTab());  break;
       case 'stay':     scrollWrap.appendChild(renderStay(sos));     break;
-      case 'places':   scrollWrap.appendChild(renderPlaces(sos));   break;
+      case 'entry':    scrollWrap.appendChild(renderEntry(sos));    break;
       case 'guides':   scrollWrap.appendChild(renderGuides());      break;
     }
 
