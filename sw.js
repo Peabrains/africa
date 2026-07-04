@@ -1,17 +1,18 @@
 /* ============================================================
-   SERVICE WORKER — Africa Safari PWA
-   Cache version auto-bumps on every deploy via BUILD_TS
-   BUILD: 202606292258
+   SERVICE WORKER — Africa Safari PWA (platform branch)
+   Cache version bumped manually alongside APP_VERSION.
+   BUILD: 202607040700
    ============================================================ */
-const CACHE   = 'africa-safari-202607030730';
-const VERSION = '202607030730';
+const CACHE   = 'africa-safari-platform-202607040700';
+const VERSION = '202607040700';
 
 const PRECACHE = [
   './', './index.html', './css/tokens.css', './css/print.css',
-  './js/config.js', './js/db.js', './js/sync.js', './js/data.js',
+  './js/config.js', './js/db.js', './js/supabase.js',
+  './js/data-platform.js', './js/trip-switcher.js', './js/auth.js',
   './js/icons.js', './js/toast.js', './js/bottom-sheet.js',
-  './js/weather.js', './js/app.js', './js/auth.js',
-  './js/screens/itinerary.js', './js/screens/map.js',
+  './js/weather.js', './js/app.js',
+  './js/screens/itinerary.js', './js/screens/map.js', './js/screens/dex.js',
   './js/screens/bookings.js', './js/screens/sos.js',
 ];
 
@@ -91,7 +92,7 @@ self.addEventListener('fetch', e => {
   // This means: always try to get the freshest version,
   // fall back to cache if offline (critical for bush connectivity)
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: 'no-store' })
       .then(res => {
         if (res.status === 200) {
           const clone = res.clone();
