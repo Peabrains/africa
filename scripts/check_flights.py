@@ -133,9 +133,15 @@ def main():
         patch = {**fd, "last_checked_at": now_iso}
 
         if current_time:
-            if "original_depart_time" not in fd:
-                patch["original_depart_time"] = fd.get("depart_time", current_time)
-            if current_time != fd.get("depart_time"):
+            is_first_check = "original_depart_time" not in fd
+            if is_first_check:
+                # First real data we've ever gotten for this flight — this is the
+                # baseline, not a detected change. Whatever was in depart_time
+                # before was a manual placeholder, not a genuine prior schedule.
+                patch["original_depart_time"] = current_time
+                patch["depart_time"] = current_time
+                print(f"  {stop['name']} ({flight_no}): baseline set ({current_time})")
+            elif current_time != fd.get("depart_time"):
                 print(f"  {stop['name']} ({flight_no}): {fd.get('depart_time')} -> {current_time} — RETIMED")
                 patch["depart_time"] = current_time
             else:
