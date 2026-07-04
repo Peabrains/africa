@@ -343,14 +343,42 @@ const Data = (() => {
     return OVERNIGHTS[dayId] || null;
   }
 
+  /* Anything (overnight or stop) with a booking deadline within `daysAhead` days */
+  function getUpcomingDeadlines(daysAhead = 14) {
+    const now = Date.now();
+    const cutoff = now + daysAhead * 86400000;
+    const results = [];
+
+    Object.entries(OVERNIGHTS).forEach(([dayId, o]) => {
+      if (!o.deadline) return;
+      const t = new Date(o.deadline).getTime();
+      if (!isNaN(t) && t >= now && t <= cutoff) {
+        results.push({ type: 'accommodation', name: o.name, deadline: o.deadline, dayId });
+      }
+    });
+
+    STOPS.forEach(s => {
+      const deadline = s.flight_detail?.deadline;
+      if (!deadline) return;
+      const t = new Date(deadline).getTime();
+      if (!isNaN(t) && t >= now && t <= cutoff) {
+        results.push({ type: 'stop', name: s.name, deadline, dayId: s.day_id });
+      }
+    });
+
+    return results.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+  }
+
   async function updateOvernight(dayId, changes) {
     if (!OVERNIGHTS[dayId]) return;
     Object.assign(OVERNIGHTS[dayId], changes);
     if (navigator.onLine) {
-      // 'deadline' has no column on `overnights` yet — drop it rather than
-      // let an unknown key reject the whole update.
-      const { deadline, ...dbChanges } = changes;
-      const { error } = await SB.from('overnights').update(dbChanges).eq('id', OVERNIGHTS[dayId].id);
+      let { error } = await SB.from('overnights').update(changes).eq('id', OVERNIGHTS[dayId].id);
+      if (error && /deadline/.test(error.message || '')) {
+        // Schema patch not run yet — retry without deadline
+        const { deadline, ...withoutDeadline } = changes;
+        ({ error } = await SB.from('overnights').update(withoutDeadline).eq('id', OVERNIGHTS[dayId].id));
+      }
       if (error) console.error('[Data] updateOvernight error:', error);
     }
     await DB.setMeta(CACHE_KEYS.overnight, OVERNIGHTS);
@@ -735,7 +763,7 @@ const Data = (() => {
     // Stops
     getStops, getStopsByDay, addStop, updateStop, deleteStop,
     // Overnight
-    getOvernight, updateOvernight,
+    getOvernight, updateOvernight, getUpcomingDeadlines,
     // Expenses
     getExpenses, addExpense, updateExpense, deleteExpense, getTotalSpentJPY,
     getTravelers, updateTravelers, calcSettlement, getBalances, setExpenses,
