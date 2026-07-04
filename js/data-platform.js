@@ -440,6 +440,35 @@ const Data = (() => {
     await updateStory(dayId, { title: null, paragraphs: null });
   }
 
+  async function getDayContents(dayId) {
+    const { data, error } = await SB.rpc('get_day_contents', { p_day_id: dayId });
+    if (error) { console.error('[Data] getDayContents error:', error); throw error; }
+    return data;
+  }
+
+  async function addDay(afterDayId, { date, title, locality, segment }) {
+    if (!CURRENT_TRIP) throw new Error('No active trip');
+    const { data, error } = await SB.rpc('add_itinerary_day', {
+      p_trip_id: CURRENT_TRIP.id,
+      p_after_day_id: afterDayId || null,
+      p_date: date || null,
+      p_title: title || null,
+      p_locality: locality || null,
+      p_segment: segment || 'transit',
+    });
+    if (error) { console.error('[Data] addDay error:', error); throw error; }
+    // Renumbering can shift many rows at once — simplest correct approach
+    // is to refetch, rather than try to patch every shifted day locally.
+    await loadTripData(CURRENT_TRIP.id);
+    return data;
+  }
+
+  async function deleteDay(dayId) {
+    const { error } = await SB.rpc('delete_itinerary_day', { p_day_id: dayId });
+    if (error) { console.error('[Data] deleteDay error:', error); throw error; }
+    await loadTripData(CURRENT_TRIP.id);
+  }
+
   /* ── EXPENSES API ────────────────────────────────────────── */
   function normaliseExpense(e) {
     return {
@@ -877,7 +906,7 @@ const Data = (() => {
   return {
     init, loadTrips,
     // Days
-    getDays, updateDay, updateStory, deleteStory,
+    getDays, updateDay, updateStory, deleteStory, addDay, deleteDay, getDayContents,
     // Stops
     getStops, getStopsByDay, addStop, updateStop, deleteStop,
     // Overnight
