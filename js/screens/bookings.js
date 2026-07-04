@@ -480,8 +480,12 @@ const BookingsScreen = (() => {
         chip.className = 'traveler-chip traveler-chip--active';
         chip.innerHTML = `${name}<button class="traveler-chip-del" data-idx="${i}">×</button>`;
         chip.querySelector('.traveler-chip-del').addEventListener('click', async () => {
-          await Data.updateTravelers(travelers.filter((_,j)=>j!==i));
-          Toast.show(`${name} removed`,'info'); render();
+          try {
+            await Data.updateTravelers(travelers.filter((_,j)=>j!==i));
+            Toast.show(`${name} removed`,'info'); render();
+          } catch (e) {
+            Toast.show('Could not save — check connection', 'danger');
+          }
         });
         chipWrap.appendChild(chip);
       });
@@ -610,8 +614,12 @@ const BookingsScreen = (() => {
       const name = tInput?.value?.trim();
       if (!name) return;
       if (travelers.includes(name)) { Toast.show(`${name} already added`,'warning'); return; }
-      await Data.updateTravelers([...travelers, name]);
-      Toast.show(`${name} added`,'success'); render();
+      try {
+        await Data.updateTravelers([...travelers, name]);
+        Toast.show(`${name} added`,'success'); render();
+      } catch (e) {
+        Toast.show('Could not save — check connection', 'danger');
+      }
     };
     tAddBtn?.addEventListener('click', addTraveler);
     tInput?.addEventListener('keydown', e => { if (e.key==='Enter') addTraveler(); });
@@ -619,8 +627,12 @@ const BookingsScreen = (() => {
     tripSection.querySelector('#trip-name-save-btn')?.addEventListener('click', async () => {
       const name = tripSection.querySelector('#trip-name-input')?.value?.trim();
       if (!name) return;
-      await Data.setTripName(name);
-      Toast.show('Trip name updated','success');
+      try {
+        await Data.setTripName(name);
+        Toast.show('Trip name updated','success');
+      } catch (e) {
+        Toast.show('Could not save — check connection', 'danger');
+      }
     });
 
     resetSection.querySelector('#reset-data-btn')?.addEventListener('click', async () => {
