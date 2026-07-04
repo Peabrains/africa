@@ -57,6 +57,20 @@ const ItineraryScreen = (() => {
     return '';
   }
 
+  function timeSinceLabel(iso) {
+    if (!iso) return '';
+    const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.round(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.round(hrs / 24)}d ago`;
+  }
+
+  function retimedBadge(stop) {
+    if (stop.transportType !== 'plane' || !stop.isRetimed) return '';
+    return `<span class="tl-flight-badge" style="background:var(--danger-bg,#FEF2F2);color:var(--danger-text);border:1px solid var(--danger-text)">⚠ Retimed</span>`;
+  }
+
   /* ── Country divider ────────────────────────────────────────── */
   function countryDivider(segment) {
     const info = SEGMENT_LABEL[segment] || SEGMENT_LABEL.transit;
@@ -154,10 +168,15 @@ const ItineraryScreen = (() => {
         </div>
         <p class="tl-activity">${stop.activity || ''}</p>
         ${stop.transport ? `<div class="tl-transport"> ${Icons[iconKey]?Icons[iconKey]('icon-sm'):''}<span>${stop.transport}</span></div>` : ''}
+        ${stop.isRetimed ? `<p class="tl-note" style="color:var(--danger-text)">
+          <span style="text-decoration:line-through;opacity:.6">${stop.originalDepartTime}</span> → <strong>${stop.departTime}</strong>
+          ${stop.lastCheckedAt ? ` · Checked ${timeSinceLabel(stop.lastCheckedAt)}` : ''}
+        </p>` : ''}
         ${stop.notes ? `<p class="tl-note">${stop.notes}</p>` : ''}
         <div class="tl-footer">
           ${badge(stop.booking.status)}
           ${flightBadge(stop)}
+          ${retimedBadge(stop)}
           ${stop.category==='transport' ? '<span class="cat-chip cat-chip--transport">Transport</span>' :
             stop.category==='activity'  ? '<span class="cat-chip cat-chip--activity">Activity</span>'  : ''}
           ${stop.booking.cost ? `<span class="cat-chip cat-chip--activity">USD ${stop.booking.cost.toLocaleString()}</span>` : ''}
