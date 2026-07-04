@@ -185,21 +185,24 @@ const Data = (() => {
 
   /* ── Normalise a stop row from Supabase to match itinerary.js field names ── */
   function normaliseStop(s) {
+    const parentDay = DAYS.find(d => d.id === s.day_id);
     return {
       ...s,
       // camelCase aliases for snake_case Supabase columns
       dayId:         s.day_id,
+      segment:       parentDay?.segment || null,   // country/segment lives on the day, not the stop
       timeZone:      s.timezone || 'EAT',
       transportType: s.transport_type || 'walk',
       needsBooking:  s.needs_booking || false,
       isBooked:      s.is_booked || false,
       flightIncluded: s.flight_detail?.included === true,
       flightExcluded: s.flight_detail?.included === false,
-      trainDetail:   null,
+      trainDetail:   s.flight_detail?.trainDetail || null,
       booking: {
         status: s.is_booked ? 'booked' : 'open',
         ref:    s.flight_detail?.ref || '',
-        cost:   null,
+        cost:   s.flight_detail?.cost ?? null,
+        deadline: s.flight_detail?.deadline || null,
       },
       // flight detail fields itinerary.js uses
       ...(s.flight_detail ? {
@@ -248,8 +251,14 @@ const Data = (() => {
       transport_type: stop.transportType || 'walk',
       notes:          stop.notes || '',
       needs_booking:  stop.needsBooking || false,
-      is_booked:      false,
+      is_booked:      stop.booking?.status === 'booked' || false,
       category:       stop.category || null,
+      flight_detail:  (stop.trainDetail || stop.booking?.ref || stop.booking?.cost || stop.booking?.deadline) ? {
+        ...(stop.trainDetail ? { trainDetail: stop.trainDetail } : {}),
+        ...(stop.booking?.ref      ? { ref: stop.booking.ref } : {}),
+        ...(stop.booking?.cost     != null ? { cost: stop.booking.cost } : {}),
+        ...(stop.booking?.deadline ? { deadline: stop.booking.deadline } : {}),
+      } : null,
     };
 
     if (navigator.onLine) {
@@ -266,15 +275,57 @@ const Data = (() => {
     }
   }
 
+  /* Translate a camelCase UI patch into real `stops` table columns.
+     Anything with no matching column (booking ref/cost/deadline, trainDetail)
+     gets folded into the flight_detail jsonb bucket instead of being dropped. */
+  function denormaliseStopPatch(stopId, changes) {
+    const current = STOPS.find(s => s.id === stopId) || {};
+    const patch = {};
+
+    if ('name'          in changes) patch.name           = changes.name;
+    if ('activity'       in changes) patch.activity       = changes.activity;
+    if ('time'           in changes) patch.time           = changes.time;
+    if ('timeZone'       in changes) patch.timezone       = changes.timeZone;
+    if ('dayId'          in changes) patch.day_id         = changes.dayId;
+    if ('transport'      in changes) patch.transport      = changes.transport;
+    if ('transportType'  in changes) patch.transport_type = changes.transportType;
+    if ('notes'          in changes) patch.notes          = changes.notes;
+    if ('needsBooking'   in changes) patch.needs_booking  = changes.needsBooking;
+    if ('category'       in changes) patch.category       = changes.category;
+
+    if (changes.booking) {
+      patch.is_booked = changes.booking.status === 'booked';
+    }
+
+    // Fold anything with no dedicated column into flight_detail (merge, don't overwrite)
+    const needsFlightDetailMerge = changes.booking || ('trainDetail' in changes);
+    if (needsFlightDetailMerge) {
+      const merged = { ...(current.flight_detail || {}) };
+      if (changes.booking) {
+        if ('ref'      in changes.booking) merged.ref      = changes.booking.ref || undefined;
+        if ('cost'     in changes.booking) merged.cost     = changes.booking.cost ?? undefined;
+        if ('deadline' in changes.booking) merged.deadline = changes.booking.deadline || undefined;
+      }
+      if ('trainDetail' in changes) {
+        if (changes.trainDetail) merged.trainDetail = changes.trainDetail;
+        else delete merged.trainDetail;
+      }
+      patch.flight_detail = merged;
+    }
+
+    return patch;
+  }
+
   async function updateStop(id, changes) {
     const idx = STOPS.findIndex(s => s.id === id);
     if (idx < 0) return;
 
-    Object.assign(STOPS[idx], changes);
+    const dbPatch = denormaliseStopPatch(id, changes);
+    Object.assign(STOPS[idx], dbPatch);
 
     if (navigator.onLine) {
-      const { error } = await SB.from('stops').update(changes).eq('id', id);
-      if (error) console.error('[Data] updateStop error:', error);
+      const { error } = await SB.from('stops').update(dbPatch).eq('id', id);
+      if (error) { console.error('[Data] updateStop error:', error); throw error; }
     }
     await DB.setMeta(CACHE_KEYS.stops, STOPS);
   }
@@ -296,13 +347,26 @@ const Data = (() => {
     if (!OVERNIGHTS[dayId]) return;
     Object.assign(OVERNIGHTS[dayId], changes);
     if (navigator.onLine) {
-      await SB.from('overnights').update(changes).eq('id', OVERNIGHTS[dayId].id);
+      // 'deadline' has no column on `overnights` yet — drop it rather than
+      // let an unknown key reject the whole update.
+      const { deadline, ...dbChanges } = changes;
+      const { error } = await SB.from('overnights').update(dbChanges).eq('id', OVERNIGHTS[dayId].id);
+      if (error) console.error('[Data] updateOvernight error:', error);
     }
     await DB.setMeta(CACHE_KEYS.overnight, OVERNIGHTS);
   }
 
   /* ── EXPENSES API ────────────────────────────────────────── */
-  function getExpenses()      { return EXPENSES; }
+  function normaliseExpense(e) {
+    return {
+      ...e,
+      dayId:        e.day_id || null,
+      amountJPY:    e.amount_usd || 0,   // field name kept for UI compat (stores USD)
+      paidBy:       e.paid_by || '',
+      splitBetween: e.split_between || [],
+    };
+  }
+  function getExpenses()      { return EXPENSES.map(normaliseExpense); }
   function getTotalSpentJPY() { return EXPENSES.reduce((s,e) => s + (e.amount_usd || 0), 0); }
   function getTravelers()     { return TRAVELERS; }
   function getTripName()      { return CURRENT_TRIP?.name || 'Safari App'; }
@@ -310,23 +374,31 @@ const Data = (() => {
   async function addExpense(exp) {
     const newExp = {
       trip_id:       CURRENT_TRIP.id,
+      day_id:        exp.dayId || null,
       description:   exp.description || exp.desc || '',
       amount_usd:    exp.amountJPY || exp.amount_usd || 0,
       category:      exp.category || null,
       paid_by:       exp.paidBy || null,
       split_between: exp.splitBetween || [],
-      day_label:     exp.dayLabel || null,
+      day_label:     exp.dayLabel || DAYS.find(d => d.id === exp.dayId)?.day_label || null,
       created_by:    (await SB.auth.getUser()).data.user?.id,
     };
 
     EXPENSES.push({ ...newExp, id: 'local_' + Date.now() });
 
     if (navigator.onLine) {
-      const { data, error } = await SB.from('expenses').insert(newExp).select().single();
+      let { data, error } = await SB.from('expenses').insert(newExp).select().single();
+      if (error && /day_id/.test(error.message || '')) {
+        // Schema patch not run yet — retry without day_id, day_label still carries the day
+        const { day_id, ...withoutDayId } = newExp;
+        ({ data, error } = await SB.from('expenses').insert(withoutDayId).select().single());
+      }
       if (!error && data) {
         // Replace local entry with real one
         EXPENSES = EXPENSES.filter(e => !e.id.startsWith('local_'));
         EXPENSES.push(data);
+      } else if (error) {
+        console.error('[Data] addExpense error:', error);
       }
     }
     await DB.setMeta(CACHE_KEYS.expenses, EXPENSES);
@@ -506,24 +578,51 @@ const Data = (() => {
   }
 
   /* ── CUSTOM LINKS API ────────────────────────────────────── */
-  function getCustomLinks() { return CUSTOM_LINKS; }
+  function getCustomLinks() {
+    return CUSTOM_LINKS.map(l => ({ ...l, dayId: l.day_id || null }));
+  }
 
-  async function addCustomLink({ title, url }) {
+  async function addCustomLink({ title, url, dayId }) {
     const newLink = {
       trip_id:    CURRENT_TRIP.id,
       title,
       url,
+      day_id:     dayId || null,
     };
     CUSTOM_LINKS.push({ ...newLink, id: 'local_' + Date.now() });
     if (navigator.onLine) {
       const user = (await SB.auth.getUser()).data.user;
-      const { data, error } = await SB.from('custom_links')
+      let { data, error } = await SB.from('custom_links')
         .insert({ ...newLink, created_by: user?.id })
         .select().single();
+      if (error && /day_id/.test(error.message || '')) {
+        // Schema patch not run yet — retry without day_id
+        const { day_id, ...withoutDayId } = newLink;
+        ({ data, error } = await SB.from('custom_links')
+          .insert({ ...withoutDayId, created_by: user?.id })
+          .select().single());
+      }
       if (!error && data) {
         CUSTOM_LINKS = CUSTOM_LINKS.filter(l => !l.id.startsWith('local_'));
         CUSTOM_LINKS.push(data);
+      } else if (error) {
+        console.error('[Data] addCustomLink error:', error);
       }
+    }
+    await DB.setMeta(CACHE_KEYS.links, CUSTOM_LINKS);
+  }
+
+  async function updateCustomLink(id, { title, url, dayId }) {
+    const idx = CUSTOM_LINKS.findIndex(l => l.id === id);
+    if (idx < 0) return;
+    const patch = {};
+    if (title !== undefined) patch.title  = title;
+    if (url   !== undefined) patch.url    = url;
+    if (dayId !== undefined) patch.day_id = dayId || null;
+    Object.assign(CUSTOM_LINKS[idx], patch);
+    if (navigator.onLine) {
+      const { error } = await SB.from('custom_links').update(patch).eq('id', id);
+      if (error) console.error('[Data] updateCustomLink error:', error);
     }
     await DB.setMeta(CACHE_KEYS.links, CUSTOM_LINKS);
   }
@@ -611,7 +710,7 @@ const Data = (() => {
     // Stories + Glossary
     hasStory, getStory, getGlossary,
     // Links
-    getCustomLinks, addCustomLink, deleteCustomLink, setCustomLinks,
+    getCustomLinks, addCustomLink, updateCustomLink, deleteCustomLink, setCustomLinks,
     // Trips
     getTrips, getCurrentTrip, switchTrip,
     // Trip info
