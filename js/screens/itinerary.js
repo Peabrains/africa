@@ -346,7 +346,7 @@ const ItineraryScreen = (() => {
           const wxEl = document.createElement('div');
           wxEl.className = 'wx-container';
           root.appendChild(wxEl);
-          if (day.weatherPoints) {
+          if (day.weatherPoints && day.weatherPoints.length) {
             Weather.renderMultiStrip(wxEl, day.weatherPoints);
           } else {
             const wxStop = stops.find(s => s.lat && s.lng);
