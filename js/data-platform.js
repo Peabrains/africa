@@ -233,7 +233,7 @@ const Data = (() => {
 
   /* ── STOPS API ───────────────────────────────────────────── */
   function getStops()               { return STOPS.map(normaliseStop); }
-  function getStopsByDay(dayId)     { return STOPS.filter(s => s.day_id === dayId); }
+  function getStopsByDay(dayId)     { return STOPS.filter(s => s.day_id === dayId).sort((a,b) => a.sort_order - b.sort_order).map(normaliseStop); }
 
   async function addStop(stop) {
     const newStop = {
