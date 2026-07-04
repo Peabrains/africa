@@ -100,6 +100,18 @@ def check_flight(flight_no, date_str, retries=1):
         print(f"[AeroDataBox] {flight_no}/{date_str} -> no schedule data yet (normal if far out)")
         return None
 
+    if len(results) > 1:
+        print(f"[AeroDataBox] {flight_no}/{date_str} -> WARNING: {len(results)} results returned, using first")
+
+    for i, r in enumerate(results):
+        dep_dbg = r.get("departure", {})
+        arr_dbg = r.get("arrival", {})
+        print(f"[AeroDataBox] {flight_no}/{date_str} result[{i}]: "
+              f"from={dep_dbg.get('airport', {}).get('iata')} "
+              f"to={arr_dbg.get('airport', {}).get('iata')} "
+              f"scheduled={dep_dbg.get('scheduledTime')} "
+              f"revised={dep_dbg.get('revisedTime')}")
+
     flight = results[0]
     dep = flight.get("departure", {})
     # Prefer the revised (actual current) time if present, else the original schedule
