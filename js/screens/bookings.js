@@ -317,22 +317,74 @@ const BookingsScreen = (() => {
         exps.forEach(exp => {
           const splitPax = Math.max(1, exp.splitBetween?.length||1);
           const perHead  = Math.round(exp.amountJPY/splitPax);
+          const loggedAt = exp.createdAt ? new Date(exp.createdAt).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
           const row = document.createElement('div');
           row.className = 'expense-row';
+          row.style.flexWrap = 'wrap';
           row.innerHTML = `
             <span class="expense-cat">${exp.category}</span>
             <div class="expense-info">
               <p class="expense-desc">${exp.description}</p>
               <p class="expense-split-line">${exp.paidBy?exp.paidBy+' paid':''} ${exp.splitBetween?.length?'· '+exp.splitBetween.join('+'):''} · USD ${perHead.toLocaleString()} pp</p>
+              ${loggedAt?`<p class="expense-split-line" style="opacity:.7">Logged ${loggedAt}</p>`:''}
             </div>
             <div style="text-align:right;flex-shrink:0">
               <p class="expense-amt">USD ${exp.amountJPY.toLocaleString()}</p>
               <p class="expense-per">USD ${perHead.toLocaleString()} pp</p>
             </div>
+            <button class="expense-edit" style="background:none;border:1.5px solid var(--border);border-radius:var(--r-sm);padding:3px 9px;font-size:var(--text-xs);cursor:pointer;font-family:var(--font);color:var(--text-secondary);flex-shrink:0">Edit</button>
             <button class="expense-del">×</button>`;
           row.querySelector('.expense-del').addEventListener('click', async e => {
             e.stopPropagation(); await Data.deleteExpense(exp.id); Toast.show('Removed','info'); render();
           });
+
+          // Inline edit form
+          const editRow = document.createElement('div');
+          editRow.style.cssText = 'display:none;flex-direction:column;gap:6px;width:100%;padding:8px 0 4px;border-top:1px solid var(--border-subtle);margin-top:6px';
+          const dayOpts = `<option value="">No specific day</option>` + Data.getDays().map(d=>`<option value="${d.id}" ${d.id===exp.dayId?'selected':''}>${d.label} · ${d.date}</option>`).join('');
+          const catOpts = EXPENSE_CATS.map(c=>`<option ${c===exp.category?'selected':''}>${c}</option>`).join('');
+          const paidChips = travelers.map(t=>`<button type="button" class="traveler-chip ee-paid-chip ${t===exp.paidBy?'traveler-chip--active':''}" data-name="${t}">${t}</button>`).join('');
+          const splitChips = travelers.map(t=>`<button type="button" class="traveler-chip ee-split-chip ${exp.splitBetween?.includes(t)?'traveler-chip--active':''}" data-name="${t}">${t}</button>`).join('');
+          editRow.innerHTML = `
+            <select class="ee-day bs-input">${dayOpts}</select>
+            <select class="ee-cat bs-input">${catOpts}</select>
+            <input class="ee-desc bs-input" type="text" value="${exp.description.replace(/"/g,'&quot;')}">
+            <input class="ee-amt bs-input" type="number" value="${exp.amountJPY}">
+            ${travelers.length?`
+              <div class="bs-edit-group"><label class="bs-edit-label">Paid by</label><div class="split-chips ee-paid-wrap">${paidChips}</div></div>
+              <div class="bs-edit-group"><label class="bs-edit-label">Split between</label><div class="split-chips ee-split-wrap">${splitChips}</div></div>`:''}
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary ee-save" style="flex:1">Save</button>
+              <button class="btn btn-ghost ee-cancel" style="flex:1">Cancel</button>
+            </div>`;
+          row.appendChild(editRow);
+
+          row.querySelector('.expense-edit').addEventListener('click', e => {
+            e.stopPropagation();
+            editRow.style.display = editRow.style.display === 'none' ? 'flex' : 'none';
+          });
+          editRow.querySelectorAll('.ee-paid-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+              editRow.querySelectorAll('.ee-paid-chip').forEach(c=>c.classList.remove('traveler-chip--active'));
+              chip.classList.add('traveler-chip--active');
+            });
+          });
+          editRow.querySelectorAll('.ee-split-chip').forEach(chip => {
+            chip.addEventListener('click', () => chip.classList.toggle('traveler-chip--active'));
+          });
+          editRow.querySelector('.ee-cancel').addEventListener('click', () => { editRow.style.display = 'none'; });
+          editRow.querySelector('.ee-save').addEventListener('click', async () => {
+            const dayId = editRow.querySelector('.ee-day').value || null;
+            const category = editRow.querySelector('.ee-cat').value;
+            const description = editRow.querySelector('.ee-desc').value.trim();
+            const amountJPY = parseInt(editRow.querySelector('.ee-amt').value) || 0;
+            const paidBy = travelers.length ? (editRow.querySelector('.ee-paid-chip.traveler-chip--active')?.dataset.name || '') : exp.paidBy;
+            const splitBetween = travelers.length ? [...editRow.querySelectorAll('.ee-split-chip.traveler-chip--active')].map(c=>c.dataset.name) : exp.splitBetween;
+            await Data.updateExpense(exp.id, { dayId, category, description, amountJPY, paidBy, splitBetween });
+            Toast.show('Expense updated','success');
+            render();
+          });
+
           sec.appendChild(row);
         });
         frag.appendChild(sec);
@@ -433,8 +485,8 @@ const BookingsScreen = (() => {
     resetSection.className = 'settings-section';
     resetSection.innerHTML = `
       <p class="settings-section-title">Data</p>
-      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s3)">Nuclear reset wipes ALL local data and InstantDB, then reseeds fresh from the built-in itinerary. Use when sync is broken or data is corrupt.</p>
-      <button class="btn btn-ghost" id="reset-data-btn" style="width:100%;color:var(--danger-text);border-color:var(--danger-text);margin-bottom:var(--s2)">🗑 Nuclear reset — fresh start</button>`;
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s3)">Reload this trip's data fresh from Supabase. Use if something looks out of sync — this does not delete or change anything, it only re-fetches.</p>
+      <button class="btn btn-ghost" id="reset-data-btn" style="width:100%;margin-bottom:var(--s2)">↻ Reload from Supabase</button>`;
     frag.appendChild(resetSection);
 
     frag.appendChild(budgetSection);
@@ -460,15 +512,13 @@ const BookingsScreen = (() => {
     });
 
     resetSection.querySelector('#reset-data-btn')?.addEventListener('click', async () => {
-      if (!confirm('NUCLEAR RESET: wipe all data and reseed fresh from built-in itinerary?\n\nThis cannot be undone.')) return;
-      Toast.show('Resetting…','info');
+      Toast.show('Reloading from Supabase…','info');
       try {
         await Data.resetToSeed();
-        await Sync.pushAll();
         Toast.show('Done — reloading','success');
         setTimeout(() => location.reload(), 1000);
       } catch(e) {
-        Toast.show('Reset failed: ' + e.message,'warning');
+        Toast.show('Reload failed: ' + e.message,'warning');
       }
     });
     budgetSection.querySelector('#cfg-save-btn')?.addEventListener('click', () => {
