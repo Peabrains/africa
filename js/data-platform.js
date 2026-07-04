@@ -473,17 +473,22 @@ const Data = (() => {
     return data;
   }
 
-  async function addDay(afterDayId, { date, title, locality, segment }) {
+  async function addDay(_afterDayIdUnused, { date, title, locality, segment }) {
     if (!CURRENT_TRIP) throw new Error('No active trip');
     const { data: newDayId, error } = await SB.rpc('add_itinerary_day', {
       p_trip_id: CURRENT_TRIP.id,
-      p_after_day_id: afterDayId || null,
       p_date: date || null,
       p_title: title || null,
       p_locality: locality || null,
       p_segment: segment || 'transit',
     });
-    if (error) { console.error('[Data] addDay error:', error); throw error; }
+    if (error) {
+      if (/DATE_ALREADY_EXISTS/.test(error.message || '')) {
+        throw new Error('That date is already used by another day — pick a different date.');
+      }
+      console.error('[Data] addDay error:', error);
+      throw error;
+    }
 
     if (locality && navigator.onLine) {
       const point = await geocodeLocality(locality);
