@@ -547,9 +547,17 @@ const Data = (() => {
     App.reload();
   }
 
-  /* ── RESERVATIONS (static from trip settings) ────────────── */
-  function getActivityReservations()  { return CURRENT_TRIP?.settings?.activities  || []; }
-  function getTransportReservations() { return CURRENT_TRIP?.settings?.transport   || []; }
+  /* ── RESERVATIONS (derived from flagged stops, matches main branch) ── */
+  function getTransportReservations() {
+    return STOPS.map(normaliseStop)
+      .filter(s => s.needsBooking && s.category === 'transport')
+      .sort((a,b) => (DAYS.findIndex(d=>d.id===a.dayId) - DAYS.findIndex(d=>d.id===b.dayId)) || (a.order||0)-(b.order||0));
+  }
+  function getActivityReservations() {
+    return STOPS.map(normaliseStop)
+      .filter(s => s.needsBooking && s.category === 'activity')
+      .sort((a,b) => (DAYS.findIndex(d=>d.id===a.dayId) - DAYS.findIndex(d=>d.id===b.dayId)) || (a.order||0)-(b.order||0));
+  }
   function getTripInclusions()        { return CURRENT_TRIP?.settings?.inclusions  || []; }
   function getTripExclusions()        { return CURRENT_TRIP?.settings?.exclusions  || []; }
   function getSOS()                   { return CURRENT_TRIP?.settings?.sos         || {}; }
