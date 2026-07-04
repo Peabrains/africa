@@ -308,7 +308,25 @@ const BottomSheet = (() => {
     });
     // Stamp collect button removed — no stamps in Africa PWA
     body.querySelector('#bs-edit-btn')?.addEventListener('click', () => { body.innerHTML=stopEditHTML(stop,day); wireStopEdit(stop,day); });
-    body.querySelector('#bs-remove-btn')?.addEventListener('click', async () => {
+
+    let removeArmed = false;
+    let removeResetTimer = null;
+    const removeBtn = body.querySelector('#bs-remove-btn');
+    removeBtn?.addEventListener('click', async () => {
+      if (!removeArmed) {
+        removeArmed = true;
+        removeBtn.textContent = 'Tap again to confirm';
+        removeBtn.style.background = 'var(--danger-text)';
+        removeBtn.style.color = '#fff';
+        removeResetTimer = setTimeout(() => {
+          removeArmed = false;
+          removeBtn.textContent = 'Remove';
+          removeBtn.style.background = '';
+          removeBtn.style.color = '';
+        }, 4000);
+        return;
+      }
+      clearTimeout(removeResetTimer);
       await Data.deleteStop(stop.id); Toast.show(`${stop.name} removed`,'warning'); close();
       window.ItineraryScreen?.refresh(); window.BookingsScreen?.refresh?.();
     });
