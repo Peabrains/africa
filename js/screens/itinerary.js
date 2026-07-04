@@ -165,6 +165,7 @@ const ItineraryScreen = (() => {
       <div class="tl-content">
         <div class="tl-name-row">
           <p class="tl-name">${stop.name}</p>
+          ${stop.transportType === 'plane' && stop.flightNo ? `<span class="tl-flight-no" style="font-size:var(--text-xs);color:var(--text-muted);font-weight:500;margin-left:6px">${stop.flightNo}</span>` : ''}
         </div>
         <p class="tl-activity">${stop.activity || ''}</p>
         ${stop.transport ? `<div class="tl-transport"> ${Icons[iconKey]?Icons[iconKey]('icon-sm'):''}<span>${stop.transport}</span></div>` : ''}
