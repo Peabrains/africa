@@ -131,6 +131,7 @@ def main():
 
         current_time = check_flight(flight_no, date_str)
         patch = {**fd, "last_checked_at": now_iso}
+        stop_patch = {}
 
         if current_time:
             is_first_check = "original_depart_time" not in fd
@@ -140,16 +141,18 @@ def main():
                 # before was a manual placeholder, not a genuine prior schedule.
                 patch["original_depart_time"] = current_time
                 patch["depart_time"] = current_time
+                stop_patch["time"] = current_time
                 print(f"  {stop['name']} ({flight_no}): baseline set ({current_time})")
             elif current_time != fd.get("depart_time"):
                 print(f"  {stop['name']} ({flight_no}): {fd.get('depart_time')} -> {current_time} — RETIMED")
                 patch["depart_time"] = current_time
+                stop_patch["time"] = current_time
             else:
                 print(f"  {stop['name']} ({flight_no}): unchanged ({current_time})")
         else:
             print(f"  {stop['name']} ({flight_no}): no data this run, just updating checked-at")
 
-        sb_request("PATCH", f"stops?id=eq.{stop['id']}", {"flight_detail": patch})
+        sb_request("PATCH", f"stops?id=eq.{stop['id']}", {"flight_detail": patch, **stop_patch})
 
     print("Done.")
 
