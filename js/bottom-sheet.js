@@ -295,8 +295,12 @@ const BottomSheet = (() => {
   function wireStopView(stop, day) {
     body.querySelector('#bs-book-btn,#bs-unbook-btn')?.addEventListener('click', async () => {
       const s = stop.booking.status !== 'booked' ? 'booked' : 'pending';
-      await Data.updateStop(stop.id, { booking:{...stop.booking, status:s} });
-      Toast.show(s==='booked'?`${stop.name} booked`:'Booking unmarked', s==='booked'?'success':'info');
+      try {
+        await Data.updateStop(stop.id, { booking:{...stop.booking, status:s} });
+        Toast.show(s==='booked'?`${stop.name} booked`:'Booking unmarked', s==='booked'?'success':'info');
+      } catch(e) {
+        Toast.show('Could not save — check connection', 'danger');
+      }
       App.updateUrgentBadge(); close();
       window.ItineraryScreen?.refresh(); window.BookingsScreen?.refresh?.();
     });
@@ -347,8 +351,13 @@ const BottomSheet = (() => {
         } : stop.trainDetail,
         booking: { ...stop.booking, status:g('e-status')||stop.booking.status, ref:g('e-ref'), cost:parseInt(g('e-cost'))||null, deadline:g('e-deadline')||null },
       };
-      await Data.updateStop(stop.id, patch);
-      Toast.show('Stop updated','success'); App.updateUrgentBadge(); close();
+      try {
+        await Data.updateStop(stop.id, patch);
+        Toast.show('Stop updated','success');
+      } catch(e) {
+        Toast.show('Could not save — check connection', 'danger');
+      }
+      App.updateUrgentBadge(); close();
       window.ItineraryScreen?.refresh(); window.BookingsScreen?.refresh?.();
     });
     body.querySelector('#bs-cancel-btn')?.addEventListener('click', () => { body.innerHTML=stopViewHTML(stop,day); wireStopView(stop,day); });
