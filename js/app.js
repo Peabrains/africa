@@ -164,7 +164,7 @@ const App = (() => {
       const content = document.getElementById('screen-content');
       if (content) content.innerHTML = `
         <div style="padding:var(--s6);text-align:center">
-          <span style="font-size:48px">🌍</span>
+          <span style="font-size:48px">🧭</span>
           <p style="margin-top:var(--s3);font-size:var(--text-base);font-weight:500">No trips found</p>
           <button onclick="Auth.signOut()" style="margin-top:var(--s4);background:none;border:1.5px solid var(--border);border-radius:var(--r-md);padding:10px 20px;font-size:var(--text-sm);cursor:pointer;font-family:var(--font)">Sign out</button>
         </div>`;
@@ -290,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Show trip name in header
     const tripNameEl = document.getElementById('app-trip-name');
-    if (tripNameEl) tripNameEl.textContent = Data.getCurrentTrip()?.name || 'Safari App';
+    if (tripNameEl) tripNameEl.textContent = Data.getCurrentTrip()?.name || 'Trip Companion';
     const vEl = document.getElementById('app-version-display');
     if (vEl) vEl.textContent = Config.APP_VERSION || 'v1';
 
