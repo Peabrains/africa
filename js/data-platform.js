@@ -17,6 +17,7 @@ const Data = (() => {
   let EXPENSES      = [];
   let PACKING       = [];
   let DEX_CATCHES   = {};     // keyed by animal_id
+  let DEX_PHOTO_META = {};    // keyed by photo id -> { storage_path }, for photos synced from other devices
   let CUSTOM_LINKS  = [];
   let GLOSSARY_TERMS = {};    // keyed by term (lowercase)
   let TRAVELERS     = ['Traveler'];
@@ -115,11 +116,15 @@ const Data = (() => {
 
         // Build dex catches lookup by animal_id
         DEX_CATCHES = {};
+        DEX_PHOTO_META = {};
         (dexCatches || []).forEach(c => {
           DEX_CATCHES[c.animal_id] = {
             ...c,
             photoIds: (c.dex_photos || []).map(p => p.id),
           };
+          (c.dex_photos || []).forEach(p => {
+            DEX_PHOTO_META[p.id] = { storage_path: p.storage_path };
+          });
         });
 
         // Build glossary lookup by term
@@ -755,11 +760,38 @@ const Data = (() => {
     if (!DEX_CATCHES[animalId]) await markCaught(animalId, {});
     const photoId = 'ph_' + Date.now();
 
-    // Store locally first (always works offline)
+    // Save locally first — always works offline, and is the fast-path source
+    // for photos taken on this device.
     await DB.saveDexPhoto(photoId, fileDataUrl);
     if (!DEX_CATCHES[animalId].photoIds) DEX_CATCHES[animalId].photoIds = [];
     DEX_CATCHES[animalId].photoIds.push(photoId);
     await DB.setMeta(CACHE_KEYS.dex, DEX_CATCHES);
+
+    // Sync to Supabase Storage so other devices can see it too.
+    // Photo arrives here already compressed (see dex.js compressImage()).
+    if (navigator.onLine && CURRENT_TRIP) {
+      try {
+        const blob = await (await fetch(fileDataUrl)).blob();
+        const storagePath = `${CURRENT_TRIP.id}/${photoId}.jpg`;
+        const { error: upErr } = await SB.storage.from('dex-photos')
+          .upload(storagePath, blob, { contentType: 'image/jpeg', upsert: true });
+        if (!upErr) {
+          const catchId = DEX_CATCHES[animalId].id;
+          await SB.from('dex_photos').insert({
+            trip_id: CURRENT_TRIP.id,
+            catch_id: catchId,
+            animal_id: animalId,
+            storage_path: storagePath,
+          });
+          DEX_PHOTO_META[photoId] = { storage_path: storagePath };
+        } else {
+          console.error('[Data] dex photo upload error:', upErr);
+        }
+      } catch (e) {
+        console.error('[Data] dex photo sync error:', e);
+      }
+    }
+
     return photoId;
   }
 
@@ -768,10 +800,27 @@ const Data = (() => {
     DEX_CATCHES[animalId].photoIds = (DEX_CATCHES[animalId].photoIds || []).filter(id => id !== photoId);
     await DB.deleteDexPhoto(photoId);
     await DB.setMeta(CACHE_KEYS.dex, DEX_CATCHES);
+
+    const storagePath = DEX_PHOTO_META[photoId]?.storage_path;
+    if (navigator.onLine && storagePath) {
+      await SB.storage.from('dex-photos').remove([storagePath]);
+      await SB.from('dex_photos').delete().eq('storage_path', storagePath);
+      delete DEX_PHOTO_META[photoId];
+    }
   }
 
   async function getDexPhoto(photoId) {
-    return await DB.loadDexPhoto(photoId);
+    // Fast path: this device has it locally (either taken here, or already synced down)
+    const local = await DB.loadDexPhoto(photoId);
+    if (local) return local;
+
+    // Fallback: synced from another device — fetch via a signed URL from Storage
+    const storagePath = DEX_PHOTO_META[photoId]?.storage_path;
+    if (storagePath && navigator.onLine) {
+      const { data, error } = await SB.storage.from('dex-photos').createSignedUrl(storagePath, 3600);
+      if (!error && data?.signedUrl) return data.signedUrl;
+    }
+    return null;
   }
 
   /* ── STORY API ───────────────────────────────────────────── */
