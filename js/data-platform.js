@@ -528,6 +528,21 @@ const Data = (() => {
     await DB.setMeta(CACHE_KEYS.packing, PACKING);
   }
 
+  async function updatePackingItem(id, changes) {
+    const item = PACKING.find(p => p.id === id);
+    if (!item) return;
+    const patch = {};
+    if ('item'      in changes) patch.item      = changes.item;
+    if ('category'  in changes) patch.category  = changes.category;
+    if ('essential' in changes) patch.essential = changes.essential;
+    Object.assign(item, patch);
+    if (navigator.onLine) {
+      const { error } = await SB.from('packing_items').update(patch).eq('id', id);
+      if (error) console.error('[Data] updatePackingItem error:', error);
+    }
+    await DB.setMeta(CACHE_KEYS.packing, PACKING);
+  }
+
   async function deletePacking(id) {
     PACKING = PACKING.filter(p => p.id !== id);
     if (navigator.onLine) {
@@ -776,7 +791,7 @@ const Data = (() => {
     getExpenses, addExpense, updateExpense, deleteExpense, getTotalSpentJPY,
     getTravelers, updateTravelers, calcSettlement, getBalances, setExpenses,
     // Packing
-    getPackingItems, getPackingByCategory, togglePacking, addPackingItem, deletePacking,
+    getPackingItems, getPackingByCategory, togglePacking, addPackingItem, updatePackingItem, deletePacking,
     // Dex
     getAnimals, getAnimal, getDexState, setDexState, isCaught, getDexProgress,
     markCaught, unmarkCaught, addDexPhoto, removeDexPhoto, getDexPhoto,
