@@ -589,6 +589,20 @@ const BookingsScreen = (() => {
 
     frag.appendChild(budgetSection);
 
+    const accountSection = document.createElement('div');
+    accountSection.className = 'settings-section';
+    accountSection.innerHTML = `
+      <p class="settings-section-title">Account</p>
+      <p id="account-email" style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s3)">Loading…</p>
+      <button class="btn btn-ghost" id="signout-btn" style="width:100%;color:var(--danger-text);border-color:var(--danger-text)">Sign out</button>`;
+    frag.appendChild(accountSection);
+    (async () => {
+      const { data: { user } } = await SB.auth.getUser();
+      const el = accountSection.querySelector('#account-email');
+      if (el) el.textContent = user?.email ? `Signed in as ${user.email}` : '';
+    })();
+    accountSection.querySelector('#signout-btn')?.addEventListener('click', () => Auth.signOut());
+
     // Wire directly — no setTimeout to avoid stacking listeners on re-render
     const tInput  = tSection.querySelector('#traveler-input');
     const tAddBtn = tSection.querySelector('#traveler-add-btn');
