@@ -212,6 +212,11 @@ const Data = (() => {
         destination:s.flight_detail.destination || '',
         departTime: s.flight_detail.depart_time || s.time || '',
         arriveTime: s.flight_detail.arrive_time || '',
+        originalDepartTime: s.flight_detail.original_depart_time || null,
+        lastCheckedAt:      s.flight_detail.last_checked_at || null,
+        isRetimed: !!(s.flight_detail.original_depart_time &&
+                      s.flight_detail.depart_time &&
+                      s.flight_detail.original_depart_time !== s.flight_detail.depart_time),
       } : {}),
     };
   }
