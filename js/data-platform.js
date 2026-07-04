@@ -364,12 +364,30 @@ const Data = (() => {
       amountJPY:    e.amount_usd || 0,   // field name kept for UI compat (stores USD)
       paidBy:       e.paid_by || '',
       splitBetween: e.split_between || [],
+      createdAt:    e.created_at || null,
     };
   }
   function getExpenses()      { return EXPENSES.map(normaliseExpense); }
   function getTotalSpentJPY() { return EXPENSES.reduce((s,e) => s + (e.amount_usd || 0), 0); }
   function getTravelers()     { return TRAVELERS; }
   function getTripName()      { return CURRENT_TRIP?.name || 'Safari App'; }
+
+  /* Net balance per traveler: positive = is owed money, negative = owes money */
+  function getBalances() {
+    const travelers = TRAVELERS.length ? TRAVELERS : ['Traveler'];
+    const balances = {};
+    travelers.forEach(t => balances[t] = 0);
+    getExpenses().forEach(exp => {
+      if (!exp.paidBy || !exp.splitBetween?.length) return;
+      const validSplit = exp.splitBetween.filter(n => balances[n] !== undefined);
+      if (!validSplit.length) return;
+      const share = exp.amountJPY / validSplit.length;
+      if (balances[exp.paidBy] !== undefined) balances[exp.paidBy] += exp.amountJPY;
+      validSplit.forEach(name => { balances[name] -= share; });
+    });
+    return balances;
+  }
+  function calcSettlement() { return getBalances(); }
 
   async function addExpense(exp) {
     const newExp = {
@@ -403,6 +421,27 @@ const Data = (() => {
     }
     await DB.setMeta(CACHE_KEYS.expenses, EXPENSES);
     return newExp;
+  }
+
+  async function updateExpense(id, changes) {
+    const idx = EXPENSES.findIndex(e => e.id === id);
+    if (idx < 0) return;
+    const patch = {};
+    if ('description'   in changes) patch.description   = changes.description;
+    if ('amountJPY'     in changes) patch.amount_usd     = changes.amountJPY;
+    if ('category'      in changes) patch.category       = changes.category;
+    if ('paidBy'        in changes) patch.paid_by        = changes.paidBy;
+    if ('splitBetween'  in changes) patch.split_between  = changes.splitBetween;
+    if ('dayId'         in changes) {
+      patch.day_id    = changes.dayId || null;
+      patch.day_label = DAYS.find(d => d.id === changes.dayId)?.day_label || null;
+    }
+    Object.assign(EXPENSES[idx], patch);
+    if (navigator.onLine) {
+      const { error } = await SB.from('expenses').update(patch).eq('id', id);
+      if (error) console.error('[Data] updateExpense error:', error);
+    }
+    await DB.setMeta(CACHE_KEYS.expenses, EXPENSES);
   }
 
   async function deleteExpense(id) {
@@ -682,8 +721,6 @@ const Data = (() => {
   function isStampCollected() { return false; }
   async function toggleStamp()  { return false; }
   function getStampProgress() { return { collected:0, total:0 }; }
-  function calcSettlement()   { return []; }
-  function getBalances()      { return {}; }
   async function resetToSeed() { await loadTripData(CURRENT_TRIP?.id); }
   async function updateTravelers(names) { TRAVELERS = names; }
   function setTripName() {}
@@ -700,7 +737,7 @@ const Data = (() => {
     // Overnight
     getOvernight, updateOvernight,
     // Expenses
-    getExpenses, addExpense, deleteExpense, getTotalSpentJPY,
+    getExpenses, addExpense, updateExpense, deleteExpense, getTotalSpentJPY,
     getTravelers, updateTravelers, calcSettlement, getBalances, setExpenses,
     // Packing
     getPackingItems, getPackingByCategory, togglePacking, addPackingItem, deletePacking,
