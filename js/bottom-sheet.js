@@ -174,7 +174,7 @@ const BottomSheet = (() => {
             <span id="e-duration-display" style="font-size:var(--text-sm);font-weight:500;color:var(--accent)">—</span>
             <input id="e-duration" type="hidden" value="${stop.trainDetail?.duration||''}">
           </div>
-          ${field('Train number','e-trainno',stop.trainDetail?.trainNumber||'','text','e.g. Kuroshio 5')}
+          ${field('Flight/Train #','e-trainno',stop.trainDetail?.trainNumber||stop.flightNo||'','text','e.g. QR648 or Kuroshio 5')}
         </div>
         <p class="bs-section-head">Reservation</p>
         <div class="bs-edit-group" style="display:flex;align-items:center;gap:var(--s3)">
@@ -247,7 +247,7 @@ const BottomSheet = (() => {
             <span id="a-duration-display" style="font-size:var(--text-sm);font-weight:500;color:var(--accent)">—</span>
             <input id="a-duration" type="hidden" value="">
           </div>
-          ${field('Train number','a-trainno','','text','e.g. Kuroshio 5 or TBD')}
+          ${field('Flight/Train #','a-trainno','','text','e.g. QR648 or TBD')}
         </div>
         <p class="bs-section-head" style="margin-top:var(--s3)">Reservation</p>
         <div class="bs-edit-group" style="display:flex;align-items:center;gap:var(--s3)">
@@ -327,7 +327,9 @@ const BottomSheet = (() => {
     wireTimeInput('e-time');
     wireTimeInput('e-arrive');
     body.querySelector('#bs-save-btn')?.addEventListener('click', async () => {
-      const hasTrain = ['train','plane','boat'].includes(g('e-ttype')||stop.transportType);
+      const ttype = g('e-ttype')||stop.transportType;
+      const hasTrain = ['train','plane','boat'].includes(ttype);
+      const numberField = g('e-trainno');
       const patch = {
         name:          g('e-name')||stop.name,
         activity:      g('e-activity'),
@@ -335,10 +337,11 @@ const BottomSheet = (() => {
         timeZone:      body.querySelector('#e-tz')?.value || 'EAT',
         dayId:         g('e-day')||stop.dayId,
         transport:     g('e-transport'),
-        transportType: g('e-ttype')||stop.transportType,
+        transportType: ttype,
         notes:         g('e-notes'),
         needsBooking:  body.querySelector('#e-needsbook')?.checked || false,
         category:      g('e-category') || null,
+        ...(ttype === 'plane' ? { flightNo: numberField } : {}),
         trainDetail: hasTrain ? {
           ...stop.trainDetail,
           platform:       g('e-platform'),
@@ -346,7 +349,7 @@ const BottomSheet = (() => {
           origin:         g('e-origin'),
           destination:    g('e-destination'),
           arriveTime:     body.querySelector('#e-arrive')?.value || '',
-          trainNumber:    g('e-trainno'),
+          trainNumber:    numberField,
           duration:       body.querySelector('#e-duration')?.value || stop.trainDetail?.duration || '',
         } : stop.trainDetail,
         booking: { ...stop.booking, status:g('e-status')||stop.booking.status, ref:g('e-ref'), cost:parseInt(g('e-cost'))||null, deadline:g('e-deadline')||null },
@@ -397,12 +400,13 @@ const BottomSheet = (() => {
       if (!name) { Toast.show('Stop name is required','warning'); return; }
       const tType = g('a-ttype') || 'walk';
       const hasTrainDetail = ['train','plane','boat'].includes(tType);
+      const numberField = g('a-trainno');
       const trainDetail = hasTrainDetail ? {
         seatReservation: body.querySelector('#a-seatres')?.checked || false,
         origin:      g('a-origin'),
         destination: g('a-destination'),
         arriveTime:  body.querySelector('#a-arrive')?.value || '',
-        trainNumber: g('a-trainno'),
+        trainNumber: numberField,
         duration:    body.querySelector('#a-duration')?.value || '',
       } : null;
       await Data.addStop({
@@ -411,6 +415,7 @@ const BottomSheet = (() => {
         timeZone: body.querySelector('#a-tz')?.value || 'EAT',
         transport: g('a-transport'), transportType: tType,
         trainDetail,
+        ...(tType === 'plane' ? { flightNo: numberField } : {}),
         needsBooking: body.querySelector('#a-needsbook')?.checked || false,
         category: g('a-category') || null,
       });
