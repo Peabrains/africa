@@ -1,0 +1,25 @@
+name: Flight Status Check
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'   # every 6 hours, UTC
+  workflow_dispatch: {}      # allows manual "Run workflow" from the Actions tab for testing
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check flight status and update Supabase
+        env:
+          SUPABASE_URL: https://abycrkrfaocttujzhqhq.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
+        run: python scripts/check_flights.py
