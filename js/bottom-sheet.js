@@ -494,6 +494,18 @@ const BottomSheet = (() => {
           <button class="btn btn-ghost bs-full-btn" id="d-cancel-btn">Cancel</button>
           ${story ? `<button class="btn btn-ghost bs-full-btn" id="d-story-delete-btn" style="color:var(--danger-text);border-color:var(--danger-text)">Delete story</button>` : ''}
         </div>
+
+        <p class="bs-section-head" style="margin-top:var(--s5);border-top:1px solid var(--border-subtle);padding-top:var(--s4)">Day management</p>
+        <button class="btn btn-ghost bs-full-btn" id="d-insert-btn" style="margin-top:var(--s2)">+ Insert new day after this one</button>
+        <div id="d-insert-form" style="display:none;margin-top:var(--s3)">
+          ${field('Date','di-date','','date')}
+          ${field('Title','di-title','','text','e.g. Free day in Zanzibar')}
+          ${field('Locality','di-locality','','text','e.g. Zanzibar')}
+          ${select('Country','di-segment',day.segment||'transit',SEGMENT_OPTS)}
+          <button class="btn btn-primary bs-full-btn" id="d-insert-confirm-btn" style="margin-top:var(--s2)">Create day</button>
+        </div>
+        <button class="btn btn-ghost bs-full-btn" id="d-delete-day-btn" style="margin-top:var(--s3);color:var(--danger-text);border-color:var(--danger-text)">Delete this day</button>
+        <p id="d-delete-warning" style="display:none;font-size:var(--text-xs);color:var(--danger-text);margin-top:var(--s2);padding:var(--s2);background:var(--danger-bg,#FEF2F2);border-radius:var(--r-sm)"></p>
       </div>`;
   }
 
@@ -541,6 +553,79 @@ const BottomSheet = (() => {
       await Data.deleteStory(day.id);
       Toast.show('Story deleted', 'info'); close();
       window.ItineraryScreen?.refresh();
+    });
+
+    /* Insert new day after this one */
+    const insertBtn = body.querySelector('#d-insert-btn');
+    const insertForm = body.querySelector('#d-insert-form');
+    insertBtn?.addEventListener('click', () => {
+      insertForm.style.display = insertForm.style.display === 'none' ? 'block' : 'none';
+    });
+    body.querySelector('#d-insert-confirm-btn')?.addEventListener('click', async (e) => {
+      const btn = e.target;
+      const gi = id => body.querySelector('#'+id)?.value?.trim()||'';
+      btn.disabled = true; btn.textContent = 'Creating…';
+      try {
+        await Data.addDay(day.id, {
+          date: gi('di-date'),
+          title: gi('di-title'),
+          locality: gi('di-locality'),
+          segment: body.querySelector('#di-segment')?.value || 'transit',
+        });
+        Toast.show('Day added', 'success'); close();
+        window.ItineraryScreen?.refresh();
+      } catch (err) {
+        Toast.show('Could not create day: ' + err.message, 'danger');
+        btn.disabled = false; btn.textContent = 'Create day';
+      }
+    });
+
+    /* Delete this day — show content warning before allowing confirm */
+    let dayDeleteArmed = false;
+    let dayDeleteResetTimer = null;
+    const dayDeleteBtn = body.querySelector('#d-delete-day-btn');
+    const warningEl = body.querySelector('#d-delete-warning');
+    dayDeleteBtn?.addEventListener('click', async () => {
+      if (!dayDeleteArmed) {
+        dayDeleteBtn.disabled = true;
+        try {
+          const contents = await Data.getDayContents(day.id);
+          const parts = [];
+          if (contents.stops > 0) parts.push(`${contents.stops} stop${contents.stops>1?'s':''}`);
+          if (contents.hasOvernight) parts.push('an overnight booking');
+          if (contents.expenseCount > 0) parts.push(`${contents.expenseCount} expense${contents.expenseCount>1?'s':''} ($${Math.round(contents.expenseTotal)})`);
+          if (contents.hasStory) parts.push('a story');
+          if (warningEl) {
+            warningEl.style.display = 'block';
+            warningEl.textContent = parts.length
+              ? `This day has ${parts.join(', ')} — all of this will be permanently deleted too.`
+              : 'This day has no content — safe to delete.';
+          }
+        } catch (e) {
+          if (warningEl) { warningEl.style.display = 'block'; warningEl.textContent = 'Could not check day contents.'; }
+        }
+        dayDeleteBtn.disabled = false;
+        dayDeleteArmed = true;
+        dayDeleteBtn.textContent = 'Tap again to permanently delete';
+        dayDeleteBtn.style.background = 'var(--danger-text)';
+        dayDeleteBtn.style.color = '#fff';
+        dayDeleteResetTimer = setTimeout(() => {
+          dayDeleteArmed = false;
+          dayDeleteBtn.textContent = 'Delete this day';
+          dayDeleteBtn.style.background = '';
+          dayDeleteBtn.style.color = '';
+          if (warningEl) warningEl.style.display = 'none';
+        }, 6000);
+        return;
+      }
+      clearTimeout(dayDeleteResetTimer);
+      try {
+        await Data.deleteDay(day.id);
+        Toast.show('Day deleted', 'info'); close();
+        window.ItineraryScreen?.refresh();
+      } catch (err) {
+        Toast.show('Could not delete day: ' + err.message, 'danger');
+      }
     });
   }
 
