@@ -405,6 +405,24 @@ const Data = (() => {
     await DB.setMeta(CACHE_KEYS.overnight, OVERNIGHTS);
   }
 
+  /* Geocode a place name via Open-Meteo's free geocoding API (same provider
+     as the weather forecasts already used — no new API key needed).
+     Returns { lat, lng, label } or null if no match found. */
+  async function geocodeLocality(name) {
+    if (!name || !navigator.onLine) return null;
+    try {
+      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=en&format=json`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const r = data?.results?.[0];
+      if (!r) return null;
+      return { lat: r.latitude, lng: r.longitude, label: name };
+    } catch (e) {
+      console.error('[Data] geocodeLocality error:', e);
+      return null;
+    }
+  }
+
   async function updateDay(dayId, changes) {
     const day = DAYS.find(d => d.id === dayId);
     if (!day) return;
@@ -413,7 +431,16 @@ const Data = (() => {
     if ('locality' in changes) patch.locality = changes.locality;
     if ('segment'  in changes) patch.segment  = changes.segment;
     if ('date'     in changes) patch.date     = changes.date;
+
+    // Locality changed — re-geocode so weather stays accurate for the new place.
+    // Only when a point wasn't already set from a stop-based fallback we'd rather keep.
+    if ('locality' in changes && changes.locality && changes.locality !== day.locality) {
+      const point = await geocodeLocality(changes.locality);
+      if (point) patch.weather_points = [point];
+    }
+
     Object.assign(day, patch);
+    if (patch.weather_points) day.weatherPoints = patch.weather_points;
     if (navigator.onLine) {
       const { error } = await SB.from('itinerary_days').update(patch).eq('id', dayId);
       if (error) { console.error('[Data] updateDay error:', error); throw error; }
@@ -448,7 +475,7 @@ const Data = (() => {
 
   async function addDay(afterDayId, { date, title, locality, segment }) {
     if (!CURRENT_TRIP) throw new Error('No active trip');
-    const { data, error } = await SB.rpc('add_itinerary_day', {
+    const { data: newDayId, error } = await SB.rpc('add_itinerary_day', {
       p_trip_id: CURRENT_TRIP.id,
       p_after_day_id: afterDayId || null,
       p_date: date || null,
@@ -457,10 +484,20 @@ const Data = (() => {
       p_segment: segment || 'transit',
     });
     if (error) { console.error('[Data] addDay error:', error); throw error; }
+
+    if (locality && navigator.onLine) {
+      const point = await geocodeLocality(locality);
+      if (point) {
+        const { error: wpError } = await SB.from('itinerary_days')
+          .update({ weather_points: [point] }).eq('id', newDayId);
+        if (wpError) console.error('[Data] weather_points update error:', wpError);
+      }
+    }
+
     // Renumbering can shift many rows at once — simplest correct approach
     // is to refetch, rather than try to patch every shifted day locally.
     await loadTripData(CURRENT_TRIP.id);
-    return data;
+    return newDayId;
   }
 
   async function deleteDay(dayId) {
