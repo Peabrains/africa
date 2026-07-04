@@ -281,6 +281,7 @@ const SOSScreen = (() => {
       banner.innerHTML = `${Icons.info ? Icons.info('icon-md') : ''}<div>
         <p style="font-weight:500;font-size:var(--text-sm);color:var(--text-primary)">${req.summary.title || 'Key note'}</p>
         <p style="font-size:var(--text-xs);color:var(--text-secondary);opacity:.9;margin-top:2px">${req.summary.body}</p>
+        ${req.summary.link ? `<a href="${req.summary.link}" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;font-size:var(--text-xs);color:var(--accent);font-weight:500">WHO yellow fever guidance ↗</a>` : ''}
       </div>`;
       wrap.appendChild(banner);
     }
@@ -294,10 +295,10 @@ const SOSScreen = (() => {
       sec.appendChild(h);
 
       const rows = [
-        c.visa       ? { label: 'Visa/entry',   value: c.visa } : null,
+        c.visa       ? { label: 'Visa/entry',   value: c.visa,        link: c.visaLink } : null,
         c.passport   ? { label: 'Passport',     value: c.passport } : null,
-        c.yellowFever? { label: 'Yellow fever', value: c.yellowFever } : null,
-        c.customs    ? { label: 'Customs',      value: c.customs } : null,
+        c.yellowFever? { label: 'Yellow fever', value: c.yellowFever, link: c.yellowFeverLink } : null,
+        c.customs    ? { label: 'Customs',      value: c.customs,     link: c.customsLink } : null,
       ].filter(Boolean);
 
       rows.forEach(row => {
@@ -306,7 +307,8 @@ const SOSScreen = (() => {
         item.style.cssText = 'padding:var(--s3);margin-bottom:var(--s2)';
         item.innerHTML = `
           <p style="font-size:var(--text-xs);color:var(--text-muted)">${row.label}</p>
-          <p style="font-size:var(--text-sm);color:var(--text-primary);margin-top:2px;line-height:1.4">${row.value}</p>`;
+          <p style="font-size:var(--text-sm);color:var(--text-primary);margin-top:2px;line-height:1.4">${row.value}</p>
+          ${row.link ? `<a href="${row.link}" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;background:var(--accent);color:#fff;border-radius:var(--r-sm);padding:4px 10px;font-size:var(--text-xs);text-decoration:none;font-family:var(--font)">Official source ↗</a>` : ''}`;
         sec.appendChild(item);
       });
 
