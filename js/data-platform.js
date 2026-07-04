@@ -553,6 +553,22 @@ const Data = (() => {
   function getTripInclusions()        { return CURRENT_TRIP?.settings?.inclusions  || []; }
   function getTripExclusions()        { return CURRENT_TRIP?.settings?.exclusions  || []; }
   function getSOS()                   { return CURRENT_TRIP?.settings?.sos         || {}; }
+  // itinerary.js calls these shorter names — alias to the trip-info getters above
+  function getInclusions()            { return getTripInclusions(); }
+  function getExclusions()            { return getTripExclusions(); }
+  function getHospitals()             { return CURRENT_TRIP?.settings?.hospitals   || []; }
+  function getFirstAid()              { return CURRENT_TRIP?.settings?.first_aid   || []; }
+
+  /* ── STATS (urgent badge) ─────────────────────────────────── */
+  function getStats() {
+    const allStops = STOPS.map(normaliseStop);
+    return {
+      urgent:  allStops.filter(s => s.booking.status === 'urgent').length,
+      pending: allStops.filter(s => s.booking.status === 'pending').length,
+      booked:  allStops.filter(s => s.booking.status === 'booked').length,
+      total:   allStops.length,
+    };
+  }
 
   /* ── STUBS for backward compat ───────────────────────────── */
   function getStampStops()    { return []; }
@@ -594,6 +610,7 @@ const Data = (() => {
     getTripName, setTripName,
     getActivityReservations, getTransportReservations,
     getTripInclusions, getTripExclusions, getSOS,
+    getInclusions, getExclusions, getHospitals, getFirstAid, getStats,
     // Stubs
     getStampStops, isStampCollected, toggleStamp, getStampProgress, resetToSeed,
   };
