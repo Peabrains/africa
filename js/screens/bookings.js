@@ -493,6 +493,74 @@ const BookingsScreen = (() => {
     tSection.appendChild(addRow);
     frag.appendChild(tSection);
 
+    /* ── Trip members (invite flow) ──────────────────────────── */
+    const membersSection = document.createElement('div');
+    membersSection.className = 'settings-section';
+    membersSection.innerHTML = `
+      <p class="settings-section-title">Trip members</p>
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s3)">Invite someone by email. If they don't have an account yet, they'll get an email to sign up — either way, they'll see this trip once added.</p>
+      <div id="members-list" style="margin-bottom:var(--s3)"><p style="font-size:var(--text-sm);color:var(--text-muted)">Loading…</p></div>
+      <div style="display:flex;gap:var(--s2);flex-wrap:wrap">
+        <input id="invite-email" class="bs-input" type="email" placeholder="Email address" style="flex:1;min-width:160px">
+        <select id="invite-role" class="bs-input" style="flex:0 0 110px">
+          <option value="viewer">Viewer</option>
+          <option value="editor">Editor</option>
+        </select>
+        <button class="btn btn-primary" id="invite-btn" style="flex:0 0 100%">Send invite</button>
+      </div>`;
+    frag.appendChild(membersSection);
+
+    // Populate member list async (RLS/auth calls can't block the sync render)
+    (async () => {
+      const listEl = membersSection.querySelector('#members-list');
+      try {
+        const members = await Data.getTripMembers();
+        if (!members.length) {
+          listEl.innerHTML = '<p style="font-size:var(--text-sm);color:var(--text-muted)">Just you so far.</p>';
+          return;
+        }
+        listEl.innerHTML = '';
+        members.forEach(m => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:var(--s2);padding:8px 0;border-bottom:1px solid var(--border-subtle)';
+          row.innerHTML = `
+            <div style="flex:1;min-width:0">
+              <p style="font-size:var(--text-sm);color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.invited_email || '(unknown)'}</p>
+              <p style="font-size:var(--text-xs);color:var(--text-muted)">${m.role} · ${m.status}</p>
+            </div>
+            <button class="member-remove-btn" style="background:none;border:none;color:var(--text-muted);font-size:16px;cursor:pointer;padding:0 4px">×</button>`;
+          row.querySelector('.member-remove-btn').addEventListener('click', async () => {
+            await Data.removeMember(m.id);
+            Toast.show('Member removed', 'info');
+            render();
+          });
+          listEl.appendChild(row);
+        });
+      } catch (e) {
+        listEl.innerHTML = '<p style="font-size:var(--text-sm);color:var(--text-muted)">Could not load members.</p>';
+      }
+    })();
+
+    membersSection.querySelector('#invite-btn').addEventListener('click', async (e) => {
+      const btn = e.target;
+      const emailInput = membersSection.querySelector('#invite-email');
+      const email = emailInput.value.trim();
+      const role = membersSection.querySelector('#invite-role').value;
+      if (!email || !email.includes('@')) { Toast.show('Enter a valid email', 'warning'); return; }
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      try {
+        const result = await Data.inviteMember(email, role);
+        Toast.show(result.inviteSent ? `Invite email sent to ${email}` : `${email} added — they'll see it next login`, 'success');
+        emailInput.value = '';
+        render();
+      } catch (err) {
+        Toast.show('Could not invite: ' + err.message, 'warning');
+        btn.disabled = false;
+        btn.textContent = 'Send invite';
+      }
+    });
+
     const budgetSection = document.createElement('div');
     budgetSection.className = 'settings-section';
     budgetSection.innerHTML = `
