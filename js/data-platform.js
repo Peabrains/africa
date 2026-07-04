@@ -483,11 +483,19 @@ const Data = (() => {
   /* ── PACKING API ─────────────────────────────────────────── */
   function getPackingItems()        { return PACKING; }
   function getPackingByCategory()   {
-    return PACKING.reduce((acc, item) => {
+    const grouped = PACKING.reduce((acc, item) => {
       if (!acc[item.category]) acc[item.category] = [];
       acc[item.category].push(item);
       return acc;
     }, {});
+    // Pin priority categories to the top regardless of item order
+    const PRIORITY_CATEGORIES = ['Entry & Health'];
+    const ordered = {};
+    PRIORITY_CATEGORIES.forEach(cat => {
+      if (grouped[cat]) { ordered[cat] = grouped[cat]; delete grouped[cat]; }
+    });
+    Object.assign(ordered, grouped);
+    return ordered;
   }
 
   async function togglePacking(id, checked) {
