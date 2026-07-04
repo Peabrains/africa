@@ -496,15 +496,7 @@ const BottomSheet = (() => {
         </div>
 
         <p class="bs-section-head" style="margin-top:var(--s5);border-top:1px solid var(--border-subtle);padding-top:var(--s4)">Day management</p>
-        <button class="btn btn-ghost bs-full-btn" id="d-insert-btn" style="margin-top:var(--s2)">+ Insert new day after this one</button>
-        <div id="d-insert-form" style="display:none;margin-top:var(--s3)">
-          ${field('Date','di-date','','date')}
-          ${field('Title','di-title','','text','e.g. Free day in Zanzibar')}
-          ${field('Locality','di-locality','','text','e.g. Zanzibar')}
-          ${select('Country','di-segment',day.segment||'transit',SEGMENT_OPTS)}
-          <button class="btn btn-primary bs-full-btn" id="d-insert-confirm-btn" style="margin-top:var(--s2)">Create day</button>
-        </div>
-        <button class="btn btn-ghost bs-full-btn" id="d-delete-day-btn" style="margin-top:var(--s3);color:var(--danger-text);border-color:var(--danger-text)">Delete this day</button>
+        <button class="btn btn-ghost bs-full-btn" id="d-delete-day-btn" style="margin-top:var(--s2);color:var(--danger-text);border-color:var(--danger-text)">Delete this day</button>
         <p id="d-delete-warning" style="display:none;font-size:var(--text-xs);color:var(--danger-text);margin-top:var(--s2);padding:var(--s2);background:var(--danger-bg,#FEF2F2);border-radius:var(--r-sm)"></p>
       </div>`;
   }
@@ -553,31 +545,6 @@ const BottomSheet = (() => {
       await Data.deleteStory(day.id);
       Toast.show('Story deleted', 'info'); close();
       window.ItineraryScreen?.refresh();
-    });
-
-    /* Insert new day after this one */
-    const insertBtn = body.querySelector('#d-insert-btn');
-    const insertForm = body.querySelector('#d-insert-form');
-    insertBtn?.addEventListener('click', () => {
-      insertForm.style.display = insertForm.style.display === 'none' ? 'block' : 'none';
-    });
-    body.querySelector('#d-insert-confirm-btn')?.addEventListener('click', async (e) => {
-      const btn = e.target;
-      const gi = id => body.querySelector('#'+id)?.value?.trim()||'';
-      btn.disabled = true; btn.textContent = 'Creating…';
-      try {
-        await Data.addDay(day.id, {
-          date: gi('di-date'),
-          title: gi('di-title'),
-          locality: gi('di-locality'),
-          segment: body.querySelector('#di-segment')?.value || 'transit',
-        });
-        Toast.show('Day added', 'success'); close();
-        window.ItineraryScreen?.refresh();
-      } catch (err) {
-        Toast.show('Could not create day: ' + err.message, 'danger');
-        btn.disabled = false; btn.textContent = 'Create day';
-      }
     });
 
     /* Delete this day — show content warning before allowing confirm */
@@ -629,6 +596,46 @@ const BottomSheet = (() => {
     });
   }
 
+  function addDayHTML() {
+    return `
+      <div class="bs-detail">
+        <p class="bs-name" style="margin-bottom:var(--s4)">Add a day</p>
+        ${field('Date','ad-date','','date')}
+        ${field('Title','ad-title','','text','e.g. Free day in Zanzibar')}
+        ${field('Locality','ad-locality','','text','e.g. Zanzibar')}
+        ${select('Country','ad-segment','transit',SEGMENT_OPTS)}
+        <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--s2)">The day slots into the itinerary automatically based on its date — no need to pick a position.</p>
+        <div class="bs-actions" style="margin-top:var(--s4)">
+          <button class="btn btn-primary bs-full-btn" id="ad-save-btn">Create day</button>
+          <button class="btn btn-ghost bs-full-btn" id="ad-cancel-btn">Cancel</button>
+        </div>
+      </div>`;
+  }
+
+  function wireAddDay() {
+    const g = id => body.querySelector('#'+id)?.value?.trim()||'';
+    body.querySelector('#ad-cancel-btn')?.addEventListener('click', close);
+    body.querySelector('#ad-save-btn')?.addEventListener('click', async (e) => {
+      const btn = e.target;
+      const date = g('ad-date');
+      if (!date) { Toast.show('A date is required', 'warning'); return; }
+      btn.disabled = true; btn.textContent = 'Creating…';
+      try {
+        await Data.addDay(null, {
+          date,
+          title: g('ad-title'),
+          locality: g('ad-locality'),
+          segment: body.querySelector('#ad-segment')?.value || 'transit',
+        });
+        Toast.show('Day added', 'success'); close();
+        window.ItineraryScreen?.refresh();
+      } catch (err) {
+        Toast.show(err.message || 'Could not create day', 'danger');
+        btn.disabled = false; btn.textContent = 'Create day';
+      }
+    });
+  }
+
   /* ─── Public ─────────────────────────────────────────────── */
   function openStop(stop, day) {
     if (!overlay) build();
@@ -654,8 +661,14 @@ const BottomSheet = (() => {
     wireDay(day);
     showSheet();
   }
+  function openAddDay() {
+    if (!overlay) build();
+    body.innerHTML = addDayHTML();
+    wireAddDay();
+    showSheet();
+  }
 
-  return { openStop, openOvernight, openAdd, openDay, close };
+  return { openStop, openOvernight, openAdd, openDay, openAddDay, close };
 })();
 
 window.BottomSheet = BottomSheet;
