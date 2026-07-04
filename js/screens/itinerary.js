@@ -96,8 +96,13 @@ const ItineraryScreen = (() => {
         <span class="tl-day-date">${day.date}</span>
         <span class="tl-day-title-text">${day.title}</span>
       </div>
+      <button class="tl-day-edit-btn" style="background:none;border:none;color:var(--text-muted);padding:4px;cursor:pointer;flex-shrink:0" title="Edit day">${Icons.edit ? Icons.edit('icon-sm') : '✎'}</button>
       <span class="tl-chevron">${isOpen ? Icons.chevronUp('icon-sm') : Icons.chevronDown('icon-sm')}</span>`;
     row.addEventListener('click', () => toggleDay(day.id));
+    row.querySelector('.tl-day-edit-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      BottomSheet.openDay(day);
+    });
     wrap.appendChild(row);
 
     if (!isOpen && stops.length === 0) {
