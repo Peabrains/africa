@@ -408,7 +408,7 @@ const Data = (() => {
   function getExpenses()      { return EXPENSES.map(normaliseExpense); }
   function getTotalSpentJPY() { return EXPENSES.reduce((s,e) => s + (e.amount_usd || 0), 0); }
   function getTravelers()     { return TRAVELERS; }
-  function getTripName()      { return CURRENT_TRIP?.name || 'Safari App'; }
+  function getTripName()      { return CURRENT_TRIP?.name || 'Trip Companion'; }
 
   /* Net balance per traveler: positive = is owed money, negative = owes money */
   function getBalances() {
@@ -806,8 +806,24 @@ const Data = (() => {
   async function toggleStamp()  { return false; }
   function getStampProgress() { return { collected:0, total:0 }; }
   async function resetToSeed() { await loadTripData(CURRENT_TRIP?.id); }
-  async function updateTravelers(names) { TRAVELERS = names; }
-  function setTripName() {}
+  async function updateTravelers(names) {
+    TRAVELERS = names;
+    if (!CURRENT_TRIP) return;
+    const newSettings = { ...(CURRENT_TRIP.settings || {}), travelers: names };
+    CURRENT_TRIP.settings = newSettings;
+    if (navigator.onLine) {
+      const { error } = await SB.from('trips').update({ settings: newSettings }).eq('id', CURRENT_TRIP.id);
+      if (error) { console.error('[Data] updateTravelers error:', error); throw error; }
+    }
+  }
+  async function setTripName(name) {
+    if (!CURRENT_TRIP || !name) return;
+    CURRENT_TRIP.name = name;
+    if (navigator.onLine) {
+      const { error } = await SB.from('trips').update({ name }).eq('id', CURRENT_TRIP.id);
+      if (error) { console.error('[Data] setTripName error:', error); throw error; }
+    }
+  }
   function setCustomLinks(links) { CUSTOM_LINKS = links; }
   function setDexState(state) { DEX_CATCHES = state; }
   function setExpenses(exps)  { EXPENSES = exps; }
