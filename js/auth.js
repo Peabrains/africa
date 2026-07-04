@@ -129,7 +129,69 @@ const Auth = (() => {
     });
   }
 
+  function renderSetPasswordScreen() {
+    const overlay = document.createElement('div');
+    overlay.id = 'auth-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:var(--s6)';
+    overlay.innerHTML = `
+      <div style="width:100%;max-width:360px">
+        <div style="text-align:center;margin-bottom:var(--s6)">
+          <div style="font-size:48px;margin-bottom:var(--s2)">🌍</div>
+          <p style="font-size:22px;font-weight:500;color:var(--text-primary)">Welcome!</p>
+          <p style="font-size:var(--text-sm);color:var(--text-muted);margin-top:4px">Set a password to finish joining the trip</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--s3)">
+          <input id="setpw-input" type="password" placeholder="Choose a password" autocomplete="new-password"
+            style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:10px 12px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
+          <p id="setpw-error" style="display:none;color:var(--danger-text);font-size:var(--text-xs)"></p>
+          <button id="setpw-btn" style="background:var(--accent);color:#fff;border:none;border-radius:var(--r-md);padding:12px;font-size:var(--text-sm);font-weight:500;cursor:pointer;font-family:var(--font)">Set password & continue</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const btn = overlay.querySelector('#setpw-btn');
+    const input = overlay.querySelector('#setpw-input');
+    const err = overlay.querySelector('#setpw-error');
+    btn.addEventListener('click', async () => {
+      const pw = input.value;
+      if (!pw || pw.length < 6) {
+        err.textContent = 'Password must be at least 6 characters';
+        err.style.display = 'block';
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+      const { error } = await SB.auth.updateUser({ password: pw });
+      if (error) {
+        err.textContent = error.message;
+        err.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Set password & continue';
+        return;
+      }
+      overlay.style.transition = 'opacity .3s';
+      overlay.style.opacity = '0';
+      setTimeout(() => overlay.remove(), 300);
+    });
+  }
+
   async function gate() {
+    // Detect an invite/recovery link landing from the URL hash — this check
+    // is synchronous and doesn't depend on when Supabase finishes async
+    // session processing, avoiding a race condition.
+    const hash = window.location.hash || '';
+    const isInviteOrRecovery = /type=(invite|recovery)/.test(hash);
+
+    if (isInviteOrRecovery) {
+      renderSetPasswordScreen();
+      SB.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          _resolveGate(session.user);
+        }
+      });
+      return _gatePromise;
+    }
+
     const { data: { session } } = await SB.auth.getSession();
     if (session) {
       _resolveGate(session.user);
