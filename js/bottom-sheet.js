@@ -175,6 +175,7 @@ const BottomSheet = (() => {
             <input id="e-duration" type="hidden" value="${stop.trainDetail?.duration||''}">
           </div>
           ${field('Flight/Train #','e-trainno',stop.trainDetail?.trainNumber||stop.flightNo||'','text','e.g. QR648 or Kuroshio 5')}
+          <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:-6px;margin-bottom:var(--s2)">For flights: airline code + number, no space (e.g. <strong>QR648</strong>, not "QR 648" or "Qatar 648"). Used to auto-track schedule changes.</p>
         </div>
         <p class="bs-section-head">Reservation</p>
         <div class="bs-edit-group" style="display:flex;align-items:center;gap:var(--s3)">
@@ -248,6 +249,7 @@ const BottomSheet = (() => {
             <input id="a-duration" type="hidden" value="">
           </div>
           ${field('Flight/Train #','a-trainno','','text','e.g. QR648 or TBD')}
+          <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:-6px;margin-bottom:var(--s2)">For flights: airline code + number, no space (e.g. <strong>QR648</strong>, not "QR 648" or "Qatar 648"). Used to auto-track schedule changes.</p>
         </div>
         <p class="bs-section-head" style="margin-top:var(--s3)">Reservation</p>
         <div class="bs-edit-group" style="display:flex;align-items:center;gap:var(--s3)">
