@@ -535,6 +535,7 @@ const SOSScreen = (() => {
 
     // Custom links
     const customLinks = Data.getCustomLinks?.() || [];
+    const allDays = Data.getDays?.() || [];
     const myHead = document.createElement('p');
     myHead.style.cssText = 'font-size:var(--text-xs);color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em;padding:var(--s3) 0 var(--s2)';
     myHead.textContent = '🔖 My links';
@@ -547,35 +548,108 @@ const SOSScreen = (() => {
       wrap.appendChild(em);
     } else {
       customLinks.forEach(link => {
-        wrap.appendChild(linkCard(link.title, link.desc || link.url, link.url, async () => {
-          await Data.deleteCustomLink(link.id);
-          render();
-        }));
+        const day = allDays.find(d => d.id === link.dayId);
+        wrap.appendChild(myLinkCard(link, day, allDays));
       });
     }
 
     // Add custom link form — right here in Kit/Guides tab
     const addForm = document.createElement('div');
     addForm.style.cssText = 'margin-top:var(--s3);background:var(--surface-raised);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:var(--s3);display:flex;flex-direction:column;gap:var(--s2)';
+    const dayOptions = `<option value="">No specific day</option>` +
+      allDays.map(d => `<option value="${d.id}">${d.label} · ${d.date}</option>`).join('');
     addForm.innerHTML = `
       <p style="font-size:var(--text-xs);font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Add link</p>
       <input id="cl-title" placeholder="Title (e.g. Asilia Camps)" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 10px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
       <input id="cl-url" placeholder="URL (https://...)" type="url" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 10px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
+      <select id="cl-day" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 10px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">${dayOptions}</select>
       <button id="cl-add-btn" style="background:var(--accent);color:#fff;border:none;border-radius:var(--r-md);padding:8px 16px;font-size:var(--text-sm);font-weight:500;cursor:pointer;font-family:var(--font);align-self:flex-end">Add link</button>`;
     addForm.querySelector('#cl-add-btn').addEventListener('click', async () => {
       const title = addForm.querySelector('#cl-title').value.trim();
       const url   = addForm.querySelector('#cl-url').value.trim();
+      const dayId = addForm.querySelector('#cl-day').value || null;
       if (!title || !url) { Toast.show('Title and URL are required', 'warning'); return; }
       if (!url.startsWith('http')) { Toast.show('URL must start with https://', 'warning'); return; }
-      await Data.addCustomLink({ title, url });
+      await Data.addCustomLink({ title, url, dayId });
       addForm.querySelector('#cl-title').value = '';
       addForm.querySelector('#cl-url').value = '';
+      addForm.querySelector('#cl-day').value = '';
       Toast.show('Link added ✓', 'success');
       render();
     });
     wrap.appendChild(addForm);
 
     return wrap;
+  }
+
+  /* ── Editable "My links" card (day badge + edit + delete) ────── */
+  function myLinkCard(link, day, allDays) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.cssText = 'margin-bottom:var(--s2);padding:10px var(--s3)';
+
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:var(--s2)';
+    const text = document.createElement('div');
+    text.style.flex = '1';
+    text.style.minWidth = '0';
+    text.innerHTML = `
+      <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+        <p style="font-size:var(--text-sm);font-weight:500;color:var(--text-primary)">${link.title}</p>
+        ${day ? `<span class="badge badge-open" style="font-size:9px;padding:1px 5px">${day.label}</span>` : ''}
+      </div>
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">${link.url}</p>`;
+    row.appendChild(text);
+
+    const openBtn = document.createElement('button');
+    openBtn.style.cssText = 'background:var(--accent);color:#fff;border:none;border-radius:var(--r-sm);padding:4px 10px;font-size:var(--text-xs);cursor:pointer;flex-shrink:0;font-family:var(--font)';
+    openBtn.textContent = 'Open ↗';
+    openBtn.addEventListener('click', () => window.open(link.url, '_blank'));
+    row.appendChild(openBtn);
+
+    const editBtn = document.createElement('button');
+    editBtn.style.cssText = 'background:none;border:1.5px solid var(--border);border-radius:var(--r-sm);padding:3px 9px;font-size:var(--text-xs);cursor:pointer;flex-shrink:0;font-family:var(--font);color:var(--text-secondary)';
+    editBtn.textContent = 'Edit';
+    row.appendChild(editBtn);
+
+    const delBtn = document.createElement('button');
+    delBtn.style.cssText = 'background:none;border:none;color:var(--text-muted);font-size:16px;cursor:pointer;padding:0 2px;flex-shrink:0';
+    delBtn.textContent = '✕';
+    delBtn.addEventListener('click', async () => { await Data.deleteCustomLink(link.id); render(); });
+    row.appendChild(delBtn);
+
+    card.appendChild(row);
+
+    // Inline edit form (hidden until Edit is tapped)
+    const editForm = document.createElement('div');
+    editForm.style.cssText = 'display:none;flex-direction:column;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border-subtle)';
+    const dayOptions = `<option value="">No specific day</option>` +
+      allDays.map(d => `<option value="${d.id}" ${d.id===link.dayId?'selected':''}>${d.label} · ${d.date}</option>`).join('');
+    editForm.innerHTML = `
+      <input class="el-title" value="${link.title.replace(/"/g,'&quot;')}" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:6px 8px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
+      <input class="el-url" value="${link.url.replace(/"/g,'&quot;')}" type="url" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:6px 8px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
+      <select class="el-day" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:6px 8px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">${dayOptions}</select>
+      <div style="display:flex;gap:6px">
+        <button class="el-save" style="flex:1;background:var(--accent);color:#fff;border:none;border-radius:var(--r-md);padding:6px;font-size:var(--text-xs);font-weight:500;cursor:pointer;font-family:var(--font)">Save</button>
+        <button class="el-cancel" style="flex:1;background:none;border:1.5px solid var(--border);border-radius:var(--r-md);padding:6px;font-size:var(--text-xs);cursor:pointer;font-family:var(--font);color:var(--text-secondary)">Cancel</button>
+      </div>`;
+    card.appendChild(editForm);
+
+    editBtn.addEventListener('click', () => {
+      editForm.style.display = editForm.style.display === 'none' ? 'flex' : 'none';
+    });
+    editForm.querySelector('.el-cancel').addEventListener('click', () => { editForm.style.display = 'none'; });
+    editForm.querySelector('.el-save').addEventListener('click', async () => {
+      const title = editForm.querySelector('.el-title').value.trim();
+      const url   = editForm.querySelector('.el-url').value.trim();
+      const dayId = editForm.querySelector('.el-day').value || null;
+      if (!title || !url) { Toast.show('Title and URL are required', 'warning'); return; }
+      await Data.updateCustomLink(link.id, { title, url, dayId });
+      Toast.show('Link updated ✓', 'success');
+      render();
+    });
+
+    return card;
   }
 
   /* ── Main render ────────────────────────────────────────────── */
