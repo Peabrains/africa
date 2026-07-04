@@ -231,6 +231,21 @@ const App = (() => {
 
     // Sync disabled on platform branch (uses Supabase, not InstantDB)
     try { scheduleDayBeforeReminders(); } catch(_) {}
+
+    // Upcoming booking deadlines — surfaces on open since we don't have
+    // true push notifications yet (see getUpcomingDeadlines)
+    try {
+      const upcoming = Data.getUpcomingDeadlines?.(14) || [];
+      if (upcoming.length) {
+        const next = upcoming[0];
+        const days = Math.ceil((new Date(next.deadline) - Date.now()) / 86400000);
+        const when = days <= 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`;
+        Toast.show(
+          `⚠️ ${next.name} — booking deadline ${when}` + (upcoming.length > 1 ? ` (+${upcoming.length - 1} more)` : ''),
+          'warning'
+        );
+      }
+    } catch(_) {}
   }
 
   return {
