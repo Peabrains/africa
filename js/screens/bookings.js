@@ -409,9 +409,39 @@ const BookingsScreen = (() => {
       catItems.forEach(item => {
         const row = document.createElement('div');
         row.className = `packing-row ${item.checked?'packing-row--done':''}`;
-        row.innerHTML = `<input type="checkbox" ${item.checked?'checked':''} style="accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;cursor:pointer"><span class="packing-item">${item.item}</span>${item.essential?'<span class="packing-tag">Essential</span>':''}<button class="packing-del">×</button>`;
+        row.innerHTML = `<input type="checkbox" ${item.checked?'checked':''} style="accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;cursor:pointer">
+          <span class="packing-item packing-item-edit" tabindex="0" style="cursor:pointer" title="Tap to edit">${item.item}</span>
+          <button class="packing-tag packing-essential-toggle" style="border:none;cursor:pointer;${item.essential?'':'opacity:.35'}">Essential</button>
+          <button class="packing-del">×</button>`;
         row.querySelector('input').addEventListener('change', async e => { await Data.togglePacking(item.id,e.target.checked); render(); });
         row.querySelector('.packing-del').addEventListener('click', async () => { await Data.deletePacking(item.id); render(); });
+        row.querySelector('.packing-essential-toggle').addEventListener('click', async () => {
+          await Data.updatePackingItem(item.id, { essential: !item.essential });
+          render();
+        });
+        const label = row.querySelector('.packing-item-edit');
+        const startEdit = () => {
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.value = item.item;
+          input.className = 'packing-add-input';
+          input.style.flex = '1';
+          label.replaceWith(input);
+          input.focus();
+          input.select();
+          const save = async () => {
+            const val = input.value.trim();
+            if (val && val !== item.item) await Data.updatePackingItem(item.id, { item: val });
+            render();
+          };
+          input.addEventListener('blur', save);
+          input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') input.blur();
+            if (e.key === 'Escape') { input.value = item.item; input.blur(); }
+          });
+        };
+        label.addEventListener('click', startEdit);
+        label.addEventListener('keydown', e => { if (e.key === 'Enter') startEdit(); });
         sec.appendChild(row);
       });
       const addRow = document.createElement('div');
