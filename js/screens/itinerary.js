@@ -412,6 +412,22 @@ const ItineraryScreen = (() => {
 
         root.appendChild(addStopBtn(day.id));
 
+        // JR Pass seat reservations for this day
+        const dayLegs = (Data.getJrPassLegsForDay?.(day.id)) || [];
+        if (dayLegs.length) {
+          const jrWrap = document.createElement('div');
+          jrWrap.style.cssText = 'background:var(--accent-subtle);border:1.5px solid var(--accent);border-radius:var(--r-lg);padding:var(--s3);margin:var(--s2) 0';
+          jrWrap.innerHTML = '<p style="font-size:var(--text-xs);font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin-bottom:var(--s2)">🚄 JR Pass Seat Reservations</p>'
+            + dayLegs.map(leg => `
+              <div style="padding:6px 0">
+                <p style="font-weight:500;font-size:var(--text-sm);color:var(--text-primary)">${leg.fromStation} → ${leg.toStation}</p>
+                ${leg.trainName ? `<p style="font-size:var(--text-xs);color:var(--text-muted)">${leg.trainName}</p>` : ''}
+                ${(leg.departTime || leg.arriveTime) ? `<p style="font-size:var(--text-xs);color:var(--text-secondary)">Depart: ${leg.departTime || '—'} · Arrive: ${leg.arriveTime || '—'}${leg.duration ? ' · ' + leg.duration : ''}</p>` : ''}
+                ${leg.seatRequired ? `<p style="font-size:var(--text-xs);color:var(--success-text)">JR Pass ✓ · Seat reservation required</p>` : ''}
+              </div>`).join('');
+          root.appendChild(jrWrap);
+        }
+
         // Custom links for this day
         const dayLinks = (Data.getCustomLinks?.() || []).filter(l => l.dayId === day.id);
         if (dayLinks.length) {
