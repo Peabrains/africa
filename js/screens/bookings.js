@@ -42,7 +42,11 @@ const BookingsScreen = (() => {
     return frag;
   }
 
-  /* ─── JR Pass Seat Reservations — standalone highlighted card ── */
+  /* ─── JR Pass Seat Reservations — standalone highlighted card ──
+     Auto-populated: any itinerary stop with transport type "Train" and
+     "Seat reservation required" checked (in the stop's own edit sheet)
+     shows up here automatically. Nothing to add/manage separately —
+     tap a card to open that stop and edit its train details there. ── */
   function renderJrPassSection() {
     const wrap = document.createElement('div');
     wrap.style.cssText = 'background:var(--accent-subtle);border:1.5px solid var(--accent);border-radius:var(--r-lg);padding:var(--s3);margin-bottom:var(--s2)';
@@ -67,7 +71,7 @@ const BookingsScreen = (() => {
     if (!legs.length) {
       const em = document.createElement('p');
       em.style.cssText = 'font-size:var(--text-sm);color:var(--text-muted);padding:var(--s2) 0';
-      em.textContent = 'No seat reservations added yet.';
+      em.textContent = 'No trains flagged yet. Edit any train stop in the Itinerary and check "Seat reservation required" — it\'ll show up here automatically.';
       list.appendChild(em);
     } else {
       legs.forEach((leg, i) => {
@@ -76,136 +80,30 @@ const BookingsScreen = (() => {
       });
     }
     wrap.appendChild(list);
-
-    wrap.appendChild(jrPassAddForm(allDays));
     return wrap;
   }
 
   function jrPassLegCard(leg, day, isLast) {
     const card = document.createElement('div');
-    card.style.cssText = `padding:var(--s3) 0 var(--s3);${isLast ? '' : 'border-bottom:1px solid var(--accent);border-bottom-color:color-mix(in srgb, var(--accent) 25%, transparent);'}`;
+    card.style.cssText = `padding:var(--s3) 0 var(--s3);cursor:pointer;${isLast ? '' : 'border-bottom:1px solid var(--accent);border-bottom-color:color-mix(in srgb, var(--accent) 25%, transparent);'}`;
 
     card.innerHTML = `
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
         ${day ? `<span class="badge badge-open" style="font-size:9px;padding:1px 5px">${day.label}</span>` : ''}
         <span style="font-size:var(--text-xs);color:var(--text-muted)">${day ? day.date : ''}</span>
       </div>
-      <p style="font-weight:600;font-size:var(--text-md);color:var(--text-primary)">${leg.fromStation} → ${leg.toStation}</p>
+      <p style="font-weight:600;font-size:var(--text-md);color:var(--text-primary)">${leg.fromStation && leg.toStation ? leg.fromStation + ' → ' + leg.toStation : (leg.trainName || 'Train')}</p>
       ${leg.trainName ? `<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">${leg.trainName}</p>` : ''}
-      ${(leg.departTime || leg.arriveTime) ? `<p style="font-size:var(--text-sm);color:var(--text-secondary);margin-top:2px">Depart: ${leg.departTime || '—'} · Arrive: ${leg.arriveTime || '—'}${leg.duration ? ' · ' + leg.duration : ''}</p>` : ''}
+      ${(leg.departTime || leg.arriveTime) ? `<p style="font-size:var(--text-sm);color:var(--text-secondary);margin-top:2px">Depart: ${leg.departTime || 'TBD'} · Arrive: ${leg.arriveTime || 'TBD'}${leg.duration ? ' · ' + leg.duration : ''}</p>` : ''}
       ${leg.trainNo ? `<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">Train: ${leg.trainNo}</p>` : ''}
-      <p style="font-size:var(--text-xs);color:var(--success-text);margin-top:3px">${leg.seatRequired ? 'JR Pass ✓ · Seat reservation required' : 'JR Pass ✓'}</p>
-      ${leg.notes ? `<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:3px;font-style:italic">${leg.notes}</p>` : ''}
-      <div style="display:flex;gap:8px;margin-top:6px">
-        <button class="jr-edit" style="background:none;border:1.5px solid var(--border);border-radius:var(--r-sm);padding:3px 9px;font-size:var(--text-xs);cursor:pointer;font-family:var(--font);color:var(--text-secondary)">Edit</button>
-        <button class="jr-del" style="background:none;border:none;color:var(--text-muted);font-size:var(--text-xs);cursor:pointer;font-family:var(--font)">Delete</button>
-      </div>
-      <div class="jr-edit-form" style="display:none;flex-direction:column;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border-subtle)"></div>`;
+      <p style="font-size:var(--text-xs);margin-top:3px">${leg.jrPass ? '<span style="color:var(--success-text)">JR Pass ✓</span>' : '<span style="color:var(--warning-text)">NOT on JR Pass — buy separately</span>'} · Seat reservation required</p>`;
 
-    const delBtn = card.querySelector('.jr-del');
-    let delArmed = false, delTimer = null;
-    delBtn.addEventListener('click', async () => {
-      if (!delArmed) {
-        delArmed = true;
-        delBtn.textContent = 'Tap again to confirm';
-        delBtn.style.color = 'var(--danger-text)';
-        delTimer = setTimeout(() => {
-          delArmed = false;
-          delBtn.textContent = 'Delete';
-          delBtn.style.color = 'var(--text-muted)';
-        }, 3000);
-        return;
-      }
-      clearTimeout(delTimer);
-      await Data.deleteJrPassLeg(leg.id);
-      render();
-    });
-
-    card.querySelector('.jr-edit').addEventListener('click', () => {
-      const formEl = card.querySelector('.jr-edit-form');
-      if (formEl.style.display === 'flex') { formEl.style.display = 'none'; return; }
-      formEl.style.display = 'flex';
-      formEl.innerHTML = jrPassFormHtml(leg);
-      wireJrPassForm(formEl, Data.getDays(), leg, async (values) => {
-        await Data.updateJrPassLeg(leg.id, values);
-        Toast.show('Reservation updated ✓', 'success');
-        render();
-      });
+    card.addEventListener('click', () => {
+      const stop = Data.getStopsByDay(leg.dayId).find(s => s.id === leg.stopId);
+      if (stop) BottomSheet.openStop(stop, day);
     });
 
     return card;
-  }
-
-  function jrPassFormHtml(leg = {}) {
-    const allDays = Data.getDays();
-    const dayOptions = `<option value="">No specific day</option>` +
-      allDays.map(d => `<option value="${d.id}" ${d.id===leg.dayId?'selected':''}>${d.label} · ${d.date}</option>`).join('');
-    const inputStyle = 'width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:6px 8px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box';
-    return `
-      <select class="jr-f-day" style="${inputStyle}">${dayOptions}</select>
-      <div style="display:flex;gap:6px">
-        <input class="jr-f-from" placeholder="From station" value="${(leg.fromStation||'').replace(/"/g,'&quot;')}" style="${inputStyle}">
-        <input class="jr-f-to" placeholder="To station" value="${(leg.toStation||'').replace(/"/g,'&quot;')}" style="${inputStyle}">
-      </div>
-      <input class="jr-f-trainname" placeholder="Train name (e.g. Haruka 6 + Kuroshio 1 Ltd Exp)" value="${(leg.trainName||'').replace(/"/g,'&quot;')}" style="${inputStyle}">
-      <div style="display:flex;gap:6px">
-        <input class="jr-f-depart" placeholder="Depart (08:08)" value="${(leg.departTime||'').replace(/"/g,'&quot;')}" style="${inputStyle}">
-        <input class="jr-f-arrive" placeholder="Arrive (11:06)" value="${(leg.arriveTime||'').replace(/"/g,'&quot;')}" style="${inputStyle}">
-        <input class="jr-f-duration" placeholder="~3h" value="${(leg.duration||'').replace(/"/g,'&quot;')}" style="${inputStyle}">
-      </div>
-      <input class="jr-f-trainno" placeholder="Train number (e.g. Kuroshio 1)" value="${(leg.trainNo||'').replace(/"/g,'&quot;')}" style="${inputStyle}">
-      <label style="display:flex;align-items:center;gap:6px;font-size:var(--text-xs);color:var(--text-secondary)">
-        <input type="checkbox" class="jr-f-seat" ${leg.seatRequired !== false ? 'checked' : ''}> Seat reservation required
-      </label>
-      <input class="jr-f-notes" placeholder="Notes (optional)" value="${(leg.notes||'').replace(/"/g,'&quot;')}" style="${inputStyle}">
-      <div style="display:flex;gap:6px">
-        <button class="jr-f-save" style="flex:1;background:var(--accent);color:#fff;border:none;border-radius:var(--r-md);padding:8px;font-size:var(--text-sm);font-weight:500;cursor:pointer;font-family:var(--font)">Save</button>
-        <button class="jr-f-cancel" style="flex:1;background:none;border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px;font-size:var(--text-sm);cursor:pointer;font-family:var(--font);color:var(--text-secondary)">Cancel</button>
-      </div>`;
-  }
-
-  function wireJrPassForm(formEl, allDays, leg, onSave) {
-    formEl.querySelector('.jr-f-cancel').addEventListener('click', () => { formEl.style.display = 'none'; });
-    formEl.querySelector('.jr-f-save').addEventListener('click', async () => {
-      const fromStation = formEl.querySelector('.jr-f-from').value.trim();
-      const toStation   = formEl.querySelector('.jr-f-to').value.trim();
-      if (!fromStation || !toStation) { Toast.show('From and To stations are required', 'warning'); return; }
-      await onSave({
-        dayId:        formEl.querySelector('.jr-f-day').value || null,
-        fromStation,
-        toStation,
-        trainName:    formEl.querySelector('.jr-f-trainname').value.trim(),
-        departTime:   formEl.querySelector('.jr-f-depart').value.trim(),
-        arriveTime:   formEl.querySelector('.jr-f-arrive').value.trim(),
-        duration:     formEl.querySelector('.jr-f-duration').value.trim(),
-        trainNo:      formEl.querySelector('.jr-f-trainno').value.trim(),
-        seatRequired: formEl.querySelector('.jr-f-seat').checked,
-        notes:        formEl.querySelector('.jr-f-notes').value.trim(),
-      });
-    });
-  }
-
-  function jrPassAddForm() {
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'margin-top:var(--s2);background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:var(--s3);display:none;flex-direction:column;gap:var(--s2)';
-    wrap.innerHTML = jrPassFormHtml({});
-    wireJrPassForm(wrap, Data.getDays(), {}, async (values) => {
-      await Data.addJrPassLeg(values);
-      Toast.show('Reservation added ✓', 'success');
-      render();
-    });
-
-    const toggle = document.createElement('button');
-    toggle.textContent = '+ Add seat reservation';
-    toggle.style.cssText = 'margin-top:var(--s2);background:none;border:1.5px dashed var(--accent);color:var(--accent);border-radius:var(--r-md);padding:8px;font-size:var(--text-sm);font-weight:500;cursor:pointer;font-family:var(--font);width:100%';
-    toggle.addEventListener('click', () => {
-      wrap.style.display = wrap.style.display === 'none' ? 'flex' : 'none';
-    });
-
-    const container = document.createElement('div');
-    container.appendChild(toggle);
-    container.appendChild(wrap);
-    return container;
   }
 
   /* Build a plain-text summary and share it (native share sheet if available, else clipboard) */
@@ -215,11 +113,11 @@ const BookingsScreen = (() => {
     legs.forEach(leg => {
       const day = allDays.find(d => d.id === leg.dayId);
       lines.push(`${day ? day.label + ' · ' + day.date : ''}`.trim());
-      lines.push(`${leg.fromStation} → ${leg.toStation}`);
+      lines.push(leg.fromStation && leg.toStation ? `${leg.fromStation} → ${leg.toStation}` : (leg.trainName || 'Train'));
       if (leg.trainName) lines.push(leg.trainName);
-      if (leg.departTime || leg.arriveTime) lines.push(`Depart: ${leg.departTime || '—'} · Arrive: ${leg.arriveTime || '—'}${leg.duration ? ' · ' + leg.duration : ''}`);
+      if (leg.departTime || leg.arriveTime) lines.push(`Depart: ${leg.departTime || 'TBD'} · Arrive: ${leg.arriveTime || 'TBD'}${leg.duration ? ' · ' + leg.duration : ''}`);
       if (leg.trainNo) lines.push(`Train: ${leg.trainNo}`);
-      lines.push(leg.seatRequired ? 'JR Pass ✓ · Seat reservation required' : 'JR Pass ✓');
+      lines.push(`${leg.jrPass ? 'JR Pass ✓' : 'NOT on JR Pass'} · Seat reservation required`);
       lines.push('');
     });
     const text = lines.join('\n').trim();
