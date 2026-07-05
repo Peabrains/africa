@@ -223,7 +223,7 @@ const App = (() => {
       dbg('tripSwitcher ✓');
     } catch(e) { dbg('tripSwitcher ✗ ' + e.message, '#f66'); }
 
-    try { updateSyncStatus('offline'); dbg('syncStatus ✓'); }
+    try { updateSyncStatus(navigator.onLine ? 'synced' : 'offline'); dbg('syncStatus ✓'); }
     catch(e) { dbg('syncStatus ✗ ' + e.message, '#f66'); }
 
     try {
