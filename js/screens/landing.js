@@ -96,6 +96,7 @@ const LandingScreen = (() => {
         <div class="bs-edit-group"><label class="bs-edit-label">Start date</label><input id="nt-start" class="bs-input" type="date"></div>
         <div class="bs-edit-group"><label class="bs-edit-label">End date</label><input id="nt-end" class="bs-input" type="date"></div>
         <div class="bs-edit-group"><label class="bs-edit-label">Countries (comma-separated)</label><input id="nt-countries" class="bs-input" type="text" placeholder="e.g. Japan"></div>
+        <div class="bs-edit-group"><label class="bs-edit-label">Currency</label><input id="nt-currency" class="bs-input" type="text" placeholder="e.g. JPY, USD" maxlength="3"></div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:var(--s4)">
           <button id="nt-create-btn" class="btn btn-primary" style="width:100%">Create trip</button>
           <button id="nt-cancel-btn" class="btn btn-ghost" style="width:100%">Cancel</button>
@@ -118,6 +119,7 @@ const LandingScreen = (() => {
           startDate: overlay.querySelector('#nt-start').value,
           endDate: overlay.querySelector('#nt-end').value,
           countries,
+          currency: overlay.querySelector('#nt-currency').value.trim().toUpperCase() || 'USD',
         });
         overlay.remove();
         Toast.show('Trip created', 'success');
