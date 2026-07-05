@@ -194,6 +194,11 @@ const App = (() => {
       dbg('tripName ✓ ' + Data.getTripName?.());
     } catch(e) { dbg('tripName ✗ ' + e.message, '#f66'); }
 
+    try {
+      window.TripSwitcher?.init();
+      dbg('tripSwitcher ✓');
+    } catch(e) { dbg('tripSwitcher ✗ ' + e.message, '#f66'); }
+
     try { updateSyncStatus('offline'); dbg('syncStatus ✓'); }
     catch(e) { dbg('syncStatus ✗ ' + e.message, '#f66'); }
 
