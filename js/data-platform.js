@@ -1197,10 +1197,6 @@ const Data = (() => {
   }
 
   /* ── STUBS for backward compat ───────────────────────────── */
-  function getStampStops()    { return []; }
-  function isStampCollected() { return false; }
-  async function toggleStamp()  { return false; }
-  function getStampProgress() { return { collected:0, total:0 }; }
   async function resetToSeed() { await loadTripData(CURRENT_TRIP?.id); }
   async function updateTravelers(names) {
     TRAVELERS = names;
@@ -1270,8 +1266,7 @@ const Data = (() => {
     getActivityReservations, getTransportReservations,
     getTripInclusions, getTripExclusions, getSOS,
     getInclusions, getExclusions, getHospitals, getFirstAid, getStats,
-    // Stubs
-    getStampStops, isStampCollected, toggleStamp, getStampProgress, resetToSeed,
+    resetToSeed,
   };
 
 })();
