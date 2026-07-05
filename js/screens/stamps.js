@@ -45,26 +45,24 @@ const StampsScreen = (() => {
       position:relative; aspect-ratio:1; border-radius:var(--r-lg);
       border:2px solid ${collected ? 'var(--accent)' : 'var(--border)'};
       background:${collected ? 'var(--surface)' : 'var(--surface-raised)'};
-      display:flex; flex-direction:column; align-items:center; justify-content:center;
-      gap:4px; cursor:pointer; transition:transform .15s; overflow:hidden; padding:6px;
+      display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+      gap:4px; cursor:pointer; transition:transform .15s; overflow:hidden; padding:10px 6px 6px;
     `;
     card.addEventListener('touchstart', () => card.style.transform = 'scale(0.96)', { passive: true });
     card.addEventListener('touchend',   () => card.style.transform = '', { passive: true });
 
+    const dayP = document.createElement('p');
+    dayP.style.cssText = 'font-size:8px;color:var(--text-muted);min-height:10px;line-height:10px';
+    dayP.textContent = day ? day.label : '';
+    card.appendChild(dayP);
+
     const kanjiSpan = document.createElement('span');
-    kanjiSpan.style.cssText = `font-size:26px; font-weight:600; ${collected ? 'color:var(--accent)' : 'color:var(--text-muted);opacity:.35'}`;
+    kanjiSpan.style.cssText = `font-size:26px; font-weight:600; line-height:1; ${collected ? 'color:var(--accent)' : 'color:var(--text-muted);opacity:.35'}`;
     kanjiSpan.textContent = stop.kanji || '⛩️';
 
     const nameP = document.createElement('p');
     nameP.style.cssText = `font-size:9px; font-weight:500; text-align:center; padding:0 2px; color:${collected ? 'var(--text-primary)' : 'var(--text-muted)'}`;
     nameP.textContent = stop.name;
-
-    if (day) {
-      const dayP = document.createElement('p');
-      dayP.style.cssText = 'font-size:8px;color:var(--text-muted)';
-      dayP.textContent = day.label;
-      card.appendChild(dayP);
-    }
 
     card.appendChild(kanjiSpan);
     card.appendChild(nameP);
