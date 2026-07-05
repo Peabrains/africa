@@ -154,15 +154,18 @@ const LandingScreen = (() => {
 
   function renderMap(container) {
     const mapEl = document.createElement('div');
-    mapEl.style.cssText = 'width:100%;height:280px;border-radius:var(--r-md);overflow:hidden;background:#1A1712';
+    mapEl.style.cssText = 'width:100%;height:180px;border-radius:var(--r-md);overflow:hidden;background:#1A1712';
     container.appendChild(mapEl);
 
     requestAnimationFrame(() => {
       leafletMap = L.map(mapEl, {
         worldCopyJump: false,
-        maxBounds: [[-85, -180], [85, 180]],
-        minZoom: 1,
+        maxBounds: [[-89, -180], [89, 180]],
         maxZoom: 8,
+        // No minZoom constraint — let fitBounds compute whatever zoom
+        // actually shows the whole world in this container's real size.
+        // A hardcoded minZoom was preventing it from zooming out enough
+        // in a compact container, cropping the map.
       });
 
       L.geoJSON(worldGeoJson, {
@@ -231,8 +234,13 @@ const LandingScreen = (() => {
     stat.innerHTML = `<p style="font-size:28px;font-weight:700;color:var(--text-primary);line-height:1.1">${visitedCount}<span style="font-size:14px;font-weight:400;color:var(--text-muted)"> of ${totalCodes.size} countries · ${pct}%</span></p>`;
     container.appendChild(stat);
 
+    const mapWrap = document.createElement('div');
+    mapWrap.style.cssText = 'padding:0 var(--s4) var(--s3)';
+    container.appendChild(mapWrap);
+    renderMap(mapWrap);
+
     const searchWrap = document.createElement('div');
-    searchWrap.style.cssText = 'padding:0 var(--s4) var(--s3)';
+    searchWrap.style.cssText = 'padding:0 var(--s4) var(--s2)';
     searchWrap.innerHTML = `<input id="country-search" class="bs-input" type="text" placeholder="🔍 Search a country…" value="${searchQuery}">`;
     container.appendChild(searchWrap);
     searchWrap.querySelector('#country-search').addEventListener('input', (e) => {
@@ -240,11 +248,6 @@ const LandingScreen = (() => {
       const gridArea = container.querySelector('#flag-grid-area');
       if (gridArea) { gridArea.innerHTML = ''; renderFlagGrid(gridArea); }
     });
-
-    const mapWrap = document.createElement('div');
-    mapWrap.style.cssText = 'padding:0 var(--s4) var(--s3)';
-    container.appendChild(mapWrap);
-    renderMap(mapWrap);
 
     const hint = document.createElement('p');
     hint.style.cssText = 'font-size:var(--text-xs);color:var(--text-muted);padding:0 var(--s4);text-align:center;margin-bottom:var(--s2)';
