@@ -88,8 +88,9 @@ const BottomSheet = (() => {
   }
   function timeWithTz(timeId, tzId, timeVal, tzVal) {
     const tVal = /^\d{2}:\d{2}$/.test(timeVal||'') ? timeVal : '';
-    const sel = ['EAT','MYT','UTC'].map(z =>
-      `<option value="${z}" ${(tzVal||'EAT')===z?'selected':''}>${z}</option>`).join('');
+    const defaultTz = tzVal || (Data.getTripCurrency?.() === 'JPY' ? 'JST' : 'EAT');
+    const sel = ['EAT','JST','MYT','UTC'].map(z =>
+      `<option value="${z}" ${defaultTz===z?'selected':''}>${z}</option>`).join('');
     return `<div class="bs-edit-group">
       <label class="bs-edit-label" for="${timeId}">Time</label>
       <div class="bs-time-row">
@@ -229,7 +230,7 @@ const BottomSheet = (() => {
         ${select('Day','a-day',dayId,days)}
         ${field('Stop name *','a-name','','text','e.g. Kumano Hongu Taisha')}
         ${textarea('Activity','a-activity','','What happens here?')}
-        ${timeWithTz('a-time','a-tz','','EAT')}
+        ${timeWithTz('a-time','a-tz','','')}
         ${textarea('Transport to get here','a-transport','','e.g. On foot · 3.6 km')}
         ${select('Transport type','a-ttype','walk',transTypes)}
         <div id="a-train-detail-block" class="bs-train-detail-block" style="display:none;margin-top:var(--s2)">
@@ -355,7 +356,7 @@ const BottomSheet = (() => {
         name:          g('e-name')||stop.name,
         activity:      g('e-activity'),
         time:          g('e-time'),
-        timeZone:      body.querySelector('#e-tz')?.value || 'EAT',
+        timeZone:      body.querySelector('#e-tz')?.value || (Data.getTripCurrency?.() === 'JPY' ? 'JST' : 'EAT'),
         dayId:         g('e-day')||stop.dayId,
         transport:     g('e-transport'),
         transportType: ttype,
@@ -456,7 +457,7 @@ const BottomSheet = (() => {
       await Data.addStop({
         dayId: g('a-day')||dayId, name,
         activity: g('a-activity'), time: g('a-time'),
-        timeZone: body.querySelector('#a-tz')?.value || 'EAT',
+        timeZone: body.querySelector('#a-tz')?.value || (Data.getTripCurrency?.() === 'JPY' ? 'JST' : 'EAT'),
         transport: g('a-transport'), transportType: tType,
         trainDetail,
         ...(tType === 'plane' ? { flightNo: numberField } : {}),
