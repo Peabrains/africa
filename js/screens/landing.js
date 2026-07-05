@@ -143,9 +143,13 @@ const LandingScreen = (() => {
 
   async function toggleCountry(code, name) {
     if (!code) { Toast.show(`${name} doesn't have an assignable country code`, 'info'); return; }
-    await Data.toggleVisitedCountry(code);
-    visitedSet = new Set(await Data.getVisitedCountries());
-    render();
+    try {
+      await Data.toggleVisitedCountry(code);
+      visitedSet = new Set(await Data.getVisitedCountries());
+      render();
+    } catch (e) {
+      Toast.show('Could not save — check connection', 'danger');
+    }
   }
 
   function renderMap(container) {
