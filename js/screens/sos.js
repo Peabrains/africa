@@ -283,7 +283,7 @@ const SOSScreen = (() => {
       banner.innerHTML = `${Icons.info ? Icons.info('icon-md') : ''}<div>
         <p style="font-weight:500;font-size:var(--text-sm);color:var(--text-primary)">${req.summary.title || 'Key note'}</p>
         <p style="font-size:var(--text-xs);color:var(--text-secondary);opacity:.9;margin-top:2px">${req.summary.body}</p>
-        ${req.summary.link ? `<a href="${req.summary.link}" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;font-size:var(--text-xs);color:var(--accent);font-weight:500">WHO yellow fever guidance ↗</a>` : ''}
+        ${req.summary.link ? `<a href="${req.summary.link}" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;font-size:var(--text-xs);color:var(--accent);font-weight:500">${req.summary.linkLabel || 'Learn more'} ↗</a>` : ''}
       </div>`;
       wrap.appendChild(banner);
     }
@@ -301,6 +301,7 @@ const SOSScreen = (() => {
         c.passport   ? { label: 'Passport',     value: c.passport } : null,
         c.yellowFever? { label: 'Yellow fever', value: c.yellowFever, link: c.yellowFeverLink } : null,
         c.customs    ? { label: 'Customs',      value: c.customs,     link: c.customsLink } : null,
+        ...(Array.isArray(c.extra) ? c.extra.map(e => ({ label: e.label, value: e.value, link: e.link })) : []),
       ].filter(Boolean);
 
       rows.forEach(row => {
