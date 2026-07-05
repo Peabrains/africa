@@ -303,9 +303,12 @@ const ItineraryScreen = (() => {
     const p = document.createElement('p');
     p.style.cssText = 'font-size:var(--text-sm);color:var(--text-secondary);line-height:1.65;margin-bottom:var(--s3)';
 
-    const parts = text.split(/(\[\[.*?\]\])/g);
+    // Tokens: [[glossary term]], **bold**, [link text](https://...)
+    const parts = text.split(/(\[\[.*?\]\]|\*\*.*?\*\*|\[[^\]]+\]\([^)]+\))/g);
     parts.forEach(part => {
-      const match = part.match(/^\[\[(.*?)\]\]$/);
+      if (!part) return;
+
+      let match = part.match(/^\[\[(.*?)\]\]$/);
       if (match) {
         const term = match[1];
         const span = document.createElement('span');
@@ -313,9 +316,32 @@ const ItineraryScreen = (() => {
         span.style.cssText = 'color:var(--accent);font-weight:500;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;cursor:pointer';
         span.addEventListener('click', () => openGlossary(term));
         p.appendChild(span);
-      } else if (part) {
-        p.appendChild(document.createTextNode(part));
+        return;
       }
+
+      match = part.match(/^\*\*(.*?)\*\*$/);
+      if (match) {
+        const strong = document.createElement('strong');
+        strong.textContent = match[1];
+        strong.style.fontWeight = '600';
+        p.appendChild(strong);
+        return;
+      }
+
+      match = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (match) {
+        const a = document.createElement('a');
+        a.href = match[2];
+        a.textContent = match[1];
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.style.cssText = 'color:var(--accent);text-decoration:underline';
+        a.addEventListener('click', e => e.stopPropagation());
+        p.appendChild(a);
+        return;
+      }
+
+      p.appendChild(document.createTextNode(part));
     });
     return p;
   }
