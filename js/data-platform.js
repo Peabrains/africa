@@ -172,7 +172,13 @@ const Data = (() => {
   /* ── Init ────────────────────────────────────────────────── */
   async function init(tripId) {
     if (!tripId) {
-      // Load trips list, pick first active trip
+      if (CURRENT_TRIP) {
+        // A trip is already active (e.g. just switched via switchTrip/createTrip) —
+        // reloading must not silently discard that and reset to a default trip.
+        await loadTripData(CURRENT_TRIP.id);
+        return;
+      }
+      // Genuinely fresh load — load trips list, pick first active trip
       await loadTrips();
       const active = TRIPS.find(t => t.status === 'active') || TRIPS[0];
       if (!active) { console.warn('[Data] No trips found for user'); return; }
@@ -1068,13 +1074,25 @@ const Data = (() => {
       if (error) { console.error('[Data] updateTravelers error:', error); throw error; }
     }
   }
-  async function setTripName(name) {
-    if (!CURRENT_TRIP || !name) return;
-    CURRENT_TRIP.name = name;
+  async function updateTripDetails(changes) {
+    if (!CURRENT_TRIP) return;
+    const patch = {};
+    if ('name'       in changes) patch.name        = changes.name;
+    if ('startDate'  in changes) patch.start_date   = changes.startDate || null;
+    if ('endDate'    in changes) patch.end_date     = changes.endDate || null;
+    if ('countries'  in changes) patch.countries    = changes.countries;
+    if ('coverEmoji' in changes) patch.cover_emoji  = changes.coverEmoji;
+    Object.assign(CURRENT_TRIP, patch);
+    const idx = TRIPS.findIndex(t => t.id === CURRENT_TRIP.id);
+    if (idx >= 0) TRIPS[idx] = CURRENT_TRIP;
     if (navigator.onLine) {
-      const { error } = await SB.from('trips').update({ name }).eq('id', CURRENT_TRIP.id);
-      if (error) { console.error('[Data] setTripName error:', error); throw error; }
+      const { error } = await SB.from('trips').update(patch).eq('id', CURRENT_TRIP.id);
+      if (error) { console.error('[Data] updateTripDetails error:', error); throw error; }
     }
+  }
+
+  async function setTripName(name) {
+    return updateTripDetails({ name });
   }
   function setCustomLinks(links) { CUSTOM_LINKS = links; }
   function setDexState(state) { DEX_CATCHES = state; }
@@ -1102,7 +1120,7 @@ const Data = (() => {
     // Links
     getCustomLinks, addCustomLink, updateCustomLink, deleteCustomLink, setCustomLinks,
     // Trips
-    getTrips, getCurrentTrip, switchTrip, createTrip,
+    getTrips, getCurrentTrip, switchTrip, createTrip, updateTripDetails,
     getTripMembers, inviteMember, removeMember,
     // Trip info
     getTripName, setTripName,
