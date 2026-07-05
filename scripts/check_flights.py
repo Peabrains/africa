@@ -27,12 +27,8 @@ SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
 SERVICE_KEY  = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 RAPIDAPI_KEY = os.environ["RAPIDAPI_KEY"]
 
-# Every trip that should have its flights checked. Add a new ID here
-# whenever a new trip with real flights gets created.
-TRIP_IDS = [
-    "83891de6-44ee-4ec2-bb95-6726cbd8c370",  # Africa Safari 2026
-    "91a41e0d-f247-4d89-ba15-02f0994a16c8",  # Kumano Kodo — Japan Spring 2027
-]
+# Trip list is fetched dynamically at runtime (see get_all_trip_ids) so new
+# trips are checked automatically — nothing to edit here when a trip is created.
 
 AERODB_HOST = "aerodatabox.p.rapidapi.com"
 
@@ -53,6 +49,15 @@ def sb_request(method, path, body=None):
     except urllib.error.HTTPError as e:
         print(f"[Supabase] {method} {path} failed: {e.code} {e.read().decode()}", file=sys.stderr)
         raise
+
+
+def get_all_trip_ids():
+    """Every trip in the database — new trips get flight-checked automatically,
+       nothing to add here by hand."""
+    rows = sb_request("GET", "trips?select=id,name") or []
+    for r in rows:
+        print(f"[trips] found {r['id']} ({r.get('name','?')})")
+    return [r["id"] for r in rows]
 
 
 def get_flight_stops(trip_id):
@@ -136,7 +141,8 @@ def main():
     now_iso = datetime.now(timezone.utc).isoformat()
     total_checked = 0
 
-    for trip_id in TRIP_IDS:
+    trip_ids = get_all_trip_ids()
+    for trip_id in trip_ids:
         stops = get_flight_stops(trip_id)
         print(f"\n=== Trip {trip_id}: checking {len(stops)} flight-carrying stop(s) ===")
 
