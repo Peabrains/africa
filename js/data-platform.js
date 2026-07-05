@@ -961,6 +961,25 @@ const Data = (() => {
     await DB.setMeta(CACHE_KEYS.links, CUSTOM_LINKS);
   }
 
+  async function createTrip({ name, startDate, endDate, countries, coverEmoji }) {
+    const user = (await SB.auth.getUser()).data.user;
+    if (!user) throw new Error('Not signed in');
+    const { data, error } = await SB.from('trips').insert({
+      name,
+      start_date: startDate || null,
+      end_date: endDate || null,
+      countries: countries || [],
+      cover_emoji: coverEmoji || '🧭',
+      status: 'upcoming',
+      owner_id: user.id,
+    }).select().single();
+    if (error) throw error;
+    TRIPS.push(data);
+    TRIPS.sort((a, b) => new Date(a.start_date || 0) - new Date(b.start_date || 0));
+    await DB.setMeta(CACHE_KEYS.trips, TRIPS);
+    return data;
+  }
+
   /* ── TRIPS API ───────────────────────────────────────────── */
   function getTrips()       { return TRIPS; }
   function getCurrentTrip() { return CURRENT_TRIP; }
@@ -1078,7 +1097,7 @@ const Data = (() => {
     // Links
     getCustomLinks, addCustomLink, updateCustomLink, deleteCustomLink, setCustomLinks,
     // Trips
-    getTrips, getCurrentTrip, switchTrip,
+    getTrips, getCurrentTrip, switchTrip, createTrip,
     getTripMembers, inviteMember, removeMember,
     // Trip info
     getTripName, setTripName,
