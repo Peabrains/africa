@@ -407,10 +407,23 @@ const SOSScreen = (() => {
   /* ── Japan kit — real content, researched (not placeholder) ── */
   const JAPAN_GUIDE_LINKS = [
     {
-      section:'Kumano Kodo Trail', icon:'⛩️',
+      section:'Kumano Kodo Trail', icon:'🗾',
       items:[
-        {title:'Tanabe City Kumano Tourism Bureau', desc:'Official trail authority & route info', url:'https://www.tb-kumano.jp/en/'},
-        {title:'Kumano Travel',                     desc:'Official community reservation system', url:'https://www.kumano-travel.com/en'},
+        {title:'Nakahechi Route Map',            desc:'Takijiri → Takahara (PDF)',        url:'https://www2.tb-kumano.jp/en/kumano-kodo/pdf/Kumano-Kodo-Nakahechi-Route-Maps-Takijiri-Takahara.pdf'},
+        {title:'Nachisan Travel Guide',           desc:'Nachi Taisha & waterfall area',    url:'https://visitwakayama.jp/en/stories/detail_539.html'},
+        {title:'Bus: Kii-Tanabe → Hongu',         desc:'Ryujin bus schedule (PDF)',         url:'http://www2.tb-kumano.jp/en/transport/pdf/Tanabe-Shirahama-to-Hongu-bus.pdf'},
+        {title:'Bus: Hongu → Shingu',             desc:'Bus schedule (PDF)',                url:'http://www2.tb-kumano.jp/en/transport/pdf/Hongu-Koguchi-Shingu-bus.pdf'},
+        {title:'Bus: Hongu ↔ Kawayu ↔ Yunomine', desc:'Hot spring shuttle (PDF)',          url:'http://www2.tb-kumano.jp/en/transport/pdf/Hongu-Kawayu-Yunomine-bus.pdf'},
+        {title:'Bus: Nachi ↔ Kii-Katsuura',       desc:'Bus schedule (PDF)',                url:'https://www2.tb-kumano.jp/en/transport/pdf/Nachi-Kii-Katsuura-bus.pdf'},
+      ]
+    },
+    {
+      section:'Alpine Route & Murodo', icon:'🏔',
+      items:[
+        {title:'Murodo Walks Map',                desc:'Official plateau guide (PDF)',      url:'https://www.alpen-route.com/en/assets_v2/file/walks_map.pdf'},
+        {title:'Timetable: Nagano → Toyama',      desc:'Alpine Route 2026 (PDF)',           url:'https://www.alpen-route.com/en/wp-content/uploads/2026/04/2026_timetable_nagano-toyamaedit.pdf'},
+        {title:'Timetable: Toyama → Nagano',      desc:'Alpine Route 2026 (PDF)',           url:'https://www.alpen-route.com/en/wp-content/uploads/2026/04/2026_timetable_toyama-naganoedit-1.pdf'},
+        {title:'Alpine Route Booking Portal',     desc:'Reserve tickets online',            url:'https://tateyama-kurobe-webservice.jp/AlpenTour/html/VW001W0010.html?lang=en'},
       ]
     },
     {
