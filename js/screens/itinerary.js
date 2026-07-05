@@ -84,6 +84,18 @@ const ItineraryScreen = (() => {
     return div;
   }
 
+  /* ── Format an ISO date (YYYY-MM-DD) as 'Fri, 9 Apr 2026' ────── */
+  function formatDayDate(iso) {
+    if (!iso) return '';
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+    if (!m) return iso; // fallback: show whatever we got rather than hide it
+    const [, y, mo, d] = m;
+    const dt = new Date(Number(y), Number(mo) - 1, Number(d)); // local, no TZ shift
+    const weekday = dt.toLocaleDateString('en-US', { weekday: 'short' });
+    const month   = dt.toLocaleDateString('en-US', { month: 'short' });
+    return `${weekday}, ${Number(d)} ${month} ${y}`;
+  }
+
   /* ── Day header ─────────────────────────────────────────────── */
   function dayHeader(day, stops, isOpen) {
     const wrap = document.createElement('div');
@@ -94,7 +106,7 @@ const ItineraryScreen = (() => {
     row.innerHTML = `
       <div class="tl-day-pill"><span class="tl-day-label">${day.label}</span></div>
       <div class="tl-day-meta">
-        <span class="tl-day-date">${day.date}</span>
+        <span class="tl-day-date">${formatDayDate(day.date)}</span>
         <span class="tl-day-title-text">${day.title}</span>
       </div>
       <button class="tl-day-edit-btn" style="background:none;border:none;color:var(--text-muted);padding:4px;cursor:pointer;flex-shrink:0" title="Edit day">${Icons.edit ? Icons.edit('icon-sm') : '✎'}</button>
