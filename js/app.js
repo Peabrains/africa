@@ -7,7 +7,7 @@ const App = (() => {
     dex:       () => window.DexScreen,
     bookings:  () => window.BookingsScreen,
     sos:       () => window.SOSScreen,
-    countries: () => window.CountriesScreen,
+    landing:   () => window.LandingScreen,
   };
 
   let currentScreen = null;
@@ -190,7 +190,7 @@ const App = (() => {
     catch(e) { dbg('renderCountdown ✗ ' + e.message, '#f66'); }
 
     try {
-      const tnEl = document.getElementById('header-trip-name');
+      const tnEl = document.getElementById('header-trip-name-text');
       if (tnEl && Data.getTripName) tnEl.textContent = Data.getTripName();
       dbg('tripName ✓ ' + Data.getTripName?.());
     } catch(e) { dbg('tripName ✗ ' + e.message, '#f66'); }
@@ -217,8 +217,8 @@ const App = (() => {
       App.reload?.();
     });
 
-    let start = 'itinerary';
-    try { start = sessionStorage.getItem('lastScreen') || 'itinerary'; } catch(_) {}
+    let start = 'landing';
+    try { start = sessionStorage.getItem('lastScreen') || 'landing'; } catch(_) {}
     dbg('switching to: ' + start);
     try {
       switchTo(start);
@@ -295,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Show trip name in header
-    const tripNameEl = document.getElementById('header-trip-name');
+    const tripNameEl = document.getElementById('header-trip-name-text');
     if (tripNameEl) tripNameEl.textContent = Data.getCurrentTrip()?.name || 'Trip Companion';
     const vEl = document.getElementById('app-version-display');
     if (vEl) vEl.textContent = Config.APP_VERSION || 'v1';
