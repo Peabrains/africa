@@ -101,7 +101,7 @@ const BookingsScreen = (() => {
             </div>
             <p style="font-weight:500;font-size:var(--text-sm);color:var(--text-primary)">${o.name}</p>
             ${o.ref?`<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">Ref: ${o.ref}</p>`:''}
-            ${o.cost?`<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">USD ${o.cost.toLocaleString()}</p>`:''}
+            ${o.cost?`<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">${Data.getTripCurrency()} ${o.cost.toLocaleString()}</p>`:''}
             ${o.deadline?`<p style="font-size:var(--text-xs);color:var(--danger-text);margin-top:1px">Book by ${new Date(o.deadline).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</p>`:''}
           </div>
           ${statusBadge(o.status)}
@@ -207,12 +207,13 @@ const BookingsScreen = (() => {
     const summary = document.createElement('div');
     summary.className = 'settlement-card';
     summary.style.marginTop = 'var(--s3)';
+    const cur = Data.getTripCurrency();
     let summaryHTML = `
       <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s2);text-transform:uppercase;letter-spacing:.04em;font-weight:500">Total spent</p>
-      <p style="font-size:22px;font-weight:500;color:var(--text-primary)">USD ${totalUSD.toLocaleString()}</p>
-      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:6px">Budget: USD ${budgetUSD.toLocaleString()}</p>
+      <p style="font-size:22px;font-weight:500;color:var(--text-primary)">${cur} ${totalUSD.toLocaleString()}</p>
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:6px">Budget: ${cur} ${budgetUSD.toLocaleString()}</p>
       <div class="budget-bar"><div class="budget-fill" style="width:${pct}%;background:${pct>90?'var(--danger-text)':pct>70?'var(--warning-text)':'var(--accent)'}"></div></div>
-      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">USD ${Math.max(0,budgetUSD-totalUSD).toLocaleString()} remaining</p>`;
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">${cur} ${Math.max(0,budgetUSD-totalUSD).toLocaleString()} remaining</p>`;
 
     if (travelers.length && expenses.length) {
       const paid = {}; const share = {};
@@ -226,7 +227,7 @@ const BookingsScreen = (() => {
       });
       summaryHTML += `<div style="margin-top:var(--s3);padding-top:var(--s3);border-top:1px solid var(--border-subtle)">`;
       travelers.forEach(t => {
-        summaryHTML += `<div class="settlement-row"><span style="font-weight:500">${t}</span><span style="color:var(--text-muted)">paid USD ${(paid[t]||0).toLocaleString()} · share USD ${Math.round(share[t]||0).toLocaleString()}</span></div>`;
+        summaryHTML += `<div class="settlement-row"><span style="font-weight:500">${t}</span><span style="color:var(--text-muted)">paid ${cur} ${(paid[t]||0).toLocaleString()} · share ${cur} ${Math.round(share[t]||0).toLocaleString()}</span></div>`;
       });
       summaryHTML += `</div>`;
       const balances = Data.calcSettlement();
@@ -239,7 +240,7 @@ const BookingsScreen = (() => {
         negatives.forEach(debtor => {
           positives.forEach(creditor => {
             const amt = Math.round(Math.min(Math.abs(balances[debtor]), balances[creditor]));
-            if (amt>0) summaryHTML += `<p class="settlement-owed">💸 ${debtor} owes ${creditor} USD ${amt.toLocaleString()}</p>`;
+            if (amt>0) summaryHTML += `<p class="settlement-owed">💸 ${debtor} owes ${creditor} ${cur} ${amt.toLocaleString()}</p>`;
           });
         });
       }
@@ -269,7 +270,7 @@ const BookingsScreen = (() => {
       <select id="exp-day" class="bs-input"><option value="">Day…</option>${Data.getDays().map(d=>`<option value="${d.id}">${d.label} · ${d.date}</option>`).join('')}</select>
       <select id="exp-cat" class="bs-input"><option value="">Category…</option>${EXPENSE_CATS.map(c=>`<option>${c}</option>`).join('')}</select>
       <input id="exp-desc" class="bs-input" type="text" placeholder="Description">
-      <input id="exp-amt" class="bs-input" type="number" placeholder="Amount (USD)">
+      <input id="exp-amt" class="bs-input" type="number" placeholder="Amount (${Data.getTripCurrency()})">
       ${travelers.length?`
         <div class="bs-edit-group"><label class="bs-edit-label">Paid by</label><div class="split-chips" id="paid-by-chips">${paidByChips}</div></div>
         <div class="bs-edit-group"><label class="bs-edit-label">Split between</label><div class="split-chips" id="split-chips">${splitChips}</div></div>`
@@ -307,13 +308,14 @@ const BookingsScreen = (() => {
     if (!expenses.length) {
       frag.appendChild(Object.assign(document.createElement('div'),{className:'empty-state',innerHTML:'<p class="empty-title">No expenses yet</p>'}));
     } else {
+      const cur = Data.getTripCurrency();
       const byDay = {};
       expenses.forEach(e => { const k=e.dayId||'unknown'; if(!byDay[k])byDay[k]=[]; byDay[k].push(e); });
       Object.entries(byDay).forEach(([dayId,exps]) => {
         const day = Data.getDays().find(d=>d.id===dayId);
         const sec = document.createElement('div');
         sec.className = 'expense-section';
-        sec.innerHTML = `<div class="expense-day-header"><span>${day?.label||dayId} · ${day?.date||''}</span><span>USD ${exps.reduce((s,e)=>s+e.amountJPY,0).toLocaleString()}</span></div>`;
+        sec.innerHTML = `<div class="expense-day-header"><span>${day?.label||dayId} · ${day?.date||''}</span><span>${cur} ${exps.reduce((s,e)=>s+e.amountJPY,0).toLocaleString()}</span></div>`;
         exps.forEach(exp => {
           const splitPax = Math.max(1, exp.splitBetween?.length||1);
           const perHead  = Math.round(exp.amountJPY/splitPax);
@@ -325,12 +327,12 @@ const BookingsScreen = (() => {
             <span class="expense-cat">${exp.category}</span>
             <div class="expense-info">
               <p class="expense-desc">${exp.description}</p>
-              <p class="expense-split-line">${exp.paidBy?exp.paidBy+' paid':''} ${exp.splitBetween?.length?'· '+exp.splitBetween.join('+'):''} · USD ${perHead.toLocaleString()} pp</p>
+              <p class="expense-split-line">${exp.paidBy?exp.paidBy+' paid':''} ${exp.splitBetween?.length?'· '+exp.splitBetween.join('+'):''} · ${cur} ${perHead.toLocaleString()} pp</p>
               ${loggedAt?`<p class="expense-split-line" style="opacity:.7">Logged ${loggedAt}</p>`:''}
             </div>
             <div style="text-align:right;flex-shrink:0">
-              <p class="expense-amt">USD ${exp.amountJPY.toLocaleString()}</p>
-              <p class="expense-per">USD ${perHead.toLocaleString()} pp</p>
+              <p class="expense-amt">${cur} ${exp.amountJPY.toLocaleString()}</p>
+              <p class="expense-per">${cur} ${perHead.toLocaleString()} pp</p>
             </div>
             <button class="expense-edit" style="background:none;border:1.5px solid var(--border);border-radius:var(--r-sm);padding:3px 9px;font-size:var(--text-xs);cursor:pointer;font-family:var(--font);color:var(--text-secondary);flex-shrink:0">Edit</button>
             <button class="expense-del">×</button>`;
@@ -606,7 +608,7 @@ const BookingsScreen = (() => {
     budgetSection.className = 'settings-section';
     budgetSection.innerHTML = `
       <p class="settings-section-title">Budget</p>
-      <div class="bs-edit-group"><label class="bs-edit-label">Total Budget (USD)</label><input id="cfg-budget" class="bs-input" type="number" value="${Config.BUDGET_MYR}"></div>
+      <div class="bs-edit-group"><label class="bs-edit-label">Total Budget (${Data.getTripCurrency()})</label><input id="cfg-budget" class="bs-input" type="number" value="${Config.BUDGET_MYR}"></div>
       
       <button class="btn btn-primary" id="cfg-save-btn" style="width:100%;margin-top:var(--s2)">Save budget settings</button>`;
     const tripSection = document.createElement('div');
@@ -622,6 +624,7 @@ const BookingsScreen = (() => {
       <div class="bs-edit-group"><label class="bs-edit-label">Start date</label><input id="trip-start-input" class="bs-input" type="date" value="${ct?.start_date || ''}"></div>
       <div class="bs-edit-group"><label class="bs-edit-label">End date</label><input id="trip-end-input" class="bs-input" type="date" value="${ct?.end_date || ''}"></div>
       <div class="bs-edit-group"><label class="bs-edit-label">Countries (comma-separated)</label><input id="trip-countries-input" class="bs-input" type="text" value="${(ct?.countries || []).join(', ')}"></div>
+      <div class="bs-edit-group"><label class="bs-edit-label">Currency</label><input id="trip-currency-input" class="bs-input" type="text" value="${ct?.currency || 'USD'}" maxlength="3"></div>
       <button class="btn btn-primary" id="trip-name-save-btn" style="width:100%;margin-top:var(--s2)">Save trip details</button>`;
     frag.appendChild(tripSection);
 
@@ -678,6 +681,7 @@ const BookingsScreen = (() => {
           startDate: tripSection.querySelector('#trip-start-input')?.value,
           endDate: tripSection.querySelector('#trip-end-input')?.value,
           countries,
+          currency: tripSection.querySelector('#trip-currency-input')?.value?.trim().toUpperCase() || 'USD',
         });
         Toast.show('Trip details updated','success');
         render();
