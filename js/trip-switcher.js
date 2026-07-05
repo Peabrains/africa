@@ -74,7 +74,7 @@ const TripSwitcher = (() => {
 
   function init() {
     // Wire the trip name in the header to open the switcher
-    const nameEl = document.getElementById('app-trip-name');
+    const nameEl = document.getElementById('header-trip-name');
     if (nameEl) {
       nameEl.style.cursor = 'pointer';
       nameEl.addEventListener('click', renderSheet);
