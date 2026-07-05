@@ -611,13 +611,18 @@ const BookingsScreen = (() => {
       <button class="btn btn-primary" id="cfg-save-btn" style="width:100%;margin-top:var(--s2)">Save budget settings</button>`;
     const tripSection = document.createElement('div');
     tripSection.className = 'settings-section';
+    const ct = Data.getCurrentTrip();
     tripSection.innerHTML = `
       <p class="settings-section-title">Trip</p>
       <div class="bs-edit-group">
         <label class="bs-edit-label">Trip name (shown in header)</label>
-        <input id="trip-name-input" class="bs-input" type="text" value="${Data.getTripName?.() || 'Japan Trip'}" placeholder="e.g. Japan Trip 2027">
+        <input id="trip-name-input" class="bs-input" type="text" value="${Data.getTripName?.() || ''}" placeholder="e.g. Japan Trip 2027">
       </div>
-      <button class="btn btn-primary" id="trip-name-save-btn" style="width:100%;margin-top:var(--s2)">Save trip name</button>`;
+      <div class="bs-edit-group"><label class="bs-edit-label">Cover emoji</label><input id="trip-emoji-input" class="bs-input" type="text" value="${ct?.cover_emoji || '🧭'}" maxlength="4"></div>
+      <div class="bs-edit-group"><label class="bs-edit-label">Start date</label><input id="trip-start-input" class="bs-input" type="date" value="${ct?.start_date || ''}"></div>
+      <div class="bs-edit-group"><label class="bs-edit-label">End date</label><input id="trip-end-input" class="bs-input" type="date" value="${ct?.end_date || ''}"></div>
+      <div class="bs-edit-group"><label class="bs-edit-label">Countries (comma-separated)</label><input id="trip-countries-input" class="bs-input" type="text" value="${(ct?.countries || []).join(', ')}"></div>
+      <button class="btn btn-primary" id="trip-name-save-btn" style="width:100%;margin-top:var(--s2)">Save trip details</button>`;
     frag.appendChild(tripSection);
 
     const resetSection = document.createElement('div');
@@ -664,9 +669,18 @@ const BookingsScreen = (() => {
     tripSection.querySelector('#trip-name-save-btn')?.addEventListener('click', async () => {
       const name = tripSection.querySelector('#trip-name-input')?.value?.trim();
       if (!name) return;
+      const countries = tripSection.querySelector('#trip-countries-input')?.value
+        .split(',').map(s => s.trim()).filter(Boolean);
       try {
-        await Data.setTripName(name);
-        Toast.show('Trip name updated','success');
+        await Data.updateTripDetails({
+          name,
+          coverEmoji: tripSection.querySelector('#trip-emoji-input')?.value?.trim() || '🧭',
+          startDate: tripSection.querySelector('#trip-start-input')?.value,
+          endDate: tripSection.querySelector('#trip-end-input')?.value,
+          countries,
+        });
+        Toast.show('Trip details updated','success');
+        render();
       } catch (e) {
         Toast.show('Could not save — check connection', 'danger');
       }
