@@ -474,6 +474,7 @@ const BottomSheet = (() => {
     { v:'tanzania', l:'🇹🇿 Tanzania' },
     { v:'kenya',    l:'🇰🇪 Kenya' },
     { v:'uganda',   l:'🇺🇬 Uganda' },
+    { v:'japan',    l:'🇯🇵 Japan' },
     { v:'transit',  l:'✈️ Transit' },
   ];
   function dayHTML(day) {
