@@ -7,6 +7,7 @@ const App = (() => {
     dex:       () => window.DexScreen,
     bookings:  () => window.BookingsScreen,
     sos:       () => window.SOSScreen,
+    countries: () => window.CountriesScreen,
   };
 
   let currentScreen = null;
