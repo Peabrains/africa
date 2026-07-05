@@ -545,8 +545,9 @@ const Data = (() => {
             .map(n => nameToCode[n.toLowerCase()])
             .filter(Boolean);
           if (suggestedCodes.length) {
+            const user = (await SB.auth.getUser()).data.user;
             for (const code of suggestedCodes) {
-              await SB.from('visited_countries').insert({ country_code: code }).select();
+              await SB.from('visited_countries').insert({ country_code: code, user_id: user?.id }).select();
             }
             VISITED_COUNTRIES = suggestedCodes;
           }
@@ -570,8 +571,12 @@ const Data = (() => {
     } else {
       VISITED_COUNTRIES = [...list, code];
       if (navigator.onLine) {
-        const { error } = await SB.from('visited_countries').insert({ country_code: code });
-        if (error) console.error('[Data] toggleVisitedCountry insert error:', error);
+        const user = (await SB.auth.getUser()).data.user;
+        const { error } = await SB.from('visited_countries').insert({ country_code: code, user_id: user?.id });
+        if (error) {
+          console.error('[Data] toggleVisitedCountry insert error:', error);
+          throw error;
+        }
       }
     }
     await DB.setMeta('sb_visited_countries', VISITED_COUNTRIES);
