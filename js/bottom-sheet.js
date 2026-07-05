@@ -167,6 +167,13 @@ const BottomSheet = (() => {
               <span style="font-size:var(--text-sm)">Yes</span>
             </label>
           </div>
+          <div style="display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s3)">
+            <span style="font-size:var(--text-sm);color:var(--text-secondary)">Covered by JR Pass?</span>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto">
+              <input type="checkbox" id="e-jrpass" ${stop.trainDetail?.jrPass!==false?'checked':''} style="accent-color:var(--accent);width:16px;height:16px">
+              <span style="font-size:var(--text-sm)">Yes</span>
+            </label>
+          </div>
           ${field('Origin','e-origin',stop.trainDetail?.origin||'','text','e.g. Shin-Osaka')}
           ${field('Destination','e-destination',stop.trainDetail?.destination||'','text','e.g. Kii-Tanabe')}
           ${field('Arrive time','e-arrive',/^\d{2}:\d{2}$/.test(stop.trainDetail?.arriveTime||'')?stop.trainDetail.arriveTime:'','time')}
@@ -368,6 +375,7 @@ const BottomSheet = (() => {
           ...stop.trainDetail,
           platform:       g('e-platform'),
           seatReservation: body.querySelector('#e-seatres')?.checked || false,
+          jrPass:         body.querySelector('#e-jrpass')?.checked !== false,
           origin:         g('e-origin'),
           destination:    g('e-destination'),
           arriveTime:     body.querySelector('#e-arrive')?.value || '',
