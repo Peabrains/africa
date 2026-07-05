@@ -20,6 +20,7 @@ const ItineraryScreen = (() => {
     tanzania: { label:'Tanzania', flag:'🇹🇿', pill:'tanzania' },
     kenya:    { label:'Kenya',    flag:'🇰🇪', pill:'kenya'    },
     uganda:   { label:'Uganda',   flag:'🇺🇬', pill:'uganda'   },
+    japan:    { label:'Japan',   flag:'🇯🇵', pill:'japan'    },
   };
 
   function getDayExpanded(dayId) {
