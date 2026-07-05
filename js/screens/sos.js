@@ -162,24 +162,26 @@ const SOSScreen = (() => {
     </div>`;
     wrap.appendChild(banner);
 
-    // Operator first — most useful contact
-    const opSection = document.createElement('div');
-    opSection.className = 'sos-section';
-    const opTitle = document.createElement('p');
-    opTitle.className = 'sos-section-title';
-    opTitle.textContent = '🏕 Tour operator — call first';
-    opSection.appendChild(opTitle);
-    const opCard = document.createElement('div');
-    opCard.className = 'card';
-    opCard.style.cssText = 'display:flex;align-items:center;gap:var(--s3);padding:var(--s3);margin-bottom:var(--s2)';
-    opCard.innerHTML = `
-      <div style="flex:1">
-        <p style="font-size:var(--text-sm);font-weight:500;color:var(--text-primary)">Wildsenses Holidays</p>
-        <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">24hr trip support</p>
-      </div>
-      <a href="tel:+85228138778" style="background:var(--accent);color:#fff;border:none;border-radius:var(--r-sm);padding:6px 12px;font-size:var(--text-sm);font-weight:500;text-decoration:none;font-family:var(--font)">📞 +852 2813 8778</a>`;
-    opSection.appendChild(opCard);
-    wrap.appendChild(opSection);
+    // Operator first — most useful contact (only for trips with one configured)
+    if (getCurrentKit().hasContact) {
+      const opSection = document.createElement('div');
+      opSection.className = 'sos-section';
+      const opTitle = document.createElement('p');
+      opTitle.className = 'sos-section-title';
+      opTitle.textContent = '🏕 Tour operator — call first';
+      opSection.appendChild(opTitle);
+      const opCard = document.createElement('div');
+      opCard.className = 'card';
+      opCard.style.cssText = 'display:flex;align-items:center;gap:var(--s3);padding:var(--s3);margin-bottom:var(--s2)';
+      opCard.innerHTML = `
+        <div style="flex:1">
+          <p style="font-size:var(--text-sm);font-weight:500;color:var(--text-primary)">Wildsenses Holidays</p>
+          <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">24hr trip support</p>
+        </div>
+        <a href="tel:+85228138778" style="background:var(--accent);color:#fff;border:none;border-radius:var(--r-sm);padding:6px 12px;font-size:var(--text-sm);font-weight:500;text-decoration:none;font-family:var(--font)">📞 +852 2813 8778</a>`;
+      opSection.appendChild(opCard);
+      wrap.appendChild(opSection);
+    }
 
     wrap.appendChild(infoSection('Emergency numbers', sos.emergency, 'phone'));
     wrap.appendChild(renderHospitals());
@@ -331,70 +333,70 @@ const SOSScreen = (() => {
       title: 'Greetings & politeness',
       icon: '👋',
       items: [
-        {en:'Good morning',       sw:'Habari ya asubuhi',  rom:''},
-        {en:'Good afternoon',     sw:'Habari ya mchana',   rom:''},
-        {en:'Good evening',       sw:'Habari ya jioni',    rom:''},
-        {en:'How are you?',      sw:'Habari yako?',        rom:'Genuinely used a lot — expect this back too'},
-        {en:'I am fine',         sw:'Nzuri / Salama',      rom:'Common reply to "Habari yako?"'},
-        {en:'Please',            sw:'Tafadhali',           rom:''},
-        {en:'Thank you',         sw:'Asante',              rom:'Say often!'},
-        {en:'Thank you very much', sw:'Asante sana',       rom:''},
-        {en:'You are welcome',   sw:'Karibu',              rom:''},
-        {en:'Excuse me',         sw:'Samahani',            rom:''},
-        {en:'Goodbye',           sw:'Kwaheri',             rom:''},
+        {en:'Good morning',       local:'Habari ya asubuhi',  rom:''},
+        {en:'Good afternoon',     local:'Habari ya mchana',   rom:''},
+        {en:'Good evening',       local:'Habari ya jioni',    rom:''},
+        {en:'How are you?',      local:'Habari yako?',        rom:'Genuinely used a lot — expect this back too'},
+        {en:'I am fine',         local:'Nzuri / Salama',      rom:'Common reply to "Habari yako?"'},
+        {en:'Please',            local:'Tafadhali',           rom:''},
+        {en:'Thank you',         local:'Asante',              rom:'Say often!'},
+        {en:'Thank you very much', local:'Asante sana',       rom:''},
+        {en:'You are welcome',   local:'Karibu',              rom:''},
+        {en:'Excuse me',         local:'Samahani',            rom:''},
+        {en:'Goodbye',           local:'Kwaheri',             rom:''},
       ]
     },
     {
       title: 'Camp & daily logistics',
       icon: '🏕️',
       items: [
-        {en:'Where is the bathroom?',  sw:'Choo kiko wapi?',          rom:''},
-        {en:'What time is dinner?',    sw:'Chakula cha jioni ni saa ngapi?', rom:''},
-        {en:'Do you have wifi?',       sw:'Una wifi?',                rom:''},
-        {en:'Can I have more water?',  sw:'Naomba maji zaidi',        rom:''},
-        {en:'I am cold',               sw:'Nina baridi',              rom:'Useful at Ngorongoro & Bwindi altitude'},
-        {en:'I am hot',                sw:'Nina joto',                rom:''},
+        {en:'Where is the bathroom?',  local:'Choo kiko wapi?',          rom:''},
+        {en:'What time is dinner?',    local:'Chakula cha jioni ni saa ngapi?', rom:''},
+        {en:'Do you have wifi?',       local:'Una wifi?',                rom:''},
+        {en:'Can I have more water?',  local:'Naomba maji zaidi',        rom:''},
+        {en:'I am cold',               local:'Nina baridi',              rom:'Useful at Ngorongoro & Bwindi altitude'},
+        {en:'I am hot',                local:'Nina joto',                rom:''},
       ]
     },
     {
       title: 'On safari',
       icon: '🦁',
       items: [
-        {en:'What animal is that?',    sw:'Mnyama huyo ni nini?',     rom:''},
-        {en:'Can we stop here?',       sw:'Tunaweza kusimama hapa?',  rom:'For photos'},
-        {en:'Slowly please',           sw:'Pole pole tafadhali',      rom:''},
-        {en:'Can you wait a moment?',  sw:'Unaweza kusubiri kidogo?', rom:''},
-        {en:'Beautiful!',              sw:'Nzuri sana!',              rom:'Guides love hearing this'},
+        {en:'What animal is that?',    local:'Mnyama huyo ni nini?',     rom:''},
+        {en:'Can we stop here?',       local:'Tunaweza kusimama hapa?',  rom:'For photos'},
+        {en:'Slowly please',           local:'Pole pole tafadhali',      rom:''},
+        {en:'Can you wait a moment?',  local:'Unaweza kusubiri kidogo?', rom:''},
+        {en:'Beautiful!',              local:'Nzuri sana!',              rom:'Guides love hearing this'},
       ]
     },
     {
       title: 'Money & shopping',
       icon: '💵',
       items: [
-        {en:'How much is this?',           sw:'Hii ni bei gani?',         rom:''},
-        {en:'That is too expensive',       sw:'Ni ghali sana',            rom:'Said with a smile — friendly bargaining is normal'},
-        {en:'I do not have small change', sw:'Sina chenji',              rom:''},
+        {en:'How much is this?',           local:'Hii ni bei gani?',         rom:''},
+        {en:'That is too expensive',       local:'Ni ghali sana',            rom:'Said with a smile — friendly bargaining is normal'},
+        {en:'I do not have small change', local:'Sina chenji',              rom:''},
       ]
     },
     {
       title: 'Gorilla trek (Day 15)',
       icon: '🦍',
       items: [
-        {en:'I need to rest',          sw:'Nahitaji kupumzika',       rom:''},
-        {en:'How much further?',       sw:'Bado mbali kiasi gani?',   rom:''},
-        {en:'I am ready to continue',  sw:'Niko tayari kuendelea',    rom:''},
+        {en:'I need to rest',          local:'Nahitaji kupumzika',       rom:''},
+        {en:'How much further?',       local:'Bado mbali kiasi gani?',   rom:''},
+        {en:'I am ready to continue',  local:'Niko tayari kuendelea',    rom:''},
       ]
     },
     {
       title: 'Emergency',
       icon: '🚨',
       items: [
-        {en:'Please call an ambulance', sw:'Tafadhali piga simu gari la wagonjwa', rom:''},
-        {en:'I need a doctor',          sw:'Ninahitaji daktari',                    rom:''},
-        {en:'Help me please',           sw:'Nisaidie tafadhali',                    rom:''},
-        {en:'Where is the hospital?',   sw:'Hospitali iko wapi?',                   rom:''},
-        {en:'I am in pain',             sw:'Ninauma',                               rom:''},
-        {en:'I am allergic to ___',     sw:'Nina mzio wa ___',                      rom:''},
+        {en:'Please call an ambulance', local:'Tafadhali piga simu gari la wagonjwa', rom:''},
+        {en:'I need a doctor',          local:'Ninahitaji daktari',                    rom:''},
+        {en:'Help me please',           local:'Nisaidie tafadhali',                    rom:''},
+        {en:'Where is the hospital?',   local:'Hospitali iko wapi?',                   rom:''},
+        {en:'I am in pain',             local:'Ninauma',                               rom:''},
+        {en:'I am allergic to ___',     local:'Nina mzio wa ___',                      rom:''},
       ]
     },
   ];
@@ -402,29 +404,116 @@ const SOSScreen = (() => {
   // Flat list kept for any code that still expects PHRASES (back-compat)
   const PHRASES = PHRASE_GROUPS.flatMap(g => g.items);
 
+  /* ── Japan kit — real content, researched (not placeholder) ── */
+  const JAPAN_GUIDE_LINKS = [
+    {
+      section:'Kumano Kodo Trail', icon:'⛩️',
+      items:[
+        {title:'Tanabe City Kumano Tourism Bureau', desc:'Official trail authority & route info', url:'https://www.tb-kumano.jp/en/'},
+        {title:'Kumano Travel',                     desc:'Official community reservation system', url:'https://www.kumano-travel.com/en'},
+      ]
+    },
+    {
+      section:'Trains & Transport', icon:'🚄',
+      items:[
+        {title:'Japan Rail Pass (official)', desc:'Exchange orders, seat reservations', url:'https://japanrailpass.net/en/'},
+      ]
+    },
+    {
+      section:'Weather & Safety', icon:'🌦️',
+      items:[
+        {title:'Japan Meteorological Agency',  desc:'Official weather warnings & advisories', url:'https://www.jma.go.jp/jma/en/menu.html'},
+        {title:'Japan Visitor Hotline (JNTO)',  desc:'24/7 English/Chinese/Korean support for accidents & emergencies', url:'https://www.japan.travel/en/plan/hotline/'},
+      ]
+    },
+  ];
+
+  const JAPAN_PHRASE_GROUPS = [
+    {
+      title: 'Greetings & politeness', icon: '👋',
+      items: [
+        {en:'Good morning',   local:'おはようございます', rom:'Ohayō gozaimasu'},
+        {en:'Good afternoon', local:'こんにちは',         rom:'Konnichiwa'},
+        {en:'Good evening',   local:'こんばんは',         rom:'Konbanwa'},
+        {en:'Thank you',      local:'ありがとうございます', rom:'Arigatō gozaimasu'},
+        {en:'You are welcome', local:'どういたしまして',  rom:'Dō itashimashite'},
+        {en:'Excuse me / Sorry', local:'すみません',       rom:'Sumimasen — also used to get attention'},
+        {en:'Please',         local:'お願いします',       rom:'Onegaishimasu'},
+        {en:'Goodbye',        local:'さようなら',         rom:'Sayōnara'},
+      ]
+    },
+    {
+      title: 'Trail & daily logistics', icon: '🥾',
+      items: [
+        {en:'Where is the bathroom?',    local:'トイレはどこですか', rom:'Toire wa doko desu ka'},
+        {en:'Where is the train station?', local:'駅はどこですか',  rom:'Eki wa doko desu ka'},
+        {en:'How much is this?',         local:'これはいくらですか', rom:'Kore wa ikura desu ka'},
+        {en:'Do you have wifi?',         local:'Wi-Fiはありますか',  rom:'Wi-Fi wa arimasu ka'},
+        {en:'I am cold',                 local:'寒いです',           rom:'Samui desu — useful at Murodo altitude'},
+        {en:'Can I have some water?',    local:'お水をください',     rom:'Omizu wo kudasai'},
+      ]
+    },
+    {
+      title: 'On the trail', icon: '⛰️',
+      items: [
+        {en:'Slowly please',        local:'ゆっくりお願いします', rom:'Yukkuri onegaishimasu'},
+        {en:'Can we rest here?',    local:'ここで休んでもいいですか', rom:'Koko de yasunde mo ii desu ka'},
+        {en:'Beautiful!',           local:'きれいです！',           rom:'Kirei desu!'},
+        {en:'How much further?',    local:'あとどのくらいですか',   rom:'Ato dono kurai desu ka'},
+      ]
+    },
+    {
+      title: 'Emergency', icon: '🚨',
+      items: [
+        {en:'Please call an ambulance', local:'救急車を呼んでください', rom:'Kyūkyūsha wo yonde kudasai'},
+        {en:'I need a doctor',          local:'医者が必要です',          rom:'Isha ga hitsuyō desu'},
+        {en:'Help me please',           local:'助けてください',          rom:'Tasukete kudasai'},
+        {en:'Where is the hospital?',   local:'病院はどこですか',        rom:'Byōin wa doko desu ka'},
+        {en:'I am in pain',             local:'痛いです',                rom:'Itai desu'},
+        {en:'I am allergic to ___',     local:'___にアレルギーがあります', rom:'___ ni arerugī ga arimasu'},
+      ]
+    },
+  ];
+
+  /* ── Kit lookup by trip ID — safe fallback for any future trip
+     without an entry (empty state, never silently shows another
+     trip's content) ── */
+  const KIT_BY_TRIP_ID = {
+    '83891de6-44ee-4ec2-bb95-6726cbd8c370': { guideLinks: GUIDE_LINKS, phraseGroups: PHRASE_GROUPS, lang: 'sw', hasContact: true },
+    '91a41e0d-f247-4d89-ba15-02f0994a16c8': { guideLinks: JAPAN_GUIDE_LINKS, phraseGroups: JAPAN_PHRASE_GROUPS, lang: 'ja', hasContact: false },
+  };
+  const EMPTY_KIT = { guideLinks: [], phraseGroups: [], lang: 'en', hasContact: false };
+
+  function getCurrentKit() {
+    const tripId = Data.getCurrentTrip?.()?.id;
+    return KIT_BY_TRIP_ID[tripId] || EMPTY_KIT;
+  }
+
   let _currentUtterance = null;
   let _voicesReady = false;
   let _bestVoice = null;
+  let _bestVoiceLang = null;
 
-  /* ── Pick the best available voice for Swahili text ──────────
-     Browsers rarely ship a dedicated Swahili voice, so we search
-     in priority order: exact sw match → other East African /
-     Bantu-adjacent languages → any multilingual-sounding voice →
-     fall back to default. Letting the browser auto-pick like this
-     (instead of forcing a hardcoded 'sw-TZ' that often doesn't
-     exist) avoids the silent garbled fallback we saw before. ── */
-  function pickBestVoice() {
+  /* ── Pick the best available voice for the given language code ──
+     Browsers rarely ship a dedicated voice for every language, so we
+     search in priority order: exact match → name-based match → any
+     multilingual-sounding voice → fall back to default. Letting the
+     browser auto-pick like this (instead of forcing a hardcoded
+     locale that often doesn't exist) avoids the silent garbled
+     fallback we saw before. ── */
+  function pickBestVoice(langCode = 'sw') {
     const voices = window.speechSynthesis.getVoices();
     if (!voices.length) return null;
 
-    const swExact   = voices.find(v => v.lang?.toLowerCase().startsWith('sw'));
-    if (swExact) return swExact;
+    const exact = voices.find(v => v.lang?.toLowerCase().startsWith(langCode));
+    if (exact) return exact;
 
-    // Some Android/Chrome installs label Swahili oddly — check by name too
-    const swByName  = voices.find(v => /swahili/i.test(v.name));
-    if (swByName) return swByName;
+    // Some Android/Chrome installs label languages oddly — check by name too
+    const langNames = { sw: 'swahili', ja: 'japanese' };
+    const byName = voices.find(v => new RegExp(langNames[langCode] || langCode, 'i').test(v.name));
+    if (byName) return byName;
 
-    // No Swahili voice on this device — fall back to a clear, neutral
+    // No matching voice on this device — fall back to a clear, neutral
     // English voice. Listed in approximate quality order (Google >
     // Apple enhanced > default).
     const preferred = voices.find(v => /Google/i.test(v.name) && /en/i.test(v.lang))
@@ -452,7 +541,7 @@ const SOSScreen = (() => {
     });
   }
 
-  async function playSwahili(text, btn) {
+  async function playPhrase(text, btn, langCode = 'sw') {
     if (!('speechSynthesis' in window)) {
       Toast.show('Voice playback is not supported on this device', 'warning');
       return;
@@ -462,14 +551,17 @@ const SOSScreen = (() => {
     if (_currentUtterance) _currentUtterance = null;
 
     await ensureVoicesLoaded();
-    if (!_bestVoice) _bestVoice = pickBestVoice();
+    if (!_bestVoice || _bestVoiceLang !== langCode) {
+      _bestVoice = pickBestVoice(langCode);
+      _bestVoiceLang = langCode;
+    }
 
     const utt = new SpeechSynthesisUtterance(text);
     if (_bestVoice) {
       utt.voice = _bestVoice;
       utt.lang  = _bestVoice.lang;
     } else {
-      utt.lang = 'sw-TZ';
+      utt.lang = langCode === 'ja' ? 'ja-JP' : 'sw-TZ';
     }
     utt.rate  = 0.8;   // slower = clearer for an unfamiliar language
     utt.pitch = 1;
@@ -484,13 +576,13 @@ const SOSScreen = (() => {
   }
 
   /* ── Single phrase card (used inside each category group) ─── */
-  function phraseCard(p) {
+  function phraseCard(p, langCode = 'sw') {
     const card = document.createElement('div');
     card.className = 'card';
     card.style.cssText = 'margin-bottom:var(--s2);padding:10px var(--s3);display:flex;flex-direction:column;gap:3px';
     card.innerHTML = `
       <p style="font-size:var(--text-xs);color:var(--text-muted)">${p.en}</p>
-      <p style="font-size:var(--text-base);font-weight:500;color:var(--text-primary);margin:2px 0 1px">${p.sw}</p>
+      <p style="font-size:var(--text-base);font-weight:500;color:var(--text-primary);margin:2px 0 1px">${p.local}</p>
       ${p.rom ? `<p style="font-size:var(--text-xs);color:var(--text-secondary);font-style:italic">${p.rom}</p>` : ''}`;
     const btnRow = document.createElement('div');
     btnRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;margin-top:6px';
@@ -498,7 +590,7 @@ const SOSScreen = (() => {
     const audioBtn = document.createElement('button');
     audioBtn.className = 'kit-copy-btn';
     audioBtn.textContent = '🔊 Listen';
-    audioBtn.addEventListener('click', () => playSwahili(p.sw, audioBtn));
+    audioBtn.addEventListener('click', () => playPhrase(p.local, audioBtn, langCode));
     btnRow.appendChild(audioBtn);
 
     // Open Google Translate directly — tap the speaker icon there for a
@@ -511,14 +603,14 @@ const SOSScreen = (() => {
     gtBtn.target = '_blank';
     gtBtn.rel = 'noopener';
     gtBtn.style.textDecoration = 'none';
-    gtBtn.href = `https://translate.google.com/?sl=sw&tl=en&text=${encodeURIComponent(p.sw)}&op=translate`;
+    gtBtn.href = `https://translate.google.com/?sl=${langCode}&tl=en&text=${encodeURIComponent(p.local)}&op=translate`;
     btnRow.appendChild(gtBtn);
 
     const copyBtn = document.createElement('button');
     copyBtn.className = 'kit-copy-btn';
     copyBtn.textContent = 'Copy';
     copyBtn.addEventListener('click', () => {
-      navigator.clipboard?.writeText(p.sw).then(() => {
+      navigator.clipboard?.writeText(p.local).then(() => {
         copyBtn.textContent = '✓';
         setTimeout(() => copyBtn.textContent = 'Copy', 1500);
       });
@@ -532,15 +624,25 @@ const SOSScreen = (() => {
   /* ══ PHRASES TAB — categorized, collapsible groups ═════════ */
   function renderPhrasesTab() {
     const wrap = document.createElement('div');
+    const kit = getCurrentKit();
+    const langNames = { sw: 'Swahili', ja: 'Japanese', en: 'Phrasebook' };
 
     const header = document.createElement('div');
     header.style.cssText = 'padding:var(--s4) var(--s4) var(--s2);border-bottom:1.5px solid var(--border)';
     header.innerHTML = `
-      <p style="font-size:var(--text-lg);font-weight:500;color:var(--text-primary)">🗣️ Swahili Phrasebook</p>
+      <p style="font-size:var(--text-lg);font-weight:500;color:var(--text-primary)">🗣️ ${langNames[kit.lang] || 'Phrasebook'}${kit.lang !== 'en' ? ' Phrasebook' : ''}</p>
       <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px;line-height:1.4">🔊 Listen works offline. 🌐 Hear on Google opens a real native voice (needs internet, new tab).</p>`;
     wrap.appendChild(header);
 
-    PHRASE_GROUPS.forEach((group, idx) => {
+    if (!kit.phraseGroups.length) {
+      const em = document.createElement('p');
+      em.style.cssText = 'font-size:var(--text-sm);color:var(--text-muted);padding:var(--s4);text-align:center';
+      em.textContent = 'No phrasebook configured for this trip yet.';
+      wrap.appendChild(em);
+      return wrap;
+    }
+
+    kit.phraseGroups.forEach((group, idx) => {
       const section = document.createElement('div');
       section.className = 'sos-section';
 
@@ -553,7 +655,7 @@ const SOSScreen = (() => {
 
       const body = document.createElement('div');
       body.style.display = idx === 0 ? 'block' : 'none'; // first group open by default
-      group.items.forEach(p => body.appendChild(phraseCard(p)));
+      group.items.forEach(p => body.appendChild(phraseCard(p, kit.lang)));
       section.appendChild(body);
 
       groupHeader.addEventListener('click', () => {
@@ -577,7 +679,7 @@ const SOSScreen = (() => {
     h.textContent = 'References & Guides';
     wrap.appendChild(h);
 
-    GUIDE_LINKS.forEach(group => {
+    getCurrentKit().guideLinks.forEach(group => {
       const gHead = document.createElement('p');
       gHead.style.cssText = 'font-size:var(--text-xs);color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em;padding:var(--s3) 0 var(--s2)';
       gHead.textContent = `${group.icon} ${group.section}`;
