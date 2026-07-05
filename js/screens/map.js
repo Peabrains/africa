@@ -4,23 +4,47 @@ const MapScreen = (() => {
   let root, map, markersLayer;
 
   /* Africa segments → colours matching tokens.css */
-  const SEG_COLOR = {
+  const SEG_COLOR_AFRICA = {
     transit:  '#9C9080',
     tanzania: '#C1440E',
     kenya:    '#2A7A4B',
     uganda:   '#7B4EA0',
   };
-
-  const SEG_LABEL = {
+  const SEG_LABEL_AFRICA = {
     transit:  'Transit',
     tanzania: '🇹🇿 Tanzania',
     kenya:    '🇰🇪 Kenya',
     uganda:   '🇺🇬 Uganda',
   };
 
+  /* Japan segments — matches the original japan-trip-pwa route sections */
+  const SEG_COLOR_JAPAN = {
+    transit: '#9C9080',
+    kumano:  '#C1440E',
+    nagano:  '#7B4EA0',
+    alpine:  '#2A7A4B',
+    osaka:   '#888888',
+    japan:   '#C1440E',
+  };
+  const SEG_LABEL_JAPAN = {
+    transit: 'Transit',
+    kumano:  '⛩️ Kumano Kodo',
+    nagano:  '🏔️ Nagano',
+    alpine:  '🚡 Alpine Route',
+    osaka:   '🏯 Osaka',
+    japan:   '🗾 Japan',
+  };
+
+  function segMaps() {
+    const isJapan = Data.getCurrentTrip?.()?.currency === 'JPY';
+    return isJapan
+      ? { color: SEG_COLOR_JAPAN, label: SEG_LABEL_JAPAN }
+      : { color: SEG_COLOR_AFRICA, label: SEG_LABEL_AFRICA };
+  }
+
   /* ── Custom Leaflet marker ──────────────────────────────────── */
   function makeIcon(stop) {
-    const color = SEG_COLOR[stop.segment] || '#9C9080';
+    const color = segMaps().color[stop.segment] || '#9C9080';
 
     // Background tint based on booking or flight status
     const bg = stop.flightExcluded ? '#FFFBEB'   // gold tint — needs to buy
@@ -70,7 +94,7 @@ const MapScreen = (() => {
 
       if (sorted.length > 1) {
         L.polyline(sorted.map(s => [s.lat, s.lng]), {
-          color:     SEG_COLOR[seg] || '#9C9080',
+          color:     segMaps().color[seg] || '#9C9080',
           weight:    2,
           opacity:   0.45,
           dashArray: '5, 4',
@@ -105,12 +129,16 @@ const MapScreen = (() => {
     const div = document.createElement('div');
     div.className = 'map-legend';
 
-    // Segment colours
-    Object.entries(SEG_LABEL).forEach(([seg, label]) => {
+    const { color, label } = segMaps();
+    const usedSegments = new Set(Data.getStops().map(s => s.segment).filter(Boolean));
+
+    // Segment colours — only ones actually used on this trip
+    Object.keys(label).forEach(seg => {
+      if (!usedSegments.has(seg)) return;
       div.innerHTML += `
         <div class="map-legend-item">
-          <span class="map-legend-dot" style="background:${SEG_COLOR[seg]}"></span>
-          <span>${label}</span>
+          <span class="map-legend-dot" style="background:${color[seg]}"></span>
+          <span>${label[seg]}</span>
         </div>`;
     });
 
