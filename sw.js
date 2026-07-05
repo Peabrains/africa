@@ -1,10 +1,10 @@
 /* ============================================================
    SERVICE WORKER — Africa Safari PWA (platform branch)
    Cache version bumped manually alongside APP_VERSION.
-   BUILD: 202607050930
+   BUILD: 202607051201
    ============================================================ */
-const CACHE   = 'africa-safari-platform-202607050930';
-const VERSION = '202607050930';
+const CACHE   = 'africa-safari-platform-202607051201';
+const VERSION = '202607051201';
 
 const PRECACHE = [
   './', './index.html', './css/tokens.css', './css/print.css',
