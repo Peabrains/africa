@@ -301,7 +301,7 @@ const ItineraryScreen = (() => {
   /* ── Render story paragraph with [[glossary]] terms tappable ── */
   function renderStoryParagraph(text) {
     const p = document.createElement('p');
-    p.style.cssText = 'font-size:var(--text-sm);color:var(--text-secondary);line-height:1.65;margin-bottom:var(--s3)';
+    p.style.cssText = 'font-size:var(--text-sm);color:var(--text-primary);line-height:1.65;margin-bottom:var(--s3)';
 
     // Tokens: [[glossary term]], **bold**, *italic*, [link text](https://...)
     const parts = text.split(/(\[\[.*?\]\]|\*\*.*?\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\))/g);
@@ -364,17 +364,17 @@ const ItineraryScreen = (() => {
     const isOpen = !!storyExpanded[day.id];
 
     const card = document.createElement('div');
-    card.style.cssText = 'margin:var(--s2) var(--s4);border:1.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;background:var(--surface)';
+    card.style.cssText = 'margin:var(--s2) var(--s4);border:1.5px solid #E8D9B0;border-radius:var(--r-lg);overflow:hidden;background:#FDF6E8';
 
     const header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:var(--s3);cursor:pointer;user-select:none;background:var(--warning-bg)';
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:var(--s3);cursor:pointer;user-select:none';
     header.innerHTML = `
-      <span style="font-size:var(--text-sm);font-weight:500;color:var(--warning-text)">📖 The Story — ${story.title}</span>
-      <span class="story-arrow" style="color:var(--warning-text);font-size:13px;transition:transform .2s;${isOpen?'transform:rotate(90deg)':''}">▸</span>`;
+      <span style="font-size:var(--text-sm);font-weight:500;color:var(--text-secondary)">📖 The Story — ${story.title}</span>
+      <span class="story-arrow" style="color:var(--text-muted);font-size:13px;transition:transform .2s;${isOpen?'transform:rotate(90deg)':''}">▸</span>`;
     card.appendChild(header);
 
     const body = document.createElement('div');
-    body.style.cssText = `padding:${isOpen?'var(--s4)':'0 var(--s4)'};display:${isOpen?'block':'none'}`;
+    body.style.cssText = `padding:${isOpen?'var(--s4)':'0 var(--s4)'};display:${isOpen?'block':'none'};border-top:${isOpen?'1px solid #E8D9B0':'none'}`;
     story.paragraphs.forEach(para => body.appendChild(renderStoryParagraph(para)));
     card.appendChild(body);
 
