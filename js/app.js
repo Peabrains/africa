@@ -5,6 +5,7 @@ const App = (() => {
     itinerary: () => window.ItineraryScreen,
     map:       () => window.MapScreen,
     dex:       () => window.DexScreen,
+    stamps:    () => window.StampsScreen,
     bookings:  () => window.BookingsScreen,
     sos:       () => window.SOSScreen,
     landing:   () => window.LandingScreen,
@@ -176,6 +177,31 @@ const App = (() => {
       await Data.init();
       dbg('Data.init ✓ days:' + Data.getDays().length);
     } catch(e) { dbg('Data.init ✗ ' + e.message, '#f66'); }
+
+    // Third nav slot is trip-conditional: Dex (wildlife) for Africa-style
+    // trips, Pilgrim Stamps for Japan-style trips. Never both at once —
+    // this can only run after Data.init(), since it needs to know which
+    // trip is actually active.
+    try {
+      const isStampTrip = Data.getTripCurrency?.() === 'JPY';
+      const navBtns = document.querySelectorAll('.nav-btn');
+      const thirdBtn = navBtns[2];
+      if (thirdBtn) {
+        if (isStampTrip) {
+          thirdBtn.dataset.screen = 'stamps';
+          thirdBtn.innerHTML = `${Icons.star('icon-lg')}<span>Stamps</span>`;
+        } else {
+          thirdBtn.dataset.screen = 'dex';
+          thirdBtn.innerHTML = `${Icons.star('icon-lg')}<span>Dex</span>`;
+        }
+        // Re-wire the click handler since innerHTML replacement above
+        // doesn't remove the existing listener, but dataset.screen changed —
+        // the existing delegated listener (bound to dataset.screen at click
+        // time, not capture time) already reads dataset.screen live, so a
+        // fresh binding isn't needed here. Left as a comment for clarity.
+      }
+      dbg('navSwap ✓ ' + (isStampTrip ? 'stamps' : 'dex'));
+    } catch(e) { dbg('navSwap ✗ ' + e.message, '#f66'); }
 
     TripSwitcher?.init();
     dbg('TripSwitcher ✓');
