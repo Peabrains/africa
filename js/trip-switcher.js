@@ -36,6 +36,7 @@ const TripSwitcher = (() => {
       <div style="padding:var(--s4)">
         <p style="font-size:var(--text-lg);font-weight:500;color:var(--text-primary);margin-bottom:var(--s3)">My Trips</p>
         ${tripRows}
+        <button id="countries-showcase-btn" style="width:100%;margin-top:var(--s3);background:var(--accent-subtle);border:none;border-radius:var(--r-md);padding:12px;font-size:var(--text-sm);color:var(--accent);font-weight:500;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">🌍 Countries visited</button>
         <div style="margin-top:var(--s4);padding-top:var(--s3);border-top:1px solid var(--border-subtle);display:flex;justify-content:space-between;align-items:center">
           <p style="font-size:var(--text-xs);color:var(--text-muted)">${trips.length} trip${trips.length !== 1 ? 's' : ''}</p>
           <button id="trip-signout-btn" style="background:none;border:none;color:var(--danger-text);font-size:var(--text-sm);cursor:pointer;font-family:var(--font);padding:0">Sign out</button>
@@ -62,6 +63,12 @@ const TripSwitcher = (() => {
     // Sign out
     sheet.querySelector('#trip-signout-btn')?.addEventListener('click', async () => {
       if (confirm('Sign out?')) await Auth.signOut();
+    });
+
+    // Countries showcase
+    sheet.querySelector('#countries-showcase-btn')?.addEventListener('click', () => {
+      close();
+      window.App?.switchTo('countries');
     });
   }
 
