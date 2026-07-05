@@ -17,6 +17,8 @@ const Data = (() => {
   let EXPENSES      = [];
   let PACKING       = [];
   let DEX_CATCHES   = {};     // keyed by animal_id
+  let STAMP_CATCHES = {};     // keyed by stop_id (Pilgrim Stamps — Japan trip)
+  let STAMP_PHOTO_META = {};  // keyed by photo id -> { storage_path }
   let DEX_PHOTO_META = {};    // keyed by photo id -> { storage_path }, for photos synced from other devices
   let CUSTOM_LINKS  = [];
   let GLOSSARY_TERMS = {};    // keyed by term (lowercase)
@@ -91,6 +93,7 @@ const Data = (() => {
           { data: expenses },
           { data: packing },
           { data: dexCatches },
+          { data: stampCatches },
           { data: links },
           { data: glossary },
         ] = await Promise.all([
@@ -100,6 +103,7 @@ const Data = (() => {
           SB.from('expenses').select('*').eq('trip_id', tripId).order('created_at'),
           SB.from('packing_items').select('*').eq('trip_id', tripId).order('sort_order'),
           SB.from('dex_catches').select('*, dex_photos(*)').eq('trip_id', tripId),
+          SB.from('stamp_catches').select('*, stamp_photos(*)').eq('trip_id', tripId),
           SB.from('custom_links').select('*').eq('trip_id', tripId).order('created_at'),
           SB.from('glossary_terms').select('*').eq('trip_id', tripId),
         ]);
@@ -124,6 +128,19 @@ const Data = (() => {
           };
           (c.dex_photos || []).forEach(p => {
             DEX_PHOTO_META[p.id] = { storage_path: p.storage_path };
+          });
+        });
+
+        // Build stamp catches lookup by stop_id (Pilgrim Stamps)
+        STAMP_CATCHES = {};
+        STAMP_PHOTO_META = {};
+        (stampCatches || []).forEach(c => {
+          STAMP_CATCHES[c.stop_id] = {
+            ...c,
+            photoIds: (c.stamp_photos || []).map(p => p.id),
+          };
+          (c.stamp_photos || []).forEach(p => {
+            STAMP_PHOTO_META[p.id] = { storage_path: p.storage_path };
           });
         });
 
@@ -896,6 +913,115 @@ const Data = (() => {
     return null;
   }
 
+  /* ── PILGRIM STAMPS API (Japan trip — mirrors Dex exactly) ── */
+  function getStampStops() {
+    return STOPS.filter(s => s.flight_detail?.stamp?.has).map(s => ({
+      id: s.id,
+      name: s.name,
+      kanji: s.flight_detail.stamp.kanji || '',
+      isSanzan: !!s.flight_detail.stamp.isSanzan,
+      dayId: s.day_id,
+    }));
+  }
+
+  function getStampState() { return STAMP_CATCHES; }
+  function isStampCollected(stopId) { return !!STAMP_CATCHES[stopId]; }
+
+  function getStampProgress() {
+    const all = getStampStops();
+    const sanzan = all.filter(s => s.isSanzan);
+    return {
+      collected:       Object.keys(STAMP_CATCHES).length,
+      total:           all.length,
+      sanzanCollected: sanzan.filter(s => isStampCollected(s.id)).length,
+      sanzanTotal:     sanzan.length,
+      sanzanComplete:  sanzan.length > 0 && sanzan.every(s => isStampCollected(s.id)),
+    };
+  }
+
+  async function markStampCollected(stopId) {
+    const user = (await SB.auth.getUser()).data.user;
+    const entry = { trip_id: CURRENT_TRIP?.id, user_id: user?.id, stop_id: stopId };
+    STAMP_CATCHES[stopId] = { ...entry, photoIds: [], caught_at: new Date().toISOString() };
+    if (navigator.onLine) {
+      const { data, error } = await SB.from('stamp_catches').insert(entry).select().single();
+      if (!error && data) STAMP_CATCHES[stopId] = { ...data, photoIds: [] };
+      else if (error) console.error('[Data] markStampCollected error:', error);
+    }
+    await DB.setMeta('sb_stamp_catches', STAMP_CATCHES);
+    return STAMP_CATCHES[stopId];
+  }
+
+  async function unmarkStampCollected(stopId) {
+    const catchId = STAMP_CATCHES[stopId]?.id;
+    delete STAMP_CATCHES[stopId];
+    if (navigator.onLine && catchId) {
+      await SB.from('stamp_catches').delete().eq('id', catchId);
+    }
+    await DB.setMeta('sb_stamp_catches', STAMP_CATCHES);
+  }
+
+  async function addStampPhoto(stopId, fileDataUrl) {
+    if (!STAMP_CATCHES[stopId]) await markStampCollected(stopId);
+    const photoId = 'ph_' + Date.now();
+
+    // Save locally first — always works offline, and is the fast-path source
+    await DB.saveDexPhoto(photoId, fileDataUrl); // shared generic photo-blob storage helper
+    if (!STAMP_CATCHES[stopId].photoIds) STAMP_CATCHES[stopId].photoIds = [];
+    STAMP_CATCHES[stopId].photoIds.push(photoId);
+    await DB.setMeta('sb_stamp_catches', STAMP_CATCHES);
+
+    if (navigator.onLine && CURRENT_TRIP) {
+      try {
+        const blob = await (await fetch(fileDataUrl)).blob();
+        const storagePath = `${CURRENT_TRIP.id}/${photoId}.jpg`;
+        const { error: upErr } = await SB.storage.from('stamp-photos')
+          .upload(storagePath, blob, { contentType: 'image/jpeg', upsert: true });
+        if (!upErr) {
+          const catchId = STAMP_CATCHES[stopId].id;
+          await SB.from('stamp_photos').insert({
+            trip_id: CURRENT_TRIP.id,
+            catch_id: catchId,
+            stop_id: stopId,
+            storage_path: storagePath,
+          });
+          STAMP_PHOTO_META[photoId] = { storage_path: storagePath };
+        } else {
+          console.error('[Data] stamp photo upload error:', upErr);
+        }
+      } catch (e) {
+        console.error('[Data] stamp photo sync error:', e);
+      }
+    }
+    return photoId;
+  }
+
+  async function removeStampPhoto(stopId, photoId) {
+    if (!STAMP_CATCHES[stopId]) return;
+    STAMP_CATCHES[stopId].photoIds = (STAMP_CATCHES[stopId].photoIds || []).filter(id => id !== photoId);
+    await DB.deleteDexPhoto(photoId);
+    await DB.setMeta('sb_stamp_catches', STAMP_CATCHES);
+
+    const storagePath = STAMP_PHOTO_META[photoId]?.storage_path;
+    if (navigator.onLine && storagePath) {
+      await SB.storage.from('stamp-photos').remove([storagePath]);
+      await SB.from('stamp_photos').delete().eq('storage_path', storagePath);
+      delete STAMP_PHOTO_META[photoId];
+    }
+  }
+
+  async function getStampPhoto(photoId) {
+    const local = await DB.loadDexPhoto(photoId);
+    if (local) return local;
+
+    const storagePath = STAMP_PHOTO_META[photoId]?.storage_path;
+    if (storagePath && navigator.onLine) {
+      const { data, error } = await SB.storage.from('stamp-photos').createSignedUrl(storagePath, 3600);
+      if (!error && data?.signedUrl) return data.signedUrl;
+    }
+    return null;
+  }
+
   /* ── STORY API ───────────────────────────────────────────── */
   function hasStory(dayId) {
     const day = DAYS.find(d => d.id === dayId);
@@ -1130,6 +1256,8 @@ const Data = (() => {
     // Dex
     getAnimals, getAnimal, getDexState, setDexState, isCaught, getDexProgress,
     markCaught, unmarkCaught, addDexPhoto, removeDexPhoto, getDexPhoto,
+    getStampStops, getStampState, isStampCollected, getStampProgress,
+    markStampCollected, unmarkStampCollected, addStampPhoto, removeStampPhoto, getStampPhoto,
     // Stories + Glossary
     hasStory, getStory, getGlossary,
     // Links
