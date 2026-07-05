@@ -102,6 +102,10 @@ const App = (() => {
   }
 
   /* ── Day-before push notifications ──────────────────────────── */
+  const MAX_TIMEOUT_MS = 20 * 24 * 60 * 60 * 1000; // 20 days — safely under the ~24.8-day
+                                                     // browser setTimeout overflow limit
+  const _remindersArmed = new Set(); // per-session guard against re-arming the same day repeatedly
+
   async function scheduleDayBeforeReminders() {
     if (!('Notification' in window)) return;
     if (Notification.permission === 'default') {
@@ -110,8 +114,11 @@ const App = (() => {
     }
     if (Notification.permission !== 'granted') return;
 
+    const tripName = Data.getCurrentTrip?.()?.name || 'Trip';
     const now = Date.now();
     Data.getDays().forEach(day => {
+      if (_remindersArmed.has(day.id)) return;
+
       const stops = Data.getStopsByDay(day.id);
       const firstFlight = stops.find(s => s.transportType === 'plane');
       const body = firstFlight
@@ -123,15 +130,20 @@ const App = (() => {
       if (isNaN(dayDate.getTime())) return;
 
       const reminderTime = dayDate.getTime() - (10 * 60 * 60 * 1000); // 10hrs before = eve prior
-      if (reminderTime <= now) return;
+      const delay = reminderTime - now;
+      // Skip anything too far out — setTimeout delays beyond ~24.8 days overflow and
+      // fire immediately instead of waiting. This function re-runs every app open,
+      // so each day gets scheduled properly once it's within the safe window.
+      if (delay <= 0 || delay > MAX_TIMEOUT_MS) return;
 
+      _remindersArmed.add(day.id);
       setTimeout(() => {
-        new Notification('\uD83C\uDF0D Africa Safari \u2014 tomorrow is ' + day.label, {
+        new Notification('\uD83C\uDF0D ' + tripName + ' \u2014 tomorrow is ' + day.label, {
           body,
           icon: './icons/icon-192.png',
-          tag:  'africa-' + day.id,
+          tag:  'trip-' + day.id,
         });
-      }, reminderTime - now);
+      }, delay);
     });
   }
 
