@@ -692,35 +692,38 @@ const SOSScreen = (() => {
     h.textContent = 'References & Guides';
     wrap.appendChild(h);
 
-    getCurrentKit().guideLinks.forEach(group => {
-      const gHead = document.createElement('p');
-      gHead.style.cssText = 'font-size:var(--text-xs);color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em;padding:var(--s3) 0 var(--s2)';
-      gHead.textContent = `${group.icon} ${group.section}`;
-      wrap.appendChild(gHead);
-      group.items.forEach(item => wrap.appendChild(linkCard(item.title, item.desc, item.url)));
-    });
-
-    // Custom links
-    const customLinks = Data.getCustomLinks?.() || [];
     const allDays = Data.getDays?.() || [];
-    const myHead = document.createElement('p');
-    myHead.style.cssText = 'font-size:var(--text-xs);color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em;padding:var(--s3) 0 var(--s2)';
-    myHead.textContent = '🔖 My links';
-    wrap.appendChild(myHead);
+    const customLinks = Data.getCustomLinks?.() || [];
 
     if (!customLinks.length) {
       const em = document.createElement('p');
       em.style.cssText = 'font-size:var(--text-xs);color:var(--text-muted);font-style:italic;padding:var(--s2) 0';
-      em.textContent = 'No custom links yet.';
+      em.textContent = 'No links yet — add one below.';
       wrap.appendChild(em);
     } else {
-      customLinks.forEach(link => {
-        const day = allDays.find(d => d.id === link.dayId);
-        wrap.appendChild(myLinkCard(link, day, allDays));
+      // Group by section, preserving first-seen order; ungrouped links last under "Other"
+      const groups = {};
+      const order = [];
+      customLinks.forEach(l => {
+        const key = l.section || 'Other';
+        if (!groups[key]) { groups[key] = []; order.push(key); }
+        groups[key].push(l);
+      });
+      if (groups['Other']) { order.splice(order.indexOf('Other'), 1); order.push('Other'); }
+
+      order.forEach(section => {
+        const gHead = document.createElement('p');
+        gHead.style.cssText = 'font-size:var(--text-xs);color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em;padding:var(--s3) 0 var(--s2)';
+        gHead.textContent = section;
+        wrap.appendChild(gHead);
+        groups[section].forEach(link => {
+          const day = allDays.find(d => d.id === link.dayId);
+          wrap.appendChild(myLinkCard(link, day, allDays));
+        });
       });
     }
 
-    // Add custom link form — right here in Kit/Guides tab
+    // Add link form
     const addForm = document.createElement('div');
     addForm.style.cssText = 'margin-top:var(--s3);background:var(--surface-raised);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:var(--s3);display:flex;flex-direction:column;gap:var(--s2)';
     const dayOptions = `<option value="">No specific day</option>` +
@@ -729,17 +732,20 @@ const SOSScreen = (() => {
       <p style="font-size:var(--text-xs);font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Add link</p>
       <input id="cl-title" placeholder="Title (e.g. Asilia Camps)" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 10px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
       <input id="cl-url" placeholder="URL (https://...)" type="url" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 10px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
+      <input id="cl-section" placeholder="Group (e.g. 🛂 Entry Requirements) — optional" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 10px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
       <select id="cl-day" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 10px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">${dayOptions}</select>
       <button id="cl-add-btn" style="background:var(--accent);color:#fff;border:none;border-radius:var(--r-md);padding:8px 16px;font-size:var(--text-sm);font-weight:500;cursor:pointer;font-family:var(--font);align-self:flex-end">Add link</button>`;
     addForm.querySelector('#cl-add-btn').addEventListener('click', async () => {
-      const title = addForm.querySelector('#cl-title').value.trim();
-      const url   = addForm.querySelector('#cl-url').value.trim();
-      const dayId = addForm.querySelector('#cl-day').value || null;
+      const title   = addForm.querySelector('#cl-title').value.trim();
+      const url     = addForm.querySelector('#cl-url').value.trim();
+      const section = addForm.querySelector('#cl-section').value.trim();
+      const dayId   = addForm.querySelector('#cl-day').value || null;
       if (!title || !url) { Toast.show('Title and URL are required', 'warning'); return; }
       if (!url.startsWith('http')) { Toast.show('URL must start with https://', 'warning'); return; }
-      await Data.addCustomLink({ title, url, dayId });
+      await Data.addCustomLink({ title, url, dayId, section });
       addForm.querySelector('#cl-title').value = '';
       addForm.querySelector('#cl-url').value = '';
+      addForm.querySelector('#cl-section').value = '';
       addForm.querySelector('#cl-day').value = '';
       Toast.show('Link added ✓', 'success');
       render();
@@ -811,6 +817,7 @@ const SOSScreen = (() => {
     editForm.innerHTML = `
       <input class="el-title" value="${link.title.replace(/"/g,'&quot;')}" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:6px 8px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
       <input class="el-url" value="${link.url.replace(/"/g,'&quot;')}" type="url" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:6px 8px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
+      <input class="el-section" placeholder="Group — optional" value="${(link.section||'').replace(/"/g,'&quot;')}" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:6px 8px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
       <select class="el-day" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:6px 8px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">${dayOptions}</select>
       <div style="display:flex;gap:6px">
         <button class="el-save" style="flex:1;background:var(--accent);color:#fff;border:none;border-radius:var(--r-md);padding:6px;font-size:var(--text-xs);font-weight:500;cursor:pointer;font-family:var(--font)">Save</button>
@@ -823,11 +830,12 @@ const SOSScreen = (() => {
     });
     editForm.querySelector('.el-cancel').addEventListener('click', () => { editForm.style.display = 'none'; });
     editForm.querySelector('.el-save').addEventListener('click', async () => {
-      const title = editForm.querySelector('.el-title').value.trim();
-      const url   = editForm.querySelector('.el-url').value.trim();
-      const dayId = editForm.querySelector('.el-day').value || null;
+      const title   = editForm.querySelector('.el-title').value.trim();
+      const url     = editForm.querySelector('.el-url').value.trim();
+      const section = editForm.querySelector('.el-section').value.trim();
+      const dayId   = editForm.querySelector('.el-day').value || null;
       if (!title || !url) { Toast.show('Title and URL are required', 'warning'); return; }
-      await Data.updateCustomLink(link.id, { title, url, dayId });
+      await Data.updateCustomLink(link.id, { title, url, dayId, section });
       Toast.show('Link updated ✓', 'success');
       render();
     });
