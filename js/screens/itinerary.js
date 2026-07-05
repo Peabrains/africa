@@ -333,10 +333,10 @@ const ItineraryScreen = (() => {
     card.style.cssText = 'margin:var(--s2) var(--s4);border:1.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;background:var(--surface)';
 
     const header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:var(--s3);cursor:pointer;user-select:none;background:var(--accent-subtle)';
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:var(--s3);cursor:pointer;user-select:none;background:var(--warning-bg)';
     header.innerHTML = `
-      <span style="font-size:var(--text-sm);font-weight:500;color:var(--accent)">📖 The Story — ${story.title}</span>
-      <span class="story-arrow" style="color:var(--accent);font-size:13px;transition:transform .2s;${isOpen?'transform:rotate(90deg)':''}">▸</span>`;
+      <span style="font-size:var(--text-sm);font-weight:500;color:var(--warning-text)">📖 The Story — ${story.title}</span>
+      <span class="story-arrow" style="color:var(--warning-text);font-size:13px;transition:transform .2s;${isOpen?'transform:rotate(90deg)':''}">▸</span>`;
     card.appendChild(header);
 
     const body = document.createElement('div');
