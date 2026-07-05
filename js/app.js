@@ -92,8 +92,11 @@ const App = (() => {
   function renderCountdown() {
     const cEl = document.getElementById('countdown');
     if (!cEl) return;
+    cEl.style.display = '';
     const today  = new Date(); today.setHours(0,0,0,0);
-    const depart = new Date(Config.TRIP_DATE);
+    const startDate = Data.getCurrentTrip?.()?.start_date;
+    const depart = startDate ? new Date(startDate + 'T00:00:00') : null;
+    if (!depart || isNaN(depart.getTime())) { cEl.style.display = 'none'; return; }
     const diff   = Math.ceil((depart - today) / 864e5);
     if      (diff > 1)  cEl.textContent = diff + ' days to go \uD83C\uDF0D';
     else if (diff === 1) cEl.textContent = 'Departing tomorrow! \uD83C\uDF0D';
@@ -187,29 +190,30 @@ const App = (() => {
       dbg('Data.init ✓ days:' + Data.getDays().length);
     } catch(e) { dbg('Data.init ✗ ' + e.message, '#f66'); }
 
-    // Third nav slot is trip-conditional: Dex (wildlife) for Africa-style
-    // trips, Pilgrim Stamps for Japan-style trips. Never both at once —
-    // this can only run after Data.init(), since it needs to know which
-    // trip is actually active.
+    // Third nav slot is trip-specific: Dex for the Africa trip, Pilgrim
+    // Stamps for the Japan trip. Any other (e.g. a newly created) trip
+    // gets a blank slot rather than guessing — nothing to show yet.
     try {
-      const isStampTrip = Data.getTripCurrency?.() === 'JPY';
+      const AFRICA_TRIP_ID = '83891de6-44ee-4ec2-bb95-6726cbd8c370';
+      const JAPAN_TRIP_ID  = '91a41e0d-f247-4d89-ba15-02f0994a16c8';
+      const tripId = Data.getCurrentTrip?.()?.id;
       const navBtns = document.querySelectorAll('.nav-btn');
       const thirdBtn = navBtns[2];
       if (thirdBtn) {
-        if (isStampTrip) {
+        if (tripId === JAPAN_TRIP_ID) {
+          thirdBtn.style.display = '';
           thirdBtn.dataset.screen = 'stamps';
           thirdBtn.innerHTML = `${Icons.star('icon-lg')}<span>Stamps</span>`;
-        } else {
+        } else if (tripId === AFRICA_TRIP_ID) {
+          thirdBtn.style.display = '';
           thirdBtn.dataset.screen = 'dex';
           thirdBtn.innerHTML = `${Icons.star('icon-lg')}<span>Dex</span>`;
+        } else {
+          thirdBtn.style.display = 'none';
+          thirdBtn.dataset.screen = '';
         }
-        // Re-wire the click handler since innerHTML replacement above
-        // doesn't remove the existing listener, but dataset.screen changed —
-        // the existing delegated listener (bound to dataset.screen at click
-        // time, not capture time) already reads dataset.screen live, so a
-        // fresh binding isn't needed here. Left as a comment for clarity.
       }
-      dbg('navSwap ✓ ' + (isStampTrip ? 'stamps' : 'dex'));
+      dbg('navSwap ✓ trip:' + tripId);
     } catch(e) { dbg('navSwap ✗ ' + e.message, '#f66'); }
 
     TripSwitcher?.init();
