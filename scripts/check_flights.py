@@ -26,7 +26,13 @@ from datetime import datetime, timezone
 SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
 SERVICE_KEY  = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 RAPIDAPI_KEY = os.environ["RAPIDAPI_KEY"]
-TRIP_ID      = os.environ.get("TRIP_ID", "83891de6-44ee-4ec2-bb95-6726cbd8c370")
+
+# Every trip that should have its flights checked. Add a new ID here
+# whenever a new trip with real flights gets created.
+TRIP_IDS = [
+    "83891de6-44ee-4ec2-bb95-6726cbd8c370",  # Africa Safari 2026
+    "91a41e0d-f247-4d89-ba15-02f0994a16c8",  # Kumano Kodo — Japan Spring 2027
+]
 
 AERODB_HOST = "aerodatabox.p.rapidapi.com"
 
@@ -49,10 +55,10 @@ def sb_request(method, path, body=None):
         raise
 
 
-def get_flight_stops():
-    """Stops with a flight_no set, joined to their day's date."""
+def get_flight_stops(trip_id):
+    """Stops with a flight_no set for one trip, joined to their day's date."""
     path = (
-        f"stops?trip_id=eq.{TRIP_ID}"
+        f"stops?trip_id=eq.{trip_id}"
         f"&flight_detail=not.is.null"
         f"&select=id,name,flight_detail,itinerary_days(date)"
     )
@@ -127,46 +133,50 @@ def check_flight(flight_no, date_str, retries=1):
 
 
 def main():
-    stops = get_flight_stops()
-    print(f"Checking {len(stops)} flight-carrying stop(s)...")
     now_iso = datetime.now(timezone.utc).isoformat()
+    total_checked = 0
 
-    for i, stop in enumerate(stops):
-        if i > 0:
-            time.sleep(2)  # stay under the BASIC plan's per-second rate limit
-        fd = stop["flight_detail"]
-        flight_no = fd["flight_no"]
-        date_str = (stop.get("itinerary_days") or {}).get("date")
-        if not date_str:
-            print(f"  {stop['name']}: no day date found, skipping")
-            continue
+    for trip_id in TRIP_IDS:
+        stops = get_flight_stops(trip_id)
+        print(f"\n=== Trip {trip_id}: checking {len(stops)} flight-carrying stop(s) ===")
 
-        current_time = check_flight(flight_no, date_str)
-        patch = {**fd, "last_checked_at": now_iso}
-        stop_patch = {}
+        for i, stop in enumerate(stops):
+            if total_checked > 0 or i > 0:
+                time.sleep(2)  # stay under the BASIC plan's per-second rate limit
+            total_checked += 1
+            fd = stop["flight_detail"]
+            flight_no = fd["flight_no"]
+            date_str = (stop.get("itinerary_days") or {}).get("date")
+            if not date_str:
+                print(f"  {stop['name']}: no day date found, skipping")
+                continue
 
-        if current_time:
-            is_first_check = "original_depart_time" not in fd
-            if is_first_check:
-                # First real data we've ever gotten for this flight — this is the
-                # baseline, not a detected change. Whatever was in depart_time
-                # before was a manual placeholder, not a genuine prior schedule.
-                patch["original_depart_time"] = current_time
-                patch["depart_time"] = current_time
-                stop_patch["time"] = current_time
-                print(f"  {stop['name']} ({flight_no}): baseline set ({current_time})")
-            elif current_time != fd.get("depart_time"):
-                print(f"  {stop['name']} ({flight_no}): {fd.get('depart_time')} -> {current_time} — RETIMED")
-                patch["depart_time"] = current_time
-                stop_patch["time"] = current_time
+            current_time = check_flight(flight_no, date_str)
+            patch = {**fd, "last_checked_at": now_iso}
+            stop_patch = {}
+
+            if current_time:
+                is_first_check = "original_depart_time" not in fd
+                if is_first_check:
+                    # First real data we've ever gotten for this flight — this is the
+                    # baseline, not a detected change. Whatever was in depart_time
+                    # before was a manual placeholder, not a genuine prior schedule.
+                    patch["original_depart_time"] = current_time
+                    patch["depart_time"] = current_time
+                    stop_patch["time"] = current_time
+                    print(f"  {stop['name']} ({flight_no}): baseline set ({current_time})")
+                elif current_time != fd.get("depart_time"):
+                    print(f"  {stop['name']} ({flight_no}): {fd.get('depart_time')} -> {current_time} — RETIMED")
+                    patch["depart_time"] = current_time
+                    stop_patch["time"] = current_time
+                else:
+                    print(f"  {stop['name']} ({flight_no}): unchanged ({current_time})")
             else:
-                print(f"  {stop['name']} ({flight_no}): unchanged ({current_time})")
-        else:
-            print(f"  {stop['name']} ({flight_no}): no data this run, just updating checked-at")
+                print(f"  {stop['name']} ({flight_no}): no data this run, just updating checked-at")
 
-        sb_request("PATCH", f"stops?id=eq.{stop['id']}", {"flight_detail": patch, **stop_patch})
+            sb_request("PATCH", f"stops?id=eq.{stop['id']}", {"flight_detail": patch, **stop_patch})
 
-    print("Done.")
+    print("\nDone.")
 
 
 if __name__ == "__main__":
