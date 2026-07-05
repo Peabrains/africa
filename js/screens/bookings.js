@@ -27,9 +27,6 @@ const BookingsScreen = (() => {
     const booked = nights.filter(({o})=>o.status==='booked').length;
     const transStops = Data.getTransportReservations();
     const actStops = Data.getActivityReservations();
-    if (Data.getCurrentTrip?.()?.currency === 'JPY') {
-      frag.appendChild(renderJrPassSection());
-    }
     frag.appendChild(accordionSection('accommodation',
       '🏨 Accommodation', `${booked}/${nights.length} confirmed`,
       renderAccommodationContent));
@@ -241,6 +238,10 @@ const BookingsScreen = (() => {
         card.addEventListener('click', () => BottomSheet.openStop(stop, day));
         frag.appendChild(card);
       });
+    }
+
+    if (Data.getCurrentTrip?.()?.currency === 'JPY') {
+      frag.appendChild(renderJrPassSection());
     }
 
     return frag;
