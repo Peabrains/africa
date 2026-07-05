@@ -190,7 +190,7 @@ const App = (() => {
     catch(e) { dbg('renderCountdown ✗ ' + e.message, '#f66'); }
 
     try {
-      const tnEl = document.getElementById('app-trip-name');
+      const tnEl = document.getElementById('header-trip-name');
       if (tnEl && Data.getTripName) tnEl.textContent = Data.getTripName();
       dbg('tripName ✓ ' + Data.getTripName?.());
     } catch(e) { dbg('tripName ✗ ' + e.message, '#f66'); }
@@ -295,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Show trip name in header
-    const tripNameEl = document.getElementById('app-trip-name');
+    const tripNameEl = document.getElementById('header-trip-name');
     if (tripNameEl) tripNameEl.textContent = Data.getCurrentTrip()?.name || 'Trip Companion';
     const vEl = document.getElementById('app-version-display');
     if (vEl) vEl.textContent = Config.APP_VERSION || 'v1';
