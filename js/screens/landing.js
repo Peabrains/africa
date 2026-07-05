@@ -58,7 +58,7 @@ const LandingScreen = (() => {
     trips.forEach(t => {
       const isPast = t.status === 'completed' || (t.end_date && new Date(t.end_date) < new Date());
       const card = document.createElement('div');
-      card.style.cssText = 'background:var(--surface);border-radius:16px;padding:14px;display:flex;align-items:center;gap:12px;margin:0 var(--s4) 12px;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer';
+      card.style.cssText = 'background:var(--surface);border-radius:16px;padding:14px;display:flex;align-items:center;gap:12px;margin:0 var(--s4) 12px;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;position:relative';
       const statusLabel = isPast ? 'Past' : (t.status === 'ongoing' ? 'Ongoing' : 'Upcoming');
       const statusColor = isPast ? 'var(--text-muted)' : '#3A7A3A';
       const statusBg = isPast ? 'var(--accent-subtle)' : '#E8F3E8';
@@ -68,12 +68,40 @@ const LandingScreen = (() => {
           <p style="font-size:var(--text-md);font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}${current?.id === t.id ? ' <span style=\'color:var(--accent);font-size:11px;font-weight:500\'>· current</span>' : ''}</p>
           <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">${(t.countries || []).join(' · ')}${t.start_date ? ' · ' + t.start_date : ''}</p>
         </div>
-        <span style="font-size:10px;font-weight:600;padding:3px 8px;border-radius:8px;background:${statusBg};color:${statusColor};flex-shrink:0">${statusLabel}</span>`;
-      card.addEventListener('click', async () => {
+        <span style="font-size:10px;font-weight:600;padding:3px 8px;border-radius:8px;background:${statusBg};color:${statusColor};flex-shrink:0">${statusLabel}</span>
+        <button class="trip-del-btn" style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;padding:0 0 0 4px;flex-shrink:0">×</button>`;
+      card.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('trip-del-btn')) return;
         if (current?.id === t.id) { App.switchTo('itinerary'); return; }
         Toast.show('Switching trip…', 'info');
         await Data.switchTrip(t.id);
         App.switchTo('itinerary');
+      });
+
+      let delArmed = false, delTimer = null;
+      const delBtn = card.querySelector('.trip-del-btn');
+      delBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!delArmed) {
+          delArmed = true;
+          delBtn.textContent = '✓';
+          delBtn.style.color = 'var(--danger-text)';
+          delBtn.title = `Tap again to permanently delete "${t.name}" and everything in it`;
+          delTimer = setTimeout(() => {
+            delArmed = false;
+            delBtn.textContent = '×';
+            delBtn.style.color = 'var(--text-muted)';
+          }, 4000);
+          return;
+        }
+        clearTimeout(delTimer);
+        try {
+          await Data.deleteTrip(t.id);
+          Toast.show(`${t.name} deleted`, 'info');
+          render();
+        } catch (err) {
+          Toast.show('Could not delete: ' + err.message, 'danger');
+        }
       });
       container.appendChild(card);
     });
