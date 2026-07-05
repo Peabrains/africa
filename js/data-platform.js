@@ -187,12 +187,38 @@ const Data = (() => {
   }
 
   /* ── Init ────────────────────────────────────────────────── */
+  /* ── Per-trip colour theme ────────────────────────────────
+     trip.settings.theme = { accent, accentHover, accentPressed, accentSubtle,
+                              accentDark, accentDarkHover, accentDarkSubtle }
+     Falls back to the default khaki theme from tokens.css when a trip has none. */
+  function applyTripTheme() {
+    const root = document.documentElement;
+    const theme = CURRENT_TRIP?.settings?.theme;
+    const props = ['--accent', '--accent-hover', '--accent-pressed', '--accent-subtle'];
+
+    if (!theme) {
+      props.forEach(p => root.style.removeProperty(p));
+      return;
+    }
+
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    root.style.setProperty('--accent',         (isDark && theme.accentDark)        || theme.accent);
+    root.style.setProperty('--accent-hover',   (isDark && theme.accentDarkHover)   || theme.accentHover || theme.accent);
+    root.style.setProperty('--accent-pressed', theme.accentPressed || theme.accentHover || theme.accent);
+    root.style.setProperty('--accent-subtle',  (isDark && theme.accentDarkSubtle) || theme.accentSubtle || theme.accent);
+  }
+
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTripTheme());
+  }
+
   async function init(tripId) {
     if (!tripId) {
       if (CURRENT_TRIP) {
         // A trip is already active (e.g. just switched via switchTrip/createTrip) —
         // reloading must not silently discard that and reset to a default trip.
         await loadTripData(CURRENT_TRIP.id);
+        applyTripTheme();
         return;
       }
       // Genuinely fresh load — load trips list, pick first active trip
@@ -208,6 +234,7 @@ const Data = (() => {
       // Pull travelers from trip settings
       TRAVELERS = CURRENT_TRIP.settings?.travelers || ['Traveler'];
       await loadTripData(CURRENT_TRIP.id);
+      applyTripTheme();
     }
   }
 
@@ -271,6 +298,31 @@ const Data = (() => {
   function getStops()               { return STOPS.map(normaliseStop); }
   function getStopsByDay(dayId)     { return STOPS.filter(s => s.day_id === dayId).sort((a,b) => a.sort_order - b.sort_order).map(normaliseStop); }
 
+  /* Re-sort a day's stops chronologically by `time`, reassigning sort_order.
+     Stops with no time keep their relative order and sink after timed stops. */
+  async function resortStopsForDay(dayId) {
+    const dayStops = STOPS.filter(s => s.day_id === dayId);
+    const sorted = [...dayStops].sort((a, b) => {
+      const ta = a.time || '', tb = b.time || '';
+      if (ta && tb) return ta.localeCompare(tb);
+      if (ta && !tb) return -1;
+      if (!ta && tb) return 1;
+      return (a.sort_order || 0) - (b.sort_order || 0);
+    });
+
+    const updates = [];
+    sorted.forEach((s, i) => {
+      if (s.sort_order !== i) { s.sort_order = i; updates.push({ id: s.id, sort_order: i }); }
+    });
+
+    if (updates.length && navigator.onLine) {
+      await Promise.all(updates.map(u =>
+        SB.from('stops').update({ sort_order: u.sort_order }).eq('id', u.id)
+      ));
+    }
+    await DB.setMeta(CACHE_KEYS.stops, STOPS);
+  }
+
   async function addStop(stop) {
     const newStop = {
       trip_id:        CURRENT_TRIP.id,
@@ -299,12 +351,13 @@ const Data = (() => {
       const { data, error } = await SB.from('stops').insert(newStop).select().single();
       if (error) throw error;
       STOPS.push(data);
+      await resortStopsForDay(stop.dayId);
       return data;
     } else {
       // Queue for later sync
       newStop.id = 'local_' + Date.now();
       STOPS.push(newStop);
-      await DB.setMeta(CACHE_KEYS.stops, STOPS);
+      await resortStopsForDay(stop.dayId);
       return newStop;
     }
   }
@@ -365,7 +418,12 @@ const Data = (() => {
       const { error } = await SB.from('stops').update(dbPatch).eq('id', id);
       if (error) { console.error('[Data] updateStop error:', error); throw error; }
     }
-    await DB.setMeta(CACHE_KEYS.stops, STOPS);
+
+    if ('time' in dbPatch || 'day_id' in dbPatch) {
+      await resortStopsForDay(STOPS[idx].day_id);
+    } else {
+      await DB.setMeta(CACHE_KEYS.stops, STOPS);
+    }
   }
 
   async function deleteStop(id) {
@@ -1139,6 +1197,7 @@ const Data = (() => {
     CURRENT_TRIP = trip;
     TRAVELERS    = trip.settings?.travelers || ['Traveler'];
     await loadTripData(tripId);
+    applyTripTheme();
     App.reload();
   }
 
@@ -1258,6 +1317,7 @@ const Data = (() => {
     hasStory, getStory, getGlossary,
     // Links
     getCustomLinks, addCustomLink, updateCustomLink, deleteCustomLink, setCustomLinks,
+    applyTripTheme,
     // Trips
     getTrips, getCurrentTrip, switchTrip, createTrip, updateTripDetails, getTripCurrency, deleteTrip,
     getTripMembers, inviteMember, removeMember,
