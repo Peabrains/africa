@@ -992,6 +992,17 @@ const Data = (() => {
     return data;
   }
 
+  async function deleteTrip(tripId) {
+    const { error } = await SB.from('trips').delete().eq('id', tripId);
+    if (error) { console.error('[Data] deleteTrip error:', error); throw error; }
+    TRIPS = TRIPS.filter(t => t.id !== tripId);
+    await DB.setMeta(CACHE_KEYS.trips, TRIPS);
+    if (CURRENT_TRIP?.id === tripId) {
+      CURRENT_TRIP = TRIPS[0] || null;
+      if (CURRENT_TRIP) await loadTripData(CURRENT_TRIP.id);
+    }
+  }
+
   /* ── TRIPS API ───────────────────────────────────────────── */
   function getTrips()       { return TRIPS; }
   function getCurrentTrip() { return CURRENT_TRIP; }
@@ -1124,7 +1135,7 @@ const Data = (() => {
     // Links
     getCustomLinks, addCustomLink, updateCustomLink, deleteCustomLink, setCustomLinks,
     // Trips
-    getTrips, getCurrentTrip, switchTrip, createTrip, updateTripDetails, getTripCurrency,
+    getTrips, getCurrentTrip, switchTrip, createTrip, updateTripDetails, getTripCurrency, deleteTrip,
     getTripMembers, inviteMember, removeMember,
     // Trip info
     getTripName, setTripName,
