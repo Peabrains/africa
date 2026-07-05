@@ -516,6 +516,68 @@ const Data = (() => {
     await loadTripData(CURRENT_TRIP.id);
   }
 
+  /* ── VISITED COUNTRIES (personal showcase, not trip-scoped) ── */
+  let VISITED_COUNTRIES = null; // lazy-loaded, cached after first fetch
+
+  async function getVisitedCountries() {
+    if (VISITED_COUNTRIES) return VISITED_COUNTRIES;
+    if (!navigator.onLine) {
+      VISITED_COUNTRIES = await DB.getMeta('sb_visited_countries') || [];
+      return VISITED_COUNTRIES;
+    }
+    const { data, error } = await SB.from('visited_countries').select('country_code');
+    if (error) { console.error('[Data] getVisitedCountries error:', error); return []; }
+    VISITED_COUNTRIES = (data || []).map(r => r.country_code);
+
+    // First-ever visit: auto-suggest from this account's trip countries.
+    // Only runs once — if there's already any row, never auto-seed again.
+    if (VISITED_COUNTRIES.length === 0 && TRIPS.length) {
+      const tripCountryNames = [...new Set(TRIPS.flatMap(t => t.countries || []))];
+      if (tripCountryNames.length) {
+        try {
+          const res = await fetch('data/world-countries.geojson');
+          const geo = await res.json();
+          const nameToCode = {};
+          geo.features.forEach(f => {
+            if (f.properties.iso2) nameToCode[f.properties.name.toLowerCase()] = f.properties.iso2;
+          });
+          const suggestedCodes = tripCountryNames
+            .map(n => nameToCode[n.toLowerCase()])
+            .filter(Boolean);
+          if (suggestedCodes.length) {
+            for (const code of suggestedCodes) {
+              await SB.from('visited_countries').insert({ country_code: code }).select();
+            }
+            VISITED_COUNTRIES = suggestedCodes;
+          }
+        } catch (e) { console.error('[Data] country auto-suggest failed:', e); }
+      }
+    }
+
+    await DB.setMeta('sb_visited_countries', VISITED_COUNTRIES);
+    return VISITED_COUNTRIES;
+  }
+
+  async function toggleVisitedCountry(code) {
+    const list = await getVisitedCountries();
+    const isVisited = list.includes(code);
+    if (isVisited) {
+      VISITED_COUNTRIES = list.filter(c => c !== code);
+      if (navigator.onLine) {
+        const user = (await SB.auth.getUser()).data.user;
+        await SB.from('visited_countries').delete().eq('country_code', code).eq('user_id', user?.id);
+      }
+    } else {
+      VISITED_COUNTRIES = [...list, code];
+      if (navigator.onLine) {
+        const { error } = await SB.from('visited_countries').insert({ country_code: code });
+        if (error) console.error('[Data] toggleVisitedCountry insert error:', error);
+      }
+    }
+    await DB.setMeta('sb_visited_countries', VISITED_COUNTRIES);
+    return VISITED_COUNTRIES;
+  }
+
   /* ── EXPENSES API ────────────────────────────────────────── */
   function normaliseExpense(e) {
     return {
@@ -998,6 +1060,7 @@ const Data = (() => {
     init, loadTrips,
     // Days
     getDays, updateDay, updateStory, deleteStory, addDay, deleteDay, getDayContents,
+    getVisitedCountries, toggleVisitedCountry,
     // Stops
     getStops, getStopsByDay, addStop, updateStop, deleteStop,
     // Overnight
