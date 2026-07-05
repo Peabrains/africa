@@ -1102,28 +1102,28 @@ const Data = (() => {
 
   /* ── CUSTOM LINKS API ────────────────────────────────────── */
   function getCustomLinks() {
-    return CUSTOM_LINKS.map(l => ({ ...l, dayId: l.day_id || null }));
+    return CUSTOM_LINKS.map(l => ({ ...l, dayId: l.day_id || null, section: l.section || null }));
   }
 
-  async function addCustomLink({ title, url, dayId }) {
+  async function addCustomLink({ title, url, dayId, section }) {
     const newLink = {
       trip_id:    CURRENT_TRIP.id,
       title,
       url,
       day_id:     dayId || null,
+      section:    section || null,
     };
     CUSTOM_LINKS.push({ ...newLink, id: 'local_' + Date.now() });
     if (navigator.onLine) {
       const user = (await SB.auth.getUser()).data.user;
-      let { data, error } = await SB.from('custom_links')
-        .insert({ ...newLink, created_by: user?.id })
-        .select().single();
-      if (error && /day_id/.test(error.message || '')) {
-        // Schema patch not run yet — retry without day_id
-        const { day_id, ...withoutDayId } = newLink;
-        ({ data, error } = await SB.from('custom_links')
-          .insert({ ...withoutDayId, created_by: user?.id })
-          .select().single());
+      let payload = { ...newLink, created_by: user?.id };
+      let { data, error } = await SB.from('custom_links').insert(payload).select().single();
+      // Retry without newer columns if the schema patch hasn't been run yet
+      while (error && /(day_id|section)/.test(error.message || '')) {
+        const missing = /day_id/.test(error.message) ? 'day_id' : 'section';
+        const { [missing]: _, ...rest } = payload;
+        payload = rest;
+        ({ data, error } = await SB.from('custom_links').insert(payload).select().single());
       }
       if (!error && data) {
         CUSTOM_LINKS = CUSTOM_LINKS.filter(l => !l.id.startsWith('local_'));
@@ -1135,13 +1135,14 @@ const Data = (() => {
     await DB.setMeta(CACHE_KEYS.links, CUSTOM_LINKS);
   }
 
-  async function updateCustomLink(id, { title, url, dayId }) {
+  async function updateCustomLink(id, { title, url, dayId, section }) {
     const idx = CUSTOM_LINKS.findIndex(l => l.id === id);
     if (idx < 0) return;
     const patch = {};
-    if (title !== undefined) patch.title  = title;
-    if (url   !== undefined) patch.url    = url;
-    if (dayId !== undefined) patch.day_id = dayId || null;
+    if (title   !== undefined) patch.title   = title;
+    if (url     !== undefined) patch.url     = url;
+    if (dayId   !== undefined) patch.day_id  = dayId || null;
+    if (section !== undefined) patch.section = section || null;
     Object.assign(CUSTOM_LINKS[idx], patch);
     if (navigator.onLine) {
       const { error } = await SB.from('custom_links').update(patch).eq('id', id);
