@@ -667,7 +667,23 @@ const SOSScreen = (() => {
     const delBtn = document.createElement('button');
     delBtn.style.cssText = 'background:none;border:none;color:var(--text-muted);font-size:16px;cursor:pointer;padding:0 2px;flex-shrink:0';
     delBtn.textContent = '✕';
-    delBtn.addEventListener('click', async () => { await Data.deleteCustomLink(link.id); render(); });
+    let linkDelArmed = false, linkDelTimer = null;
+    delBtn.addEventListener('click', async () => {
+      if (!linkDelArmed) {
+        linkDelArmed = true;
+        delBtn.textContent = '✓';
+        delBtn.style.color = 'var(--danger-text)';
+        delBtn.title = 'Tap again to confirm delete';
+        linkDelTimer = setTimeout(() => {
+          linkDelArmed = false;
+          delBtn.textContent = '✕';
+          delBtn.style.color = 'var(--text-muted)';
+        }, 3000);
+        return;
+      }
+      clearTimeout(linkDelTimer);
+      await Data.deleteCustomLink(link.id); render();
+    });
     row.appendChild(delBtn);
 
     card.appendChild(row);
