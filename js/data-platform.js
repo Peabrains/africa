@@ -972,7 +972,7 @@ const Data = (() => {
     await DB.setMeta(CACHE_KEYS.links, CUSTOM_LINKS);
   }
 
-  async function createTrip({ name, startDate, endDate, countries, coverEmoji }) {
+  async function createTrip({ name, startDate, endDate, countries, coverEmoji, currency }) {
     const user = (await SB.auth.getUser()).data.user;
     if (!user) throw new Error('Not signed in');
     const { data, error } = await SB.from('trips').insert({
@@ -981,6 +981,7 @@ const Data = (() => {
       end_date: endDate || null,
       countries: countries || [],
       cover_emoji: coverEmoji || '🧭',
+      currency: currency || 'USD',
       status: 'upcoming',
       owner_id: user.id,
     }).select().single();
@@ -1074,6 +1075,8 @@ const Data = (() => {
       if (error) { console.error('[Data] updateTravelers error:', error); throw error; }
     }
   }
+  function getTripCurrency() { return CURRENT_TRIP?.currency || 'USD'; }
+
   async function updateTripDetails(changes) {
     if (!CURRENT_TRIP) return;
     const patch = {};
@@ -1082,6 +1085,7 @@ const Data = (() => {
     if ('endDate'    in changes) patch.end_date     = changes.endDate || null;
     if ('countries'  in changes) patch.countries    = changes.countries;
     if ('coverEmoji' in changes) patch.cover_emoji  = changes.coverEmoji;
+    if ('currency'   in changes) patch.currency     = changes.currency;
     Object.assign(CURRENT_TRIP, patch);
     const idx = TRIPS.findIndex(t => t.id === CURRENT_TRIP.id);
     if (idx >= 0) TRIPS[idx] = CURRENT_TRIP;
@@ -1120,7 +1124,7 @@ const Data = (() => {
     // Links
     getCustomLinks, addCustomLink, updateCustomLink, deleteCustomLink, setCustomLinks,
     // Trips
-    getTrips, getCurrentTrip, switchTrip, createTrip, updateTripDetails,
+    getTrips, getCurrentTrip, switchTrip, createTrip, updateTripDetails, getTripCurrency,
     getTripMembers, inviteMember, removeMember,
     // Trip info
     getTripName, setTripName,
