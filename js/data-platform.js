@@ -22,6 +22,7 @@ const Data = (() => {
   let DEX_PHOTO_META = {};    // keyed by photo id -> { storage_path }, for photos synced from other devices
   let CUSTOM_LINKS  = [];
   let GLOSSARY_TERMS = {};    // keyed by term (lowercase)
+  let JR_PASS_LEGS  = [];     // JR Pass seat reservation legs (Japan trip)
   let TRAVELERS     = ['Traveler'];
 
   /* ── Cache keys (IndexedDB via DB module) ────────────────── */
@@ -35,6 +36,7 @@ const Data = (() => {
     dex:      'sb_dex',
     glossary: 'sb_glossary',
     links:    'sb_links',
+    jrPassLegs: 'sb_jr_pass_legs',
   };
 
   /* ── Load all trips for the current user ─────────────────── */
@@ -96,6 +98,7 @@ const Data = (() => {
           { data: stampCatches },
           { data: links },
           { data: glossary },
+          { data: jrPassLegs },
         ] = await Promise.all([
           SB.from('itinerary_days').select('*').eq('trip_id', tripId).order('day_index'),
           SB.from('stops').select('*').eq('trip_id', tripId).order('sort_order'),
@@ -106,6 +109,7 @@ const Data = (() => {
           SB.from('stamp_catches').select('*, stamp_photos(*)').eq('trip_id', tripId),
           SB.from('custom_links').select('*').eq('trip_id', tripId).order('created_at'),
           SB.from('glossary_terms').select('*').eq('trip_id', tripId),
+          SB.from('jr_pass_legs').select('*').eq('trip_id', tripId).order('sort_order'),
         ]);
 
         DAYS       = days || [];
@@ -113,6 +117,7 @@ const Data = (() => {
         EXPENSES   = expenses || [];
         PACKING    = packing || [];
         CUSTOM_LINKS = links || [];
+        JR_PASS_LEGS = jrPassLegs || [];
 
         // Build overnight lookup by day_id
         OVERNIGHTS = {};
@@ -158,6 +163,7 @@ const Data = (() => {
           DB.setMeta(CACHE_KEYS.dex,       DEX_CATCHES),
           DB.setMeta(CACHE_KEYS.links,     CUSTOM_LINKS),
           DB.setMeta(CACHE_KEYS.glossary,  GLOSSARY_TERMS),
+          DB.setMeta(CACHE_KEYS.jrPassLegs, JR_PASS_LEGS),
         ]);
 
         console.log('[Data] Loaded from Supabase:', DAYS.length, 'days,', STOPS.length, 'stops');
@@ -183,6 +189,7 @@ const Data = (() => {
     DEX_CATCHES  = await DB.getMeta(CACHE_KEYS.dex)      || {};
     CUSTOM_LINKS = await DB.getMeta(CACHE_KEYS.links)    || [];
     GLOSSARY_TERMS = await DB.getMeta(CACHE_KEYS.glossary) || {};
+    JR_PASS_LEGS = await DB.getMeta(CACHE_KEYS.jrPassLegs) || [];
     console.log('[Data] Loaded from cache:', DAYS.length, 'days');
   }
 
@@ -1157,6 +1164,92 @@ const Data = (() => {
     await DB.setMeta(CACHE_KEYS.links, CUSTOM_LINKS);
   }
 
+  /* ── JR PASS LEGS API ─────────────────────────────────────
+     Each leg is a booked seat reservation for a specific train,
+     optionally tied to an itinerary day (shows under that day too). */
+  function getJrPassLegs() {
+    return JR_PASS_LEGS
+      .map(l => ({
+        id:            l.id,
+        dayId:         l.day_id || null,
+        sortOrder:     l.sort_order || 0,
+        fromStation:   l.from_station,
+        toStation:     l.to_station,
+        trainName:     l.train_name || '',
+        trainNo:       l.train_no || '',
+        departTime:    l.depart_time || '',
+        arriveTime:    l.arrive_time || '',
+        duration:      l.duration || '',
+        seatRequired:  l.seat_required !== false,
+        notes:         l.notes || '',
+      }))
+      .sort((a, b) => {
+        const dayA = DAYS.findIndex(d => d.id === a.dayId);
+        const dayB = DAYS.findIndex(d => d.id === b.dayId);
+        if (dayA !== dayB) return dayA - dayB;
+        return a.sortOrder - b.sortOrder;
+      });
+  }
+
+  function getJrPassLegsForDay(dayId) {
+    return getJrPassLegs().filter(l => l.dayId === dayId);
+  }
+
+  async function addJrPassLeg(leg) {
+    const newLeg = {
+      trip_id:       CURRENT_TRIP.id,
+      day_id:        leg.dayId || null,
+      sort_order:    JR_PASS_LEGS.length,
+      from_station:  leg.fromStation,
+      to_station:    leg.toStation,
+      train_name:    leg.trainName || null,
+      train_no:      leg.trainNo || null,
+      depart_time:   leg.departTime || null,
+      arrive_time:   leg.arriveTime || null,
+      duration:      leg.duration || null,
+      seat_required: leg.seatRequired !== false,
+      notes:         leg.notes || null,
+    };
+    if (navigator.onLine) {
+      const user = (await SB.auth.getUser()).data.user;
+      const { data, error } = await SB.from('jr_pass_legs')
+        .insert({ ...newLeg, created_by: user?.id }).select().single();
+      if (error) { console.error('[Data] addJrPassLeg error:', error); throw error; }
+      JR_PASS_LEGS.push(data);
+    } else {
+      JR_PASS_LEGS.push({ ...newLeg, id: 'local_' + Date.now() });
+    }
+    await DB.setMeta(CACHE_KEYS.jrPassLegs, JR_PASS_LEGS);
+  }
+
+  async function updateJrPassLeg(id, changes) {
+    const idx = JR_PASS_LEGS.findIndex(l => l.id === id);
+    if (idx < 0) return;
+    const patch = {};
+    if ('dayId'        in changes) patch.day_id        = changes.dayId || null;
+    if ('fromStation'  in changes) patch.from_station  = changes.fromStation;
+    if ('toStation'    in changes) patch.to_station    = changes.toStation;
+    if ('trainName'    in changes) patch.train_name    = changes.trainName || null;
+    if ('trainNo'      in changes) patch.train_no      = changes.trainNo || null;
+    if ('departTime'   in changes) patch.depart_time   = changes.departTime || null;
+    if ('arriveTime'   in changes) patch.arrive_time   = changes.arriveTime || null;
+    if ('duration'     in changes) patch.duration      = changes.duration || null;
+    if ('seatRequired' in changes) patch.seat_required = changes.seatRequired !== false;
+    if ('notes'        in changes) patch.notes         = changes.notes || null;
+    Object.assign(JR_PASS_LEGS[idx], patch);
+    if (navigator.onLine) {
+      const { error } = await SB.from('jr_pass_legs').update(patch).eq('id', id);
+      if (error) console.error('[Data] updateJrPassLeg error:', error);
+    }
+    await DB.setMeta(CACHE_KEYS.jrPassLegs, JR_PASS_LEGS);
+  }
+
+  async function deleteJrPassLeg(id) {
+    JR_PASS_LEGS = JR_PASS_LEGS.filter(l => l.id !== id);
+    if (navigator.onLine) await SB.from('jr_pass_legs').delete().eq('id', id);
+    await DB.setMeta(CACHE_KEYS.jrPassLegs, JR_PASS_LEGS);
+  }
+
   async function createTrip({ name, startDate, endDate, countries, coverEmoji, currency }) {
     const user = (await SB.auth.getUser()).data.user;
     if (!user) throw new Error('Not signed in');
@@ -1318,6 +1411,7 @@ const Data = (() => {
     hasStory, getStory, getGlossary,
     // Links
     getCustomLinks, addCustomLink, updateCustomLink, deleteCustomLink, setCustomLinks,
+    getJrPassLegs, getJrPassLegsForDay, addJrPassLeg, updateJrPassLeg, deleteJrPassLeg,
     applyTripTheme,
     // Trips
     getTrips, getCurrentTrip, switchTrip, createTrip, updateTripDetails, getTripCurrency, deleteTrip,
