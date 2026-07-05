@@ -334,8 +334,26 @@ const BookingsScreen = (() => {
             </div>
             <button class="expense-edit" style="background:none;border:1.5px solid var(--border);border-radius:var(--r-sm);padding:3px 9px;font-size:var(--text-xs);cursor:pointer;font-family:var(--font);color:var(--text-secondary);flex-shrink:0">Edit</button>
             <button class="expense-del">×</button>`;
-          row.querySelector('.expense-del').addEventListener('click', async e => {
-            e.stopPropagation(); await Data.deleteExpense(exp.id); Toast.show('Removed','info'); render();
+          let expDelArmed = false, expDelTimer = null;
+          const expDelBtn = row.querySelector('.expense-del');
+          expDelBtn.addEventListener('click', async e => {
+            e.stopPropagation();
+            if (!expDelArmed) {
+              expDelArmed = true;
+              expDelBtn.textContent = '✓';
+              expDelBtn.style.background = 'var(--danger-text)';
+              expDelBtn.style.color = '#fff';
+              expDelBtn.title = 'Tap again to confirm delete';
+              expDelTimer = setTimeout(() => {
+                expDelArmed = false;
+                expDelBtn.textContent = '×';
+                expDelBtn.style.background = '';
+                expDelBtn.style.color = '';
+              }, 3000);
+              return;
+            }
+            clearTimeout(expDelTimer);
+            await Data.deleteExpense(exp.id); Toast.show('Removed','info'); render();
           });
 
           // Inline edit form
@@ -414,7 +432,26 @@ const BookingsScreen = (() => {
           <button class="packing-tag packing-essential-toggle" style="border:none;cursor:pointer;${item.essential?'':'opacity:.35'}">Essential</button>
           <button class="packing-del">×</button>`;
         row.querySelector('input').addEventListener('change', async e => { await Data.togglePacking(item.id,e.target.checked); render(); });
-        row.querySelector('.packing-del').addEventListener('click', async () => { await Data.deletePacking(item.id); render(); });
+        let delArmed = false, delTimer = null;
+        const delBtn = row.querySelector('.packing-del');
+        delBtn.addEventListener('click', async () => {
+          if (!delArmed) {
+            delArmed = true;
+            delBtn.textContent = '✓';
+            delBtn.style.background = 'var(--danger-text)';
+            delBtn.style.color = '#fff';
+            delBtn.title = 'Tap again to confirm delete';
+            delTimer = setTimeout(() => {
+              delArmed = false;
+              delBtn.textContent = '×';
+              delBtn.style.background = '';
+              delBtn.style.color = '';
+            }, 3000);
+            return;
+          }
+          clearTimeout(delTimer);
+          await Data.deletePacking(item.id); render();
+        });
         row.querySelector('.packing-essential-toggle').addEventListener('click', async () => {
           await Data.updatePackingItem(item.id, { essential: !item.essential });
           render();
