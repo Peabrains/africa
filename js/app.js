@@ -118,11 +118,8 @@ const App = (() => {
         ? 'First flight: ' + firstFlight.name + (firstFlight.time ? ' at ' + firstFlight.time : '')
         : 'Tomorrow: ' + day.title;
 
-      // Parse date label e.g. "Mon 1 Sep" → use trip year
-      const parts = day.date.match(/(\d+)\s+(\w+)/);
-      if (!parts) return;
-      const tripYear = new Date(Config.TRIP_DATE).getFullYear();
-      const dayDate  = new Date(parts[1] + ' ' + parts[2] + ' ' + tripYear);
+      // day.date is a real ISO date (YYYY-MM-DD) from Supabase
+      const dayDate = new Date(day.date + 'T00:00:00');
       if (isNaN(dayDate.getTime())) return;
 
       const reminderTime = dayDate.getTime() - (10 * 60 * 60 * 1000); // 10hrs before = eve prior
