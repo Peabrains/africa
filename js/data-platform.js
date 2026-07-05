@@ -202,7 +202,7 @@ const Data = (() => {
       // camelCase aliases for snake_case Supabase columns
       dayId:         s.day_id,
       segment:       parentDay?.segment || null,   // country/segment lives on the day, not the stop
-      timeZone:      s.timezone || 'EAT',
+      timeZone:      s.timezone || (CURRENT_TRIP?.currency === 'JPY' ? 'JST' : 'EAT'),
       transportType: s.transport_type || 'walk',
       needsBooking:  s.needs_booking || false,
       isBooked:      s.is_booked || false,
@@ -262,7 +262,7 @@ const Data = (() => {
       name:           stop.name,
       activity:       stop.activity || '',
       time:           stop.time || '',
-      timezone:       stop.timeZone || 'EAT',
+      timezone:       stop.timeZone || (CURRENT_TRIP?.currency === 'JPY' ? 'JST' : 'EAT'),
       transport:      stop.transport || '',
       transport_type: stop.transportType || 'walk',
       notes:          stop.notes || '',
