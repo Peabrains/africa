@@ -187,6 +187,12 @@ const ItineraryScreen = (() => {
         </div>
         <p class="tl-activity">${stop.activity || ''}</p>
         ${stop.transport ? `<div class="tl-transport"> ${Icons[iconKey]?Icons[iconKey]('icon-sm'):''}<span>${stop.transport}</span></div>` : ''}
+        ${stop.transportType === 'train' && stop.trainDetail?.jrPass === false
+          ? '<p class="tl-note" style="color:var(--warning-text)">⚠ Not on JR Pass · buy separately</p>'
+          : stop.transportType === 'train' && stop.trainDetail?.seatReservation
+            ? '<p class="tl-note" style="color:var(--success-text)">JR Pass ✓</p>' : ''}
+        ${stop.transportType === 'train' && stop.trainDetail?.platform
+          ? `<p class="tl-note">Platform: ${stop.trainDetail.platform}</p>` : ''}
         ${stop.isRetimed ? `<p class="tl-note" style="color:var(--danger-text)">
           <span style="text-decoration:line-through;opacity:.6">${stop.originalDepartTime}</span> → <strong>${stop.departTime}</strong>
           ${stop.lastCheckedAt ? ` · Checked ${timeSinceLabel(stop.lastCheckedAt)}` : ''}
@@ -199,6 +205,7 @@ const ItineraryScreen = (() => {
           ${stop.category==='transport' ? '<span class="cat-chip cat-chip--transport">Transport</span>' :
             stop.category==='activity'  ? '<span class="cat-chip cat-chip--activity">Activity</span>'  : ''}
           ${stop.booking.cost ? `<span class="cat-chip cat-chip--activity">USD ${stop.booking.cost.toLocaleString()}</span>` : ''}
+          ${stop.transportType === 'train' && stop.trainDetail?.seatReservation ? '<span class="cat-chip cat-chip--jr">Seat res.</span>' : ''}
         </div>
       </div>`;
     row.addEventListener('click', () => BottomSheet.openStop(stop, day));
@@ -411,22 +418,6 @@ const ItineraryScreen = (() => {
         if (accom) root.appendChild(accom);
 
         root.appendChild(addStopBtn(day.id));
-
-        // JR Pass seat reservations for this day
-        const dayLegs = (Data.getJrPassLegsForDay?.(day.id)) || [];
-        if (dayLegs.length) {
-          const jrWrap = document.createElement('div');
-          jrWrap.style.cssText = 'background:var(--accent-subtle);border:1.5px solid var(--accent);border-radius:var(--r-lg);padding:var(--s3);margin:var(--s2) 0';
-          jrWrap.innerHTML = '<p style="font-size:var(--text-xs);font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin-bottom:var(--s2)">🚄 JR Pass Seat Reservations</p>'
-            + dayLegs.map(leg => `
-              <div style="padding:6px 0">
-                <p style="font-weight:500;font-size:var(--text-sm);color:var(--text-primary)">${leg.fromStation} → ${leg.toStation}</p>
-                ${leg.trainName ? `<p style="font-size:var(--text-xs);color:var(--text-muted)">${leg.trainName}</p>` : ''}
-                ${(leg.departTime || leg.arriveTime) ? `<p style="font-size:var(--text-xs);color:var(--text-secondary)">Depart: ${leg.departTime || '—'} · Arrive: ${leg.arriveTime || '—'}${leg.duration ? ' · ' + leg.duration : ''}</p>` : ''}
-                ${leg.seatRequired ? `<p style="font-size:var(--text-xs);color:var(--success-text)">JR Pass ✓ · Seat reservation required</p>` : ''}
-              </div>`).join('');
-          root.appendChild(jrWrap);
-        }
 
         // Custom links for this day
         const dayLinks = (Data.getCustomLinks?.() || []).filter(l => l.dayId === day.id);
