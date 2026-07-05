@@ -303,8 +303,8 @@ const ItineraryScreen = (() => {
     const p = document.createElement('p');
     p.style.cssText = 'font-size:var(--text-sm);color:var(--text-secondary);line-height:1.65;margin-bottom:var(--s3)';
 
-    // Tokens: [[glossary term]], **bold**, [link text](https://...)
-    const parts = text.split(/(\[\[.*?\]\]|\*\*.*?\*\*|\[[^\]]+\]\([^)]+\))/g);
+    // Tokens: [[glossary term]], **bold**, *italic*, [link text](https://...)
+    const parts = text.split(/(\[\[.*?\]\]|\*\*.*?\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\))/g);
     parts.forEach(part => {
       if (!part) return;
 
@@ -325,6 +325,14 @@ const ItineraryScreen = (() => {
         strong.textContent = match[1];
         strong.style.fontWeight = '600';
         p.appendChild(strong);
+        return;
+      }
+
+      match = part.match(/^\*([^*]+)\*$/);
+      if (match) {
+        const em = document.createElement('em');
+        em.textContent = match[1];
+        p.appendChild(em);
         return;
       }
 
