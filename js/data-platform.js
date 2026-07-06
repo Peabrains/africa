@@ -20,6 +20,8 @@ const Data = (() => {
   let STAMP_CATCHES = {};     // keyed by stop_id (Pilgrim Stamps — Japan trip)
   let STAMP_PHOTO_META = {};  // keyed by photo id -> { storage_path }
   let DEX_PHOTO_META = {};    // keyed by photo id -> { storage_path }, for photos synced from other devices
+  let FOOD_CATCHES    = {};   // keyed by dish_id (Thailand food tracker)
+  let FOOD_PHOTO_META = {};
   let CUSTOM_LINKS  = [];
   let GLOSSARY_TERMS = {};    // keyed by term (lowercase)
   let TRAVELERS     = ['Traveler'];
@@ -33,6 +35,7 @@ const Data = (() => {
     expenses: 'sb_expenses',
     packing:  'sb_packing',
     dex:      'sb_dex',
+    food:     'sb_food',
     glossary: 'sb_glossary',
     links:    'sb_links',
   };
@@ -96,6 +99,7 @@ const Data = (() => {
           { data: stampCatches },
           { data: links },
           { data: glossary },
+          { data: foodCatches },
         ] = await Promise.all([
           SB.from('itinerary_days').select('*').eq('trip_id', tripId).order('day_index'),
           SB.from('stops').select('*').eq('trip_id', tripId).order('sort_order'),
@@ -106,6 +110,7 @@ const Data = (() => {
           SB.from('stamp_catches').select('*, stamp_photos(*)').eq('trip_id', tripId),
           SB.from('custom_links').select('*').eq('trip_id', tripId).order('created_at'),
           SB.from('glossary_terms').select('*').eq('trip_id', tripId),
+          SB.from('food_catches').select('*, food_photos(*)').eq('trip_id', tripId),
         ]);
 
         DAYS       = days || [];
@@ -128,6 +133,19 @@ const Data = (() => {
           };
           (c.dex_photos || []).forEach(p => {
             DEX_PHOTO_META[p.id] = { storage_path: p.storage_path };
+          });
+        });
+
+        // Build food catches lookup by dish_id (Thailand food tracker)
+        FOOD_CATCHES = {};
+        FOOD_PHOTO_META = {};
+        (foodCatches || []).forEach(c => {
+          FOOD_CATCHES[c.dish_id] = {
+            ...c,
+            photoIds: (c.food_photos || []).map(p => p.id),
+          };
+          (c.food_photos || []).forEach(p => {
+            FOOD_PHOTO_META[p.id] = { storage_path: p.storage_path };
           });
         });
 
@@ -156,6 +174,7 @@ const Data = (() => {
           DB.setMeta(CACHE_KEYS.expenses,  EXPENSES),
           DB.setMeta(CACHE_KEYS.packing,   PACKING),
           DB.setMeta(CACHE_KEYS.dex,       DEX_CATCHES),
+          DB.setMeta(CACHE_KEYS.food,      FOOD_CATCHES),
           DB.setMeta(CACHE_KEYS.links,     CUSTOM_LINKS),
           DB.setMeta(CACHE_KEYS.glossary,  GLOSSARY_TERMS),
         ]);
@@ -181,6 +200,7 @@ const Data = (() => {
     EXPENSES     = await DB.getMeta(CACHE_KEYS.expenses) || [];
     PACKING      = await DB.getMeta(CACHE_KEYS.packing)  || [];
     DEX_CATCHES  = await DB.getMeta(CACHE_KEYS.dex)      || {};
+    FOOD_CATCHES = await DB.getMeta(CACHE_KEYS.food)     || {};
     CUSTOM_LINKS = await DB.getMeta(CACHE_KEYS.links)    || [];
     GLOSSARY_TERMS = await DB.getMeta(CACHE_KEYS.glossary) || {};
     console.log('[Data] Loaded from cache:', DAYS.length, 'days');
@@ -999,6 +1019,139 @@ const Data = (() => {
     return null;
   }
 
+  /* ── FOOD API (Thailand dish tracker) ───────────────────────
+     Same shape as Dex — a static catalog of dishes to look out for,
+     tracked against a Supabase table, with optional photos per catch. */
+  const DISHES = [
+    {id:'pad_thai',      name:'Pad Thai',            tier:'common',    emoji:'🍜', star:true,  fact:'Stir-fried rice noodles with tamarind, fish sauce, egg and peanuts — became Thailand\'s national dish after a 1930s government campaign.'},
+    {id:'tom_yum_goong', name:'Tom Yum Goong',       tier:'common',    emoji:'🍲', star:true,  fact:'Hot-and-sour prawn soup with lemongrass, galangal, kaffir lime leaf and chilli — one of the most iconic flavours of Thai cooking.'},
+    {id:'green_curry',   name:'Green Curry (Gaeng Keow Wan)', tier:'common', emoji:'🍛', star:true, fact:'Named for the color of its curry paste — fresh green chillies, not age, give it the heat and hue.'},
+    {id:'mango_rice',    name:'Mango Sticky Rice',   tier:'common',    emoji:'🥭', star:true,  fact:'Sweet coconut-milk sticky rice paired with ripe mango — best from March to June, peak mango season.'},
+    {id:'som_tam',       name:'Som Tam (Papaya Salad)', tier:'common', emoji:'🥗', star:true,  fact:'Pounded green papaya, chilli, lime and fish sauce — originated in Thailand\'s northeastern Isaan region.'},
+    {id:'massaman',      name:'Massaman Curry',      tier:'rare',      emoji:'🍖', star:false, fact:'A rich, mild curry with Persian and Indian roots via old trade routes — often called one of the world\'s best dishes.'},
+    {id:'khao_soi',      name:'Khao Soi',            tier:'rare',      emoji:'🍥', star:false, fact:'A Northern Thai curry noodle soup topped with crispy noodles — a Chiang Mai specialty.'},
+    {id:'satay',         name:'Moo/Gai Satay',       tier:'common',    emoji:'🍢', star:false, fact:'Grilled skewered pork or chicken with peanut sauce — a classic street-food staple.'},
+    {id:'pad_krapow',    name:'Pad Kra Pao',         tier:'common',    emoji:'🌶️', star:false, fact:'Stir-fried holy basil with minced meat and chilli, usually topped with a fried egg — Thailand\'s everyday lunch order.'},
+    {id:'boat_noodles',  name:'Boat Noodles',        tier:'rare',      emoji:'🍜', star:false, fact:'Originally sold from boats along Bangkok\'s canals — intensely flavoured broth traditionally served in small bowls so you order many rounds.'},
+    {id:'mango_sticky_durian', name:'Durian',        tier:'legendary', emoji:'🟡', star:false, fact:'The "king of fruits" — banned from many hotels and public transport in Thailand because of its intense smell.'},
+    {id:'thai_iced_tea', name:'Thai Iced Tea (Cha Yen)', tier:'common', emoji:'🧋', star:false, fact:'Strongly brewed black tea with condensed milk, colored with orange food dye — a street-stall staple.'},
+    {id:'khanom_krok',   name:'Khanom Krok',         tier:'rare',      emoji:'🥥', star:false, fact:'Bite-size coconut-rice pancakes cooked in a special cast-iron mold — crispy edges, creamy center.'},
+    {id:'larb',          name:'Larb',                tier:'rare',      emoji:'🥬', star:false, fact:'A minced-meat salad with roasted rice powder, lime and herbs — another Isaan classic, often fiery hot.'},
+    {id:'roti_thai',     name:'Roti (Sweet)',        tier:'common',    emoji:'🥞', star:false, fact:'Crispy pan-fried flatbread folded around banana and condensed milk — a beloved night-market dessert.'},
+    {id:'sticky_bbq',    name:'Moo Ping (Grilled Pork Skewers)', tier:'common', emoji:'🍡', star:false, fact:'Marinated grilled pork skewers sold from carts everywhere — the smell alone will pull you off the street.'},
+    {id:'crab_curry',    name:'Poo Pad Pong Curry',  tier:'legendary', emoji:'🦀', star:false, fact:'Stir-fried crab in a golden curry-egg sauce — invented in Bangkok in the 1950s and now a special-occasion classic.'},
+    {id:'mangosteen',    name:'Mangosteen',          tier:'rare',      emoji:'🟣', star:false, fact:'Called the "queen of fruits" — its sweet-tart white flesh is often eaten to balance out durian\'s intensity.'},
+  ];
+
+  function getDishes()      { return DISHES; }
+  function getDish(id)      { return DISHES.find(d => d.id === id); }
+  function getFoodState()   { return FOOD_CATCHES; }
+  function isDishCaught(id) { return !!FOOD_CATCHES[id]; }
+
+  function getFoodProgress() {
+    const caught     = DISHES.filter(d => FOOD_CATCHES[d.id]);
+    const starred    = DISHES.filter(d => d.star);
+    const starCaught = starred.filter(d => FOOD_CATCHES[d.id]);
+    return {
+      total: DISHES.length, caught: caught.length,
+      starTotal: starred.length, starCaught: starCaught.length,
+      starComplete: starCaught.length === starred.length,
+    };
+  }
+
+  async function markDishCaught(dishId, { note = '', dayId = null } = {}) {
+    const entry = {
+      trip_id: CURRENT_TRIP.id,
+      dish_id: dishId,
+      note,
+      day_label: dayId,
+    };
+
+    FOOD_CATCHES[dishId] = { ...entry, photoIds: [], caught_at: new Date().toISOString() };
+
+    if (navigator.onLine) {
+      const user = (await SB.auth.getUser()).data.user;
+      const { data, error } = await SB.from('food_catches')
+        .insert({ ...entry, user_id: user?.id })
+        .select().single();
+      if (!error && data) {
+        FOOD_CATCHES[dishId] = { ...data, photoIds: [] };
+      }
+    }
+    await DB.setMeta(CACHE_KEYS.food, FOOD_CATCHES);
+    return FOOD_CATCHES[dishId];
+  }
+
+  async function unmarkDishCaught(dishId) {
+    const catchId = FOOD_CATCHES[dishId]?.id;
+    delete FOOD_CATCHES[dishId];
+    if (navigator.onLine && catchId) {
+      await SB.from('food_catches').delete().eq('id', catchId);
+    }
+    await DB.setMeta(CACHE_KEYS.food, FOOD_CATCHES);
+  }
+
+  async function addFoodPhoto(dishId, fileDataUrl) {
+    if (!FOOD_CATCHES[dishId]) await markDishCaught(dishId, {});
+    const photoId = 'food_ph_' + Date.now();
+
+    await DB.saveDexPhoto(photoId, fileDataUrl); // shared local photo store, distinct id prefix avoids collisions
+    if (!FOOD_CATCHES[dishId].photoIds) FOOD_CATCHES[dishId].photoIds = [];
+    FOOD_CATCHES[dishId].photoIds.push(photoId);
+    await DB.setMeta(CACHE_KEYS.food, FOOD_CATCHES);
+
+    if (navigator.onLine && CURRENT_TRIP) {
+      try {
+        const blob = await (await fetch(fileDataUrl)).blob();
+        const storagePath = `${CURRENT_TRIP.id}/${photoId}.jpg`;
+        const { error: upErr } = await SB.storage.from('food-photos')
+          .upload(storagePath, blob, { contentType: 'image/jpeg', upsert: true });
+        if (!upErr) {
+          const catchId = FOOD_CATCHES[dishId].id;
+          await SB.from('food_photos').insert({
+            trip_id: CURRENT_TRIP.id,
+            catch_id: catchId,
+            dish_id: dishId,
+            storage_path: storagePath,
+          });
+          FOOD_PHOTO_META[photoId] = { storage_path: storagePath };
+        } else {
+          console.error('[Data] food photo upload error:', upErr);
+        }
+      } catch (e) {
+        console.error('[Data] food photo sync error:', e);
+      }
+    }
+
+    return photoId;
+  }
+
+  async function removeFoodPhoto(dishId, photoId) {
+    if (!FOOD_CATCHES[dishId]) return;
+    FOOD_CATCHES[dishId].photoIds = (FOOD_CATCHES[dishId].photoIds || []).filter(id => id !== photoId);
+    await DB.deleteDexPhoto(photoId);
+    await DB.setMeta(CACHE_KEYS.food, FOOD_CATCHES);
+
+    const storagePath = FOOD_PHOTO_META[photoId]?.storage_path;
+    if (navigator.onLine && storagePath) {
+      await SB.storage.from('food-photos').remove([storagePath]);
+      await SB.from('food_photos').delete().eq('storage_path', storagePath);
+      delete FOOD_PHOTO_META[photoId];
+    }
+  }
+
+  async function getFoodPhoto(photoId) {
+    const local = await DB.loadDexPhoto(photoId);
+    if (local) return local;
+
+    const storagePath = FOOD_PHOTO_META[photoId]?.storage_path;
+    if (storagePath && navigator.onLine) {
+      const { data, error } = await SB.storage.from('food-photos').createSignedUrl(storagePath, 3600);
+      if (!error && data?.signedUrl) return data.signedUrl;
+    }
+    return null;
+  }
+
   /* ── PILGRIM STAMPS API (Japan trip — mirrors Dex exactly) ── */
   function getStampStops() {
     return STOPS
@@ -1385,6 +1538,8 @@ const Data = (() => {
     // Dex
     getAnimals, getAnimal, getDexState, setDexState, isCaught, getDexProgress,
     markCaught, unmarkCaught, addDexPhoto, removeDexPhoto, getDexPhoto,
+    getDishes, getDish, getFoodState, isDishCaught, getFoodProgress,
+    markDishCaught, unmarkDishCaught, addFoodPhoto, removeFoodPhoto, getFoodPhoto,
     getStampStops, getStampState, isStampCollected, getStampProgress,
     markStampCollected, unmarkStampCollected, addStampPhoto, removeStampPhoto, getStampPhoto,
     // Stories + Glossary
