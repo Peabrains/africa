@@ -6,6 +6,7 @@ const App = (() => {
     map:       () => window.MapScreen,
     dex:       () => window.DexScreen,
     stamps:    () => window.StampsScreen,
+    food:      () => window.FoodScreen,
     bookings:  () => window.BookingsScreen,
     sos:       () => window.SOSScreen,
     landing:   () => window.LandingScreen,
@@ -230,11 +231,13 @@ const App = (() => {
     } catch(e) { dbg('Data.init ✗ ' + e.message, '#f66'); }
 
     // Third nav slot is trip-specific: Dex for the Africa trip, Pilgrim
-    // Stamps for the Japan trip. Any other (e.g. a newly created) trip
-    // gets a blank slot rather than guessing — nothing to show yet.
+    // Stamps for the Japan trip, Food Passport for the Thailand trip. Any
+    // other (e.g. a newly created) trip gets a blank slot rather than
+    // guessing — nothing to show yet.
     try {
-      const AFRICA_TRIP_ID = '83891de6-44ee-4ec2-bb95-6726cbd8c370';
-      const JAPAN_TRIP_ID  = '91a41e0d-f247-4d89-ba15-02f0994a16c8';
+      const AFRICA_TRIP_ID   = '83891de6-44ee-4ec2-bb95-6726cbd8c370';
+      const JAPAN_TRIP_ID    = '91a41e0d-f247-4d89-ba15-02f0994a16c8';
+      const THAILAND_TRIP_ID = '2b3c82f2-040f-4f2a-9d01-579129d1203b';
       const tripId = Data.getCurrentTrip?.()?.id;
       const navBtns = document.querySelectorAll('.nav-btn');
       const thirdBtn = navBtns[2];
@@ -247,6 +250,10 @@ const App = (() => {
           thirdBtn.style.display = '';
           thirdBtn.dataset.screen = 'dex';
           thirdBtn.innerHTML = `${Icons.star('icon-lg')}<span>Dex</span>`;
+        } else if (tripId === THAILAND_TRIP_ID) {
+          thirdBtn.style.display = '';
+          thirdBtn.dataset.screen = 'food';
+          thirdBtn.innerHTML = `${Icons.star('icon-lg')}<span>Food</span>`;
         } else {
           thirdBtn.style.display = 'none';
           thirdBtn.dataset.screen = '';
