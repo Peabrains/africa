@@ -94,7 +94,8 @@ const App = (() => {
     if (!cEl) return;
     cEl.style.display = '';
     const today  = new Date(); today.setHours(0,0,0,0);
-    const startDate = Data.getCurrentTrip?.()?.start_date;
+    const days = Data.getDays?.() || [];
+    const startDate = (days[0] && days[0].date) || Data.getCurrentTrip?.()?.start_date;
     const depart = startDate ? new Date(startDate + 'T00:00:00') : null;
     if (!depart || isNaN(depart.getTime())) { cEl.style.display = 'none'; return; }
     const diff   = Math.ceil((depart - today) / 864e5);
@@ -102,6 +103,44 @@ const App = (() => {
     else if (diff === 1) cEl.textContent = 'Departing tomorrow! \uD83C\uDF0D';
     else if (diff === 0) cEl.textContent = 'Departure day! \u2708\uFE0F';
     else                 cEl.style.display = 'none';
+  }
+
+  /* ── Header subtitle: "31 Aug – 17 Sep · Kumano Kodo · Nagano · ..." ──
+     Derived live from itinerary days, never hardcoded. Hidden entirely
+     when the trip has no days yet (nothing sensible to show). */
+  const SEGMENT_LABELS = {
+    tanzania: 'Tanzania', kenya: 'Kenya', uganda: 'Uganda',
+    kumano: 'Kumano Kodo', nagano: 'Nagano', alpine: 'Alpine Route', osaka: 'Osaka',
+    japan: 'Japan',
+  };
+
+  function formatShortDate(iso) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+    if (!m) return '';
+    const [, y, mo, d] = m;
+    const dt = new Date(Number(y), Number(mo) - 1, Number(d));
+    return `${Number(d)} ${dt.toLocaleDateString('en-US', { month: 'short' })}`;
+  }
+
+  function renderHeaderSub() {
+    const el = document.querySelector('.header-sub');
+    if (!el) return;
+    const days = Data.getDays?.() || [];
+    if (!days.length) { el.style.display = 'none'; return; }
+    el.style.display = '';
+
+    const dates = days.map(d => d.date).filter(Boolean).sort();
+    const range = dates.length ? `${formatShortDate(dates[0])} – ${formatShortDate(dates[dates.length - 1])}` : '';
+
+    const locations = [];
+    days.forEach(d => {
+      const seg = d.segment;
+      if (!seg || seg === 'transit' || locations.includes(seg)) return;
+      locations.push(seg);
+    });
+    const locText = locations.map(s => SEGMENT_LABELS[s] || (s.charAt(0).toUpperCase() + s.slice(1))).join(' · ');
+
+    el.textContent = [range, locText].filter(Boolean).join(' · ');
   }
 
   /* ── Day-before push notifications ──────────────────────────── */
@@ -227,6 +266,9 @@ const App = (() => {
 
     try { renderCountdown(); dbg('renderCountdown ✓'); } 
     catch(e) { dbg('renderCountdown ✗ ' + e.message, '#f66'); }
+
+    try { renderHeaderSub(); dbg('renderHeaderSub ✓'); }
+    catch(e) { dbg('renderHeaderSub ✗ ' + e.message, '#f66'); }
 
     try {
       const tnEl = document.getElementById('header-trip-name-text');
