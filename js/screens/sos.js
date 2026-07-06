@@ -489,12 +489,60 @@ const SOSScreen = (() => {
     },
   ];
 
+  const THAI_PHRASE_GROUPS = [
+    {
+      title: 'Greetings & politeness', icon: '🙏',
+      items: [
+        {en:'Hello',            local:'สวัสดี',        rom:'Sawasdee — add "khrap" (m) or "kha" (f) at the end'},
+        {en:'Thank you',        local:'ขอบคุณ',        rom:'Khob khun (khrap/kha)'},
+        {en:'Yes',              local:'ใช่',           rom:'Chai'},
+        {en:'No',               local:'ไม่ใช่',        rom:'Mai chai'},
+        {en:'Excuse me / Sorry',local:'ขอโทษ',         rom:'Khor thot'},
+        {en:'No problem',       local:'ไม่เป็นไร',     rom:'Mai pen rai — also "it\'s all good, don\'t worry"'},
+      ]
+    },
+    {
+      title: 'Food & ordering', icon: '🍜',
+      items: [
+        {en:'Delicious!',            local:'อร่อย',          rom:'Aroi'},
+        {en:'Not spicy, please',     local:'ไม่เผ็ด',        rom:'Mai phet'},
+        {en:'A little spicy',        local:'เผ็ดนิดหน่อย',    rom:'Phet nit noi'},
+        {en:'No coriander please',   local:'ไม่ใส่ผักชี',     rom:'Mai sai phak chee'},
+        {en:'Check, please',         local:'เช็คบิล',        rom:'Chek bin'},
+        {en:'How much is this?',     local:'เท่าไหร่',        rom:'Thao rai'},
+        {en:'One more, please',      local:'ขออีกที่',        rom:'Khor eek tee'},
+        {en:'Water, please',         local:'ขอน้ำ',          rom:'Khor nam'},
+      ]
+    },
+    {
+      title: 'Getting around', icon: '🛺',
+      items: [
+        {en:'Where is the bathroom?', local:'ห้องน้ำอยู่ที่ไหน', rom:'Hong nam yu tee nai'},
+        {en:'Go straight',            local:'ตรงไป',            rom:'Trong pai'},
+        {en:'Turn left / right',      local:'เลี้ยวซ้าย / เลี้ยวขวา', rom:'Liew sai / Liew khwa'},
+        {en:'Stop here, please',      local:'จอดตรงนี้',        rom:'Jort trong nee'},
+        {en:'Do you have wifi?',      local:'มีไวไฟไหม',        rom:'Mee wifi mai'},
+      ]
+    },
+    {
+      title: 'Emergency', icon: '🚨',
+      items: [
+        {en:'Help me please',          local:'ช่วยด้วย',         rom:'Chuay duay'},
+        {en:'I need a doctor',         local:'ฉันต้องการหมอ',    rom:'Chan tongkan mor'},
+        {en:'Please call an ambulance',local:'เรียกรถพยาบาล',    rom:'Riak rot phayaban'},
+        {en:'Where is the hospital?',  local:'โรงพยาบาลอยู่ที่ไหน', rom:'Rong phayaban yu tee nai'},
+        {en:'I am allergic to ___',    local:'ฉันแพ้ ___',       rom:'Chan pae ___'},
+      ]
+    },
+  ];
+
   /* ── Kit lookup by trip ID — safe fallback for any future trip
      without an entry (empty state, never silently shows another
      trip's content) ── */
   const KIT_BY_TRIP_ID = {
     '83891de6-44ee-4ec2-bb95-6726cbd8c370': { guideLinks: GUIDE_LINKS, phraseGroups: PHRASE_GROUPS, lang: 'sw', hasContact: true },
     '91a41e0d-f247-4d89-ba15-02f0994a16c8': { guideLinks: JAPAN_GUIDE_LINKS, phraseGroups: JAPAN_PHRASE_GROUPS, lang: 'ja', hasContact: false },
+    '2b3c82f2-040f-4f2a-9d01-579129d1203b': { guideLinks: [], phraseGroups: THAI_PHRASE_GROUPS, lang: 'th', hasContact: false },
   };
   const EMPTY_KIT = { guideLinks: [], phraseGroups: [], lang: 'en', hasContact: false };
 
