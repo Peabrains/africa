@@ -509,6 +509,31 @@ const Data = (() => {
     }
   }
 
+  /* Keep trip.start_date/end_date in sync with the actual itinerary days,
+     so anything reading the trip's own date fields (sorting, fallback UI)
+     never drifts from what's really in the itinerary. No-op if there are
+     no days yet, or if the range hasn't actually changed. */
+  async function syncTripDateRange() {
+    if (!CURRENT_TRIP) return;
+    const dates = DAYS.map(d => d.date).filter(Boolean).sort();
+    if (!dates.length) return;
+    const newStart = dates[0];
+    const newEnd   = dates[dates.length - 1];
+    if (CURRENT_TRIP.start_date === newStart && CURRENT_TRIP.end_date === newEnd) return;
+
+    CURRENT_TRIP.start_date = newStart;
+    CURRENT_TRIP.end_date   = newEnd;
+    const t = TRIPS.find(t => t.id === CURRENT_TRIP.id);
+    if (t) { t.start_date = newStart; t.end_date = newEnd; }
+
+    if (navigator.onLine) {
+      const { error } = await SB.from('trips')
+        .update({ start_date: newStart, end_date: newEnd })
+        .eq('id', CURRENT_TRIP.id);
+      if (error) console.error('[Data] syncTripDateRange error:', error);
+    }
+  }
+
   async function updateDay(dayId, changes) {
     const day = DAYS.find(d => d.id === dayId);
     if (!day) return;
@@ -532,6 +557,7 @@ const Data = (() => {
       if (error) { console.error('[Data] updateDay error:', error); throw error; }
     }
     await DB.setMeta(CACHE_KEYS.days, DAYS);
+    if ('date' in changes) await syncTripDateRange();
   }
 
   async function updateStory(dayId, { title, paragraphs }) {
@@ -588,6 +614,7 @@ const Data = (() => {
     // Renumbering can shift many rows at once — simplest correct approach
     // is to refetch, rather than try to patch every shifted day locally.
     await loadTripData(CURRENT_TRIP.id);
+    await syncTripDateRange();
     return newDayId;
   }
 
@@ -595,6 +622,7 @@ const Data = (() => {
     const { error } = await SB.rpc('delete_itinerary_day', { p_day_id: dayId });
     if (error) { console.error('[Data] deleteDay error:', error); throw error; }
     await loadTripData(CURRENT_TRIP.id);
+    await syncTripDateRange();
   }
 
   /* ── VISITED COUNTRIES (personal showcase, not trip-scoped) ── */
