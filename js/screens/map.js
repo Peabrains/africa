@@ -3,69 +3,20 @@
 const MapScreen = (() => {
   let root, map, markersLayer;
 
-  /* Africa segments → colours matching tokens.css */
-  const SEG_COLOR_AFRICA = {
-    transit:  '#9C9080',
-    tanzania: '#C1440E',
-    kenya:    '#2A7A4B',
-    uganda:   '#7B4EA0',
-  };
-  const SEG_LABEL_AFRICA = {
-    transit:  'Transit',
-    tanzania: '🇹🇿 Tanzania',
-    kenya:    '🇰🇪 Kenya',
-    uganda:   '🇺🇬 Uganda',
-  };
-
-  /* Japan segments — matches the original japan-trip-pwa route sections */
-  const SEG_COLOR_JAPAN = {
-    transit: '#9C9080',
-    kumano:  '#C1440E',
-    nagano:  '#7B4EA0',
-    alpine:  '#2A7A4B',
-    osaka:   '#888888',
-    japan:   '#C1440E',
-  };
-  const SEG_LABEL_JAPAN = {
-    transit: 'Transit',
-    kumano:  '⛩️ Kumano Kodo',
-    nagano:  '🏔️ Nagano',
-    alpine:  '🚡 Alpine Route',
-    osaka:   '🏯 Osaka',
-    japan:   '🗾 Japan',
-  };
-
-  /* Thailand segments */
-  const SEG_COLOR_THAILAND = {
-    transit:   '#9C9080',
-    bangkok:   '#0E7C7B',
-    chiangmai: '#E8A23D',
-    phuket:    '#2E86AB',
-    krabi:     '#C1447E',
-  };
-  const SEG_LABEL_THAILAND = {
-    transit:   'Transit',
-    bangkok:   '🇹🇭 Bangkok',
-    chiangmai: '🏞️ Chiang Mai',
-    phuket:    '🏝️ Phuket',
-    krabi:     '🪨 Krabi',
-  };
-
-  const SEG_MAPS_BY_TRIP = {
-    '83891de6-44ee-4ec2-bb95-6726cbd8c370': { color: SEG_COLOR_AFRICA,   label: SEG_LABEL_AFRICA },
-    '91a41e0d-f247-4d89-ba15-02f0994a16c8': { color: SEG_COLOR_JAPAN,    label: SEG_LABEL_JAPAN },
-    '2b3c82f2-040f-4f2a-9d01-579129d1203b': { color: SEG_COLOR_THAILAND, label: SEG_LABEL_THAILAND },
-  };
-  const FALLBACK_SEG_MAP = { color: { transit: '#9C9080' }, label: { transit: 'Transit' } };
-
-  function segMaps() {
-    const tripId = Data.getCurrentTrip?.()?.id;
-    return SEG_MAPS_BY_TRIP[tripId] || FALLBACK_SEG_MAP;
+  /* Auto-generate a consistent color per locality name — same approach
+     as itinerary.js, so map and itinerary always agree on colors without
+     either needing a maintained per-trip list. */
+  const AUTO_PALETTE = ['#C1440E','#2A7A4B','#7B4EA0','#0E7C7B','#E8A23D','#2E86AB','#C1447E','#B8860B','#4C6B8A','#8E6C4A'];
+  function colorForKey(key) {
+    if (!key || key.toLowerCase() === 'transit') return '#9C9080';
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+    return AUTO_PALETTE[hash % AUTO_PALETTE.length];
   }
 
   /* ── Custom Leaflet marker ──────────────────────────────────── */
   function makeIcon(stop) {
-    const color = segMaps().color[stop.segment] || '#9C9080';
+    const color = colorForKey(stop.locality || stop.segment);
 
     // Background tint based on booking or flight status
     const bg = stop.flightExcluded ? '#FFFBEB'   // gold tint — needs to buy
@@ -97,17 +48,18 @@ const MapScreen = (() => {
     markersLayer = L.layerGroup().addTo(map);
 
     const stops = Data.getStops().filter(s => s.lat && s.lng);
-    const segments = {};
+    const groups = {};
 
     stops.forEach(stop => {
-      if (!segments[stop.segment]) segments[stop.segment] = [];
-      segments[stop.segment].push(stop);
+      const key = stop.locality || stop.segment || 'transit';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(stop);
     });
 
-    // Draw dashed route lines per segment, sorted by day + order
-    Object.entries(segments).forEach(([seg, segStops]) => {
+    // Draw dashed route lines per locality, sorted by day + order
+    Object.entries(groups).forEach(([key, groupStops]) => {
       const dayIds = Data.getDays().map(d => d.id);
-      const sorted = segStops.sort((a,b) => {
+      const sorted = groupStops.sort((a,b) => {
         const da = dayIds.indexOf(a.dayId);
         const db = dayIds.indexOf(b.dayId);
         return da !== db ? da - db : (a.order||0) - (b.order||0);
@@ -115,7 +67,7 @@ const MapScreen = (() => {
 
       if (sorted.length > 1) {
         L.polyline(sorted.map(s => [s.lat, s.lng]), {
-          color:     segMaps().color[seg] || '#9C9080',
+          color:     colorForKey(key),
           weight:    2,
           opacity:   0.45,
           dashArray: '5, 4',
@@ -150,16 +102,18 @@ const MapScreen = (() => {
     const div = document.createElement('div');
     div.className = 'map-legend';
 
-    const { color, label } = segMaps();
-    const usedSegments = new Set(Data.getStops().map(s => s.segment).filter(Boolean));
+    // Distinct localities actually present on this trip, in first-seen order
+    const seen = [];
+    Data.getStops().forEach(s => {
+      const key = s.locality || s.segment;
+      if (key && !seen.includes(key)) seen.push(key);
+    });
 
-    // Segment colours — only ones actually used on this trip
-    Object.keys(label).forEach(seg => {
-      if (!usedSegments.has(seg)) return;
+    seen.forEach(key => {
       div.innerHTML += `
         <div class="map-legend-item">
-          <span class="map-legend-dot" style="background:${color[seg]}"></span>
-          <span>${label[seg]}</span>
+          <span class="map-legend-dot" style="background:${colorForKey(key)}"></span>
+          <span>${key}</span>
         </div>`;
     });
 
