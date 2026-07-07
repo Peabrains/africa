@@ -35,11 +35,32 @@ const MapScreen = (() => {
     japan:   '🗾 Japan',
   };
 
+  /* Thailand segments */
+  const SEG_COLOR_THAILAND = {
+    transit:   '#9C9080',
+    bangkok:   '#0E7C7B',
+    chiangmai: '#E8A23D',
+    phuket:    '#2E86AB',
+    krabi:     '#C1447E',
+  };
+  const SEG_LABEL_THAILAND = {
+    transit:   'Transit',
+    bangkok:   '🇹🇭 Bangkok',
+    chiangmai: '🏞️ Chiang Mai',
+    phuket:    '🏝️ Phuket',
+    krabi:     '🪨 Krabi',
+  };
+
+  const SEG_MAPS_BY_TRIP = {
+    '83891de6-44ee-4ec2-bb95-6726cbd8c370': { color: SEG_COLOR_AFRICA,   label: SEG_LABEL_AFRICA },
+    '91a41e0d-f247-4d89-ba15-02f0994a16c8': { color: SEG_COLOR_JAPAN,    label: SEG_LABEL_JAPAN },
+    '2b3c82f2-040f-4f2a-9d01-579129d1203b': { color: SEG_COLOR_THAILAND, label: SEG_LABEL_THAILAND },
+  };
+  const FALLBACK_SEG_MAP = { color: { transit: '#9C9080' }, label: { transit: 'Transit' } };
+
   function segMaps() {
-    const isJapan = Data.getCurrentTrip?.()?.currency === 'JPY';
-    return isJapan
-      ? { color: SEG_COLOR_JAPAN, label: SEG_LABEL_JAPAN }
-      : { color: SEG_COLOR_AFRICA, label: SEG_LABEL_AFRICA };
+    const tripId = Data.getCurrentTrip?.()?.id;
+    return SEG_MAPS_BY_TRIP[tripId] || FALLBACK_SEG_MAP;
   }
 
   /* ── Custom Leaflet marker ──────────────────────────────────── */
