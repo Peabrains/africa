@@ -161,6 +161,16 @@ const ItineraryScreen = (() => {
     return btn;
   }
 
+  /* ── "+ Add overnight" — shown in place of the overnight card when
+     this day has no accommodation set yet (see overnightCard) ────── */
+  function addOvernightBtn(day) {
+    const btn = document.createElement('button');
+    btn.className = 'add-stop-btn';
+    btn.innerHTML = `${Icons.moon ? Icons.moon('icon-sm') : ''} Add overnight`;
+    btn.addEventListener('click', () => BottomSheet.openOvernight(day));
+    return btn;
+  }
+
   /* ── Stop row ───────────────────────────────────────────────── */
   function stopRow(stop, isLast) {
     const day = Data.getDays().find(d => d.id === stop.dayId);
@@ -450,6 +460,7 @@ const ItineraryScreen = (() => {
 
         const accom = overnightCard(day);
         if (accom) root.appendChild(accom);
+        else root.appendChild(addOvernightBtn(day));
 
         root.appendChild(addStopBtn(day.id));
 
