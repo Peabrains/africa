@@ -487,13 +487,32 @@ const BottomSheet = (() => {
   }
 
   /* ─── Edit day form (segment/country + story) ───────────────── */
-  const SEGMENT_OPTS = [
-    { v:'tanzania', l:'🇹🇿 Tanzania' },
-    { v:'kenya',    l:'🇰🇪 Kenya' },
-    { v:'uganda',   l:'🇺🇬 Uganda' },
-    { v:'japan',    l:'🇯🇵 Japan' },
-    { v:'transit',  l:'✈️ Transit' },
-  ];
+  const SEGMENT_OPTS_BY_TRIP = {
+    '83891de6-44ee-4ec2-bb95-6726cbd8c370': [ // Africa
+      { v:'tanzania', l:'🇹🇿 Tanzania' },
+      { v:'kenya',    l:'🇰🇪 Kenya' },
+      { v:'uganda',   l:'🇺🇬 Uganda' },
+      { v:'transit',  l:'✈️ Transit' },
+    ],
+    '91a41e0d-f247-4d89-ba15-02f0994a16c8': [ // Japan
+      { v:'kumano', l:'⛩️ Kumano Kodo' },
+      { v:'nagano', l:'🏔️ Nagano' },
+      { v:'alpine', l:'🚡 Alpine Route' },
+      { v:'osaka',  l:'🏯 Osaka' },
+      { v:'transit',l:'✈️ Transit' },
+    ],
+    '2b3c82f2-040f-4f2a-9d01-579129d1203b': [ // Thailand
+      { v:'bangkok',   l:'🇹🇭 Bangkok' },
+      { v:'chiangmai', l:'🏞️ Chiang Mai' },
+      { v:'phuket',    l:'🏝️ Phuket' },
+      { v:'krabi',     l:'🪨 Krabi' },
+      { v:'transit',   l:'✈️ Transit' },
+    ],
+  };
+  function segmentOptsForCurrentTrip() {
+    const tripId = Data.getCurrentTrip?.()?.id;
+    return SEGMENT_OPTS_BY_TRIP[tripId] || [{ v:'transit', l:'✈️ Transit' }];
+  }
   function dayHTML(day) {
     const story = Data.getStory(day.id);
     const storyText = story?.paragraphs?.join('\n\n') || '';
@@ -503,7 +522,7 @@ const BottomSheet = (() => {
         <p class="bs-name" style="margin-bottom:var(--s4)">Edit day</p>
         ${field('Title','d-title',day.title||'','text','e.g. Full day Ngorongoro Crater')}
         ${field('Locality','d-locality',day.locality||'','text','e.g. Ngorongoro')}
-        ${select('Country','d-segment',day.segment||'transit',SEGMENT_OPTS)}
+        ${select('Country','d-segment',day.segment||'transit',segmentOptsForCurrentTrip())}
         <p class="bs-section-head" style="margin-top:var(--s3)">Story</p>
         ${field('Story title','d-story-title',story?.title||'','text','e.g. The crater at dawn')}
         ${textarea('Story text','d-story-body',storyText,'Separate paragraphs with a blank line')}
@@ -621,7 +640,7 @@ const BottomSheet = (() => {
         ${field('Date','ad-date','','date')}
         ${field('Title','ad-title','','text','e.g. Free day in Zanzibar')}
         ${field('Locality','ad-locality','','text','e.g. Zanzibar')}
-        ${select('Country','ad-segment','transit',SEGMENT_OPTS)}
+        ${select('Country','ad-segment','transit',segmentOptsForCurrentTrip())}
         <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--s2)">The day slots into the itinerary automatically based on its date — no need to pick a position.</p>
         <div class="bs-actions" style="margin-top:var(--s4)">
           <button class="btn btn-primary bs-full-btn" id="ad-save-btn">Create day</button>
