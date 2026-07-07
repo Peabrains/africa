@@ -4,6 +4,14 @@ const BottomSheet = (() => {
   let overlay, sheet, body;
   let startY, currentY;
 
+  // Trip-aware default timezone — extend this map as new trips are added,
+  // rather than the old binary JPY/else-EAT assumption which silently
+  // broke for any third trip currency (e.g. THB).
+  const CURRENCY_TZ = { JPY: 'JST', THB: 'ICT' };
+  function defaultTripTz() {
+    return CURRENCY_TZ[Data.getTripCurrency?.()] || 'EAT';
+  }
+
   function build() {
     overlay = document.createElement('div');
     Object.assign(overlay.style, { position:'fixed', inset:'0', background:'rgba(28,26,24,0.55)', zIndex:'200', opacity:'0', transition:'opacity 0.25s ease', display:'none' });
@@ -88,7 +96,7 @@ const BottomSheet = (() => {
   }
   function timeWithTz(timeId, tzId, timeVal, tzVal) {
     const tVal = /^\d{2}:\d{2}$/.test(timeVal||'') ? timeVal : '';
-    const defaultTz = tzVal || (Data.getTripCurrency?.() === 'JPY' ? 'JST' : 'EAT');
+    const defaultTz = tzVal || defaultTripTz();
     const sel = ['EAT','JST','MYT','UTC'].map(z =>
       `<option value="${z}" ${defaultTz===z?'selected':''}>${z}</option>`).join('');
     return `<div class="bs-edit-group">
@@ -215,7 +223,7 @@ const BottomSheet = (() => {
         ${field('Accommodation name','o-name',o.name||'','text','e.g. Kiri-no-Sato Takahara Lodge')}
         ${select('Booking status','o-status',o.status||'open',statusOpts)}
         ${field('Booking reference','o-ref',o.ref||'','text','e.g. HTL-20270412')}
-        ${field('Cost (USD)','o-cost',o.cost||'','number','e.g. 18000')}
+        ${field(`Cost (${Data.getTripCurrency?.() || 'USD'})`,'o-cost',o.cost||'','number','e.g. 18000')}
         ${field('Book by (deadline)','o-deadline',o.deadline||'','date')}
         <div class="bs-actions" style="margin-top:var(--s4)">
           <button class="btn btn-primary bs-full-btn" id="o-save-btn">Save</button>
@@ -363,7 +371,7 @@ const BottomSheet = (() => {
         name:          g('e-name')||stop.name,
         activity:      g('e-activity'),
         time:          g('e-time'),
-        timeZone:      body.querySelector('#e-tz')?.value || (Data.getTripCurrency?.() === 'JPY' ? 'JST' : 'EAT'),
+        timeZone:      body.querySelector('#e-tz')?.value || defaultTripTz(),
         dayId:         g('e-day')||stop.dayId,
         transport:     g('e-transport'),
         transportType: ttype,
@@ -465,7 +473,7 @@ const BottomSheet = (() => {
       await Data.addStop({
         dayId: g('a-day')||dayId, name,
         activity: g('a-activity'), time: g('a-time'),
-        timeZone: body.querySelector('#a-tz')?.value || (Data.getTripCurrency?.() === 'JPY' ? 'JST' : 'EAT'),
+        timeZone: body.querySelector('#a-tz')?.value || defaultTripTz(),
         transport: g('a-transport'), transportType: tType,
         trainDetail,
         ...(tType === 'plane' ? { flightNo: numberField } : {}),
