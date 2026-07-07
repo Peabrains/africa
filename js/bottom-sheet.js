@@ -486,32 +486,41 @@ const BottomSheet = (() => {
     body.querySelector('#bs-addcancel-btn')?.addEventListener('click', close);
   }
 
-  /* ─── Edit day form (segment/country + story) ───────────────── */
-  const SEGMENT_OPTS_BY_TRIP = {
-    '83891de6-44ee-4ec2-bb95-6726cbd8c370': [ // Africa
-      { v:'tanzania', l:'🇹🇿 Tanzania' },
-      { v:'kenya',    l:'🇰🇪 Kenya' },
-      { v:'uganda',   l:'🇺🇬 Uganda' },
-      { v:'transit',  l:'✈️ Transit' },
-    ],
-    '91a41e0d-f247-4d89-ba15-02f0994a16c8': [ // Japan
-      { v:'kumano', l:'⛩️ Kumano Kodo' },
-      { v:'nagano', l:'🏔️ Nagano' },
-      { v:'alpine', l:'🚡 Alpine Route' },
-      { v:'osaka',  l:'🏯 Osaka' },
-      { v:'transit',l:'✈️ Transit' },
-    ],
-    '2b3c82f2-040f-4f2a-9d01-579129d1203b': [ // Thailand
-      { v:'bangkok',   l:'🇹🇭 Bangkok' },
-      { v:'chiangmai', l:'🏞️ Chiang Mai' },
-      { v:'phuket',    l:'🏝️ Phuket' },
-      { v:'krabi',     l:'🪨 Krabi' },
-      { v:'transit',   l:'✈️ Transit' },
-    ],
-  };
-  function segmentOptsForCurrentTrip() {
-    const tripId = Data.getCurrentTrip?.()?.id;
-    return SEGMENT_OPTS_BY_TRIP[tripId] || [{ v:'transit', l:'✈️ Transit' }];
+  /* ─── Edit day form (country + story) ───────────────────────
+     Country list comes from the same data/world-countries.geojson
+     already used by the World Map tab — genuinely every country,
+     zero maintenance needed when a new trip visits somewhere new. */
+  let COUNTRY_LIST = null; // cached [{v: iso2, l: '🇹🇭 Thailand'}, ...] once loaded
+
+  function flagEmoji(iso2) {
+    if (!iso2 || iso2.length !== 2) return '🏳️';
+    return String.fromCodePoint(
+      ...iso2.toUpperCase().split('').map(c => 127397 + c.charCodeAt(0))
+    );
+  }
+
+  async function loadCountryList() {
+    if (COUNTRY_LIST) return COUNTRY_LIST;
+    try {
+      const res = await fetch('data/world-countries.geojson');
+      const geo = await res.json();
+      const seen = new Set();
+      const list = [];
+      geo.features.forEach(f => {
+        const code = f.properties?.iso2;
+        const name = f.properties?.name;
+        if (!code || !name || seen.has(code)) return;
+        seen.add(code);
+        list.push({ v: code, l: `${flagEmoji(code)} ${name}` });
+      });
+      list.sort((a, b) => a.l.localeCompare(b.l));
+      list.unshift({ v: 'transit', l: '✈️ Transit (no specific country)' });
+      COUNTRY_LIST = list;
+    } catch (e) {
+      console.error('[BottomSheet] Failed to load country list:', e);
+      COUNTRY_LIST = [{ v: 'transit', l: '✈️ Transit' }];
+    }
+    return COUNTRY_LIST;
   }
   function dayHTML(day) {
     const story = Data.getStory(day.id);
@@ -522,7 +531,7 @@ const BottomSheet = (() => {
         <p class="bs-name" style="margin-bottom:var(--s4)">Edit day</p>
         ${field('Title','d-title',day.title||'','text','e.g. Full day Ngorongoro Crater')}
         ${field('Locality','d-locality',day.locality||'','text','e.g. Ngorongoro')}
-        ${select('Country','d-segment',day.segment||'transit',segmentOptsForCurrentTrip())}
+        ${select('Country','d-segment',day.segment||'transit',COUNTRY_LIST)}
         <p class="bs-section-head" style="margin-top:var(--s3)">Story</p>
         ${field('Story title','d-story-title',story?.title||'','text','e.g. The crater at dawn')}
         ${textarea('Story text','d-story-body',storyText,'Separate paragraphs with a blank line')}
@@ -640,7 +649,7 @@ const BottomSheet = (() => {
         ${field('Date','ad-date','','date')}
         ${field('Title','ad-title','','text','e.g. Free day in Zanzibar')}
         ${field('Locality','ad-locality','','text','e.g. Zanzibar')}
-        ${select('Country','ad-segment','transit',segmentOptsForCurrentTrip())}
+        ${select('Country','ad-segment','transit',COUNTRY_LIST)}
         <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--s2)">The day slots into the itinerary automatically based on its date — no need to pick a position.</p>
         <div class="bs-actions" style="margin-top:var(--s4)">
           <button class="btn btn-primary bs-full-btn" id="ad-save-btn">Create day</button>
@@ -692,17 +701,21 @@ const BottomSheet = (() => {
     wireAdd(dayId);
     showSheet();
   }
-  function openDay(day) {
+  async function openDay(day) {
     if (!overlay) build();
+    body.innerHTML = '<div class="bs-detail" style="padding:var(--s5) 0;text-align:center;color:var(--text-muted)">Loading…</div>';
+    showSheet();
+    await loadCountryList();
     body.innerHTML = dayHTML(day);
     wireDay(day);
-    showSheet();
   }
-  function openAddDay() {
+  async function openAddDay() {
     if (!overlay) build();
+    body.innerHTML = '<div class="bs-detail" style="padding:var(--s5) 0;text-align:center;color:var(--text-muted)">Loading…</div>';
+    showSheet();
+    await loadCountryList();
     body.innerHTML = addDayHTML();
     wireAddDay();
-    showSheet();
   }
 
   return { openStop, openOvernight, openAdd, openDay, openAddDay, close };
