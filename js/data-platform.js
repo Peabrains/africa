@@ -486,17 +486,39 @@ const Data = (() => {
   }
 
   async function updateOvernight(dayId, changes) {
-    if (!OVERNIGHTS[dayId]) return;
-    Object.assign(OVERNIGHTS[dayId], changes);
-    if (navigator.onLine) {
-      let { error } = await SB.from('overnights').update(changes).eq('id', OVERNIGHTS[dayId].id);
-      if (error && /deadline/.test(error.message || '')) {
-        // Schema patch not run yet — retry without deadline
-        const { deadline, ...withoutDeadline } = changes;
-        ({ error } = await SB.from('overnights').update(withoutDeadline).eq('id', OVERNIGHTS[dayId].id));
+    const existing = OVERNIGHTS[dayId];
+
+    if (existing) {
+      Object.assign(existing, changes);
+      if (navigator.onLine) {
+        let { error } = await SB.from('overnights').update(changes).eq('id', existing.id);
+        if (error && /deadline/.test(error.message || '')) {
+          const { deadline, ...withoutDeadline } = changes;
+          ({ error } = await SB.from('overnights').update(withoutDeadline).eq('id', existing.id));
+        }
+        if (error) console.error('[Data] updateOvernight error:', error);
       }
-      if (error) console.error('[Data] updateOvernight error:', error);
+    } else {
+      // No overnight row for this day yet — create one (e.g. first time
+      // adding accommodation via the "+ Add overnight" button).
+      const newRow = { trip_id: CURRENT_TRIP.id, day_id: dayId, ...changes };
+      OVERNIGHTS[dayId] = newRow; // optimistic local state so it shows immediately
+      if (navigator.onLine) {
+        let { data, error } = await SB.from('overnights').insert(newRow).select().single();
+        if (error && /deadline/.test(error.message || '')) {
+          const { deadline, ...withoutDeadline } = newRow;
+          ({ data, error } = await SB.from('overnights').insert(withoutDeadline).select().single());
+        }
+        if (!error && data) {
+          OVERNIGHTS[dayId] = data;
+        } else if (error) {
+          console.error('[Data] updateOvernight (insert) error:', error);
+        }
+      } else {
+        OVERNIGHTS[dayId].id = 'local_' + Date.now();
+      }
     }
+
     await DB.setMeta(CACHE_KEYS.overnight, OVERNIGHTS);
   }
 
