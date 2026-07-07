@@ -7,21 +7,42 @@ const ItineraryScreen = (() => {
   let _toggling = false;
 
   /* ── Segment → country label + colour ───────────────────────── */
-  const SEG_COLOR = {
-    transit:  'var(--seg-transit)',
-    tanzania: 'var(--seg-tanzania)',
-    kenya:    'var(--seg-kenya)',
-    uganda:   'var(--seg-uganda)',
+  const SEG_DATA_BY_TRIP = {
+    '83891de6-44ee-4ec2-bb95-6726cbd8c370': { // Africa
+      transit:  { color:'var(--seg-transit)',  label:'Transit',  flag:'✈️'  },
+      tanzania: { color:'var(--seg-tanzania)',  label:'Tanzania', flag:'🇹🇿' },
+      kenya:    { color:'var(--seg-kenya)',     label:'Kenya',    flag:'🇰🇪' },
+      uganda:   { color:'var(--seg-uganda)',    label:'Uganda',   flag:'🇺🇬' },
+    },
+    '91a41e0d-f247-4d89-ba15-02f0994a16c8': { // Japan
+      transit: { color:'#9C9080', label:'Transit',      flag:'✈️' },
+      kumano:  { color:'#C1440E', label:'Kumano Kodo',  flag:'⛩️' },
+      nagano:  { color:'#7B4EA0', label:'Nagano',       flag:'🏔️' },
+      alpine:  { color:'#2A7A4B', label:'Alpine Route', flag:'🚡' },
+      osaka:   { color:'#888888', label:'Osaka',        flag:'🏯' },
+    },
+    '2b3c82f2-040f-4f2a-9d01-579129d1203b': { // Thailand
+      transit:   { color:'#9C9080', label:'Transit',    flag:'✈️'  },
+      bangkok:   { color:'#0E7C7B', label:'Bangkok',     flag:'🇹🇭' },
+      chiangmai: { color:'#E8A23D', label:'Chiang Mai',  flag:'🏞️' },
+      phuket:    { color:'#2E86AB', label:'Phuket',      flag:'🏝️' },
+      krabi:     { color:'#C1447E', label:'Krabi',       flag:'🪨'  },
+    },
   };
-
+  const FALLBACK_SEG = { transit: { color:'#9C9080', label:'Transit', flag:'✈️' } };
+  function segDataForCurrentTrip() {
+    const tripId = Data.getCurrentTrip?.()?.id;
+    return SEG_DATA_BY_TRIP[tripId] || FALLBACK_SEG;
+  }
+  function segColor(segment) {
+    return (segDataForCurrentTrip()[segment] || segDataForCurrentTrip().transit || FALLBACK_SEG.transit).color;
+  }
   /* Country divider shown once when segment changes ──────────── */
-  const SEGMENT_LABEL = {
-    transit:  { label:'Transit', flag:'✈️',  pill:'transit'  },
-    tanzania: { label:'Tanzania', flag:'🇹🇿', pill:'tanzania' },
-    kenya:    { label:'Kenya',    flag:'🇰🇪', pill:'kenya'    },
-    uganda:   { label:'Uganda',   flag:'🇺🇬', pill:'uganda'   },
-    japan:    { label:'Japan',   flag:'🇯🇵', pill:'japan'    },
-  };
+  function segmentLabel(segment) {
+    const d = segDataForCurrentTrip();
+    const info = d[segment] || d.transit || FALLBACK_SEG.transit;
+    return { label: info.label, flag: info.flag, pill: segment || 'transit' };
+  }
 
   function getDayExpanded(dayId) {
     if (daysExpanded[dayId] === undefined) daysExpanded[dayId] = true;
@@ -74,7 +95,7 @@ const ItineraryScreen = (() => {
 
   /* ── Country divider ────────────────────────────────────────── */
   function countryDivider(segment) {
-    const info = SEGMENT_LABEL[segment] || SEGMENT_LABEL.transit;
+    const info = segmentLabel(segment);
     const div = document.createElement('div');
     div.className = 'country-divider';
     div.innerHTML = `
@@ -175,7 +196,7 @@ const ItineraryScreen = (() => {
   function stopRow(stop, isLast) {
     const day = Data.getDays().find(d => d.id === stop.dayId);
     const iconKey = stop.transportType || 'walk';
-    const segColor = SEG_COLOR[stop.segment] || 'var(--seg-transit)';
+    const segColorVal = segColor(stop.segment);
 
     const row = document.createElement('div');
     row.className = 'tl-row';
@@ -185,7 +206,7 @@ const ItineraryScreen = (() => {
         <span class="tl-time-tz">${stop.timeZone || ''}</span>
       </div>
       <div class="tl-connector">
-        <div class="tl-icon-circle" style="border-color:${segColor};color:${segColor}">
+        <div class="tl-icon-circle" style="border-color:${segColorVal};color:${segColorVal}">
           ${Icons[iconKey] ? Icons[iconKey]('icon-sm') : Icons.walk('icon-sm')}
         </div>
         ${!isLast ? '<div class="tl-line"></div>' : ''}
