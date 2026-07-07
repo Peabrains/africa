@@ -25,6 +25,7 @@ const Data = (() => {
   let CUSTOM_LINKS  = [];
   let GLOSSARY_TERMS = {};    // keyed by term (lowercase)
   let TRAVELERS     = ['Traveler'];
+  const CURRENCY_TZ = { JPY: 'JST', THB: 'ICT' }; // falls back to 'EAT' if no match
 
   /* ── Cache keys (IndexedDB via DB module) ────────────────── */
   const CACHE_KEYS = {
@@ -266,7 +267,8 @@ const Data = (() => {
       // camelCase aliases for snake_case Supabase columns
       dayId:         s.day_id,
       segment:       parentDay?.segment || null,   // country/segment lives on the day, not the stop
-      timeZone:      s.timezone || (CURRENT_TRIP?.currency === 'JPY' ? 'JST' : 'EAT'),
+      locality:      parentDay?.locality || null,  // for auto-color grouping on the map
+      timeZone:      s.timezone || CURRENCY_TZ[CURRENT_TRIP?.currency] || 'EAT',
       transportType: s.transport_type || 'walk',
       needsBooking:  s.needs_booking || false,
       isBooked:      s.is_booked || false,
@@ -351,7 +353,7 @@ const Data = (() => {
       name:           stop.name,
       activity:       stop.activity || '',
       time:           stop.time || '',
-      timezone:       stop.timeZone || (CURRENT_TRIP?.currency === 'JPY' ? 'JST' : 'EAT'),
+      timezone:       stop.timeZone || CURRENCY_TZ[CURRENT_TRIP?.currency] || 'EAT',
       transport:      stop.transport || '',
       transport_type: stop.transportType || 'walk',
       notes:          stop.notes || '',
