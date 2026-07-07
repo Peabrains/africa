@@ -7,41 +7,31 @@ const ItineraryScreen = (() => {
   let _toggling = false;
 
   /* ── Segment → country label + colour ───────────────────────── */
-  const SEG_DATA_BY_TRIP = {
-    '83891de6-44ee-4ec2-bb95-6726cbd8c370': { // Africa
-      transit:  { color:'var(--seg-transit)',  label:'Transit',  flag:'✈️'  },
-      tanzania: { color:'var(--seg-tanzania)',  label:'Tanzania', flag:'🇹🇿' },
-      kenya:    { color:'var(--seg-kenya)',     label:'Kenya',    flag:'🇰🇪' },
-      uganda:   { color:'var(--seg-uganda)',    label:'Uganda',   flag:'🇺🇬' },
-    },
-    '91a41e0d-f247-4d89-ba15-02f0994a16c8': { // Japan
-      transit: { color:'#9C9080', label:'Transit',      flag:'✈️' },
-      kumano:  { color:'#C1440E', label:'Kumano Kodo',  flag:'⛩️' },
-      nagano:  { color:'#7B4EA0', label:'Nagano',       flag:'🏔️' },
-      alpine:  { color:'#2A7A4B', label:'Alpine Route', flag:'🚡' },
-      osaka:   { color:'#888888', label:'Osaka',        flag:'🏯' },
-    },
-    '2b3c82f2-040f-4f2a-9d01-579129d1203b': { // Thailand
-      transit:   { color:'#9C9080', label:'Transit',    flag:'✈️'  },
-      bangkok:   { color:'#0E7C7B', label:'Bangkok',     flag:'🇹🇭' },
-      chiangmai: { color:'#E8A23D', label:'Chiang Mai',  flag:'🏞️' },
-      phuket:    { color:'#2E86AB', label:'Phuket',      flag:'🏝️' },
-      krabi:     { color:'#C1447E', label:'Krabi',       flag:'🪨'  },
-    },
-  };
-  const FALLBACK_SEG = { transit: { color:'#9C9080', label:'Transit', flag:'✈️' } };
-  function segDataForCurrentTrip() {
-    const tripId = Data.getCurrentTrip?.()?.id;
-    return SEG_DATA_BY_TRIP[tripId] || FALLBACK_SEG;
+  /* Auto-generate a consistent color per locality name — same locality
+     always gets the same color, any new locality just works, no manual
+     per-trip color list to maintain ever again. 'transit' stays neutral. */
+  const AUTO_PALETTE = ['#C1440E','#2A7A4B','#7B4EA0','#0E7C7B','#E8A23D','#2E86AB','#C1447E','#B8860B','#4C6B8A','#8E6C4A'];
+  function colorForKey(key) {
+    if (!key || key.toLowerCase() === 'transit') return '#9C9080';
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+    return AUTO_PALETTE[hash % AUTO_PALETTE.length];
   }
-  function segColor(segment) {
-    return (segDataForCurrentTrip()[segment] || segDataForCurrentTrip().transit || FALLBACK_SEG.transit).color;
+  function segColor(stop) {
+    const day = Data.getDays().find(d => d.id === stop.dayId);
+    return colorForKey(day?.locality || stop.segment);
   }
-  /* Country divider shown once when segment changes ──────────── */
-  function segmentLabel(segment) {
-    const d = segDataForCurrentTrip();
-    const info = d[segment] || d.transit || FALLBACK_SEG.transit;
-    return { label: info.label, flag: info.flag, pill: segment || 'transit' };
+  /* Divider shown once when locality changes ─────────────────── */
+  function localityDivider(locality) {
+    const div = document.createElement('div');
+    div.className = 'country-divider';
+    const label = locality || 'Transit';
+    const color = colorForKey(locality);
+    div.innerHTML = `
+      <div class="country-divider-line"></div>
+      <span class="country-pill" style="background:${color}20;color:${color};border:1px solid ${color}60">● ${label}</span>
+      <div class="country-divider-line"></div>`;
+    return div;
   }
 
   function getDayExpanded(dayId) {
@@ -93,17 +83,8 @@ const ItineraryScreen = (() => {
     return `<span class="tl-flight-badge" style="background:var(--danger-bg,#FEF2F2);color:var(--danger-text);border:1px solid var(--danger-text)">⚠ Retimed</span>`;
   }
 
-  /* ── Country divider ────────────────────────────────────────── */
-  function countryDivider(segment) {
-    const info = segmentLabel(segment);
-    const div = document.createElement('div');
-    div.className = 'country-divider';
-    div.innerHTML = `
-      <div class="country-divider-line"></div>
-      <span class="country-pill country-pill--${info.pill}">${info.flag} ${info.label}</span>
-      <div class="country-divider-line"></div>`;
-    return div;
-  }
+  /* Country divider removed — see localityDivider() further down,
+     which replaced this with an auto-colored, locality-based divider. */
 
   /* ── Format an ISO date (YYYY-MM-DD) as 'Fri, 9 Apr 2026' ────── */
   function formatDayDate(iso) {
@@ -196,7 +177,7 @@ const ItineraryScreen = (() => {
   function stopRow(stop, isLast) {
     const day = Data.getDays().find(d => d.id === stop.dayId);
     const iconKey = stop.transportType || 'walk';
-    const segColorVal = segColor(stop.segment);
+    const segColorVal = segColor(stop);
 
     const row = document.createElement('div');
     row.className = 'tl-row';
@@ -440,19 +421,16 @@ const ItineraryScreen = (() => {
     addDayBtn.addEventListener('click', () => BottomSheet.openAddDay());
     root.appendChild(addDayBtn);
 
-    let lastSegment = null;
+    let lastLocality = undefined;
 
     Data.getDays().forEach(day => {
       const stops  = Data.getStopsByDay(day.id);
       const isOpen = getDayExpanded(day.id);
 
-      // Determine the primary segment for this day (from first stop, or transit)
-      const primarySeg = stops.length ? stops[0].segment : 'transit';
-
-      // Insert country divider when segment changes
-      if (primarySeg !== lastSegment) {
-        root.appendChild(countryDivider(primarySeg));
-        lastSegment = primarySeg;
+      // Insert a divider when the locality changes from the previous day
+      if (day.locality !== lastLocality) {
+        root.appendChild(localityDivider(day.locality));
+        lastLocality = day.locality;
       }
 
       root.appendChild(dayHeader(day, stops, isOpen));
