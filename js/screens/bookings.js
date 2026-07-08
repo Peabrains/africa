@@ -513,25 +513,60 @@ const BookingsScreen = (() => {
   function renderPacking() {
     const frag = document.createDocumentFragment();
     const items = Data.getPackingItems();
-    const done  = items.filter(i=>i.checked).length;
-    const hdr = document.createElement('div');
-    hdr.className = 'packing-header';
-    hdr.innerHTML = `<span>${done}/${items.length} packed</span><div class="budget-bar" style="flex:1;margin-left:12px"><div class="budget-fill" style="width:${items.length?Math.round(done/items.length*100):0}%;background:var(--success-text)"></div></div>`;
-    frag.appendChild(hdr);
+    const travelers = Data.getTravelers();
+
+    // One progress bar per traveler instead of a single shared one
+    const progressWrap = document.createElement('div');
+    progressWrap.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:var(--s3)';
+    Data.getPackingProgressByTraveler().forEach(p => {
+      const card = document.createElement('div');
+      card.style.cssText = 'flex:1;min-width:120px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:8px 10px';
+      const pct = p.total ? Math.round(p.done / p.total * 100) : 0;
+      card.innerHTML = `
+        <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:2px">${p.name}</p>
+        <p style="font-size:var(--text-sm);font-weight:600;margin-bottom:5px">${p.done}/${p.total} packed</p>
+        <div class="budget-bar"><div class="budget-fill" style="width:${pct}%;background:var(--success-text)"></div></div>`;
+      progressWrap.appendChild(card);
+    });
+    frag.appendChild(progressWrap);
+
     Object.entries(Data.getPackingByCategory()).forEach(([cat,catItems]) => {
       const sec = document.createElement('div');
       sec.className = 'packing-section';
-      sec.innerHTML = `<div class="packing-cat-header"><span>${cat}</span><span>${catItems.filter(i=>i.checked).length}/${catItems.length}</span></div>`;
+      sec.innerHTML = `<div class="packing-cat-header"><span>${cat}</span></div>`;
       catItems.forEach(item => {
         const row = document.createElement('div');
-        row.className = `packing-row ${item.checked?'packing-row--done':''}`;
-        row.innerHTML = `<input type="checkbox" ${item.checked?'checked':''} style="accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;cursor:pointer">
-          <span class="packing-item packing-item-edit" tabindex="0" style="cursor:pointer" title="Tap to edit">${item.item}</span>
+        row.className = 'packing-row';
+        row.style.cssText = 'flex-direction:column;align-items:stretch;gap:6px';
+
+        const topLine = document.createElement('div');
+        topLine.style.cssText = 'display:flex;align-items:center;gap:8px';
+        topLine.innerHTML = `
+          <span class="packing-item packing-item-edit" tabindex="0" style="cursor:pointer;flex:1" title="Tap to edit">${item.item}</span>
           <button class="packing-tag packing-essential-toggle" style="border:none;cursor:pointer;${item.essential?'':'opacity:.35'}">Essential</button>
           <button class="packing-del">×</button>`;
-        row.querySelector('input').addEventListener('change', async e => { await Data.togglePacking(item.id,e.target.checked); render(); });
+        row.appendChild(topLine);
+
+        // Pill row — one per traveler, tap to mark that person as packed
+        const pillRow = document.createElement('div');
+        pillRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap';
+        travelers.forEach(name => {
+          const checked = !!item.checked_by_names?.[name];
+          const pill = document.createElement('button');
+          const initials = name.slice(0,2).toUpperCase();
+          pill.style.cssText = `display:flex;align-items:center;gap:3px;border:1.5px solid ${checked?'var(--accent)':'var(--border)'};background:${checked?'var(--accent)':'var(--surface)'};color:${checked?'#fff':'var(--text-muted)'};border-radius:var(--r-pill);padding:3px 10px;font-size:10.5px;font-weight:600;cursor:pointer`;
+          pill.innerHTML = `${checked?'✓ ':''}${initials}`;
+          pill.title = name;
+          pill.addEventListener('click', async () => {
+            await Data.togglePackingFor(item.id, name);
+            render();
+          });
+          pillRow.appendChild(pill);
+        });
+        row.appendChild(pillRow);
+
         let delArmed = false, delTimer = null;
-        const delBtn = row.querySelector('.packing-del');
+        const delBtn = topLine.querySelector('.packing-del');
         delBtn.addEventListener('click', async () => {
           if (!delArmed) {
             delArmed = true;
@@ -550,11 +585,11 @@ const BookingsScreen = (() => {
           clearTimeout(delTimer);
           await Data.deletePacking(item.id); render();
         });
-        row.querySelector('.packing-essential-toggle').addEventListener('click', async () => {
+        topLine.querySelector('.packing-essential-toggle').addEventListener('click', async () => {
           await Data.updatePackingItem(item.id, { essential: !item.essential });
           render();
         });
-        const label = row.querySelector('.packing-item-edit');
+        const label = topLine.querySelector('.packing-item-edit');
         const startEdit = () => {
           const input = document.createElement('input');
           input.type = 'text';
