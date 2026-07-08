@@ -524,7 +524,7 @@ const BookingsScreen = (() => {
     // Compact stacked progress rows, one per traveler, in a single card —
     // consistent colors (by list position) reused on the pills below too.
     const progressCard = document.createElement('div');
-    progressCard.style.cssText = 'background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:10px 12px;margin-bottom:var(--s3);display:flex;flex-direction:column;gap:8px';
+    progressCard.style.cssText = 'background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:10px 12px;margin:var(--s3) 0;display:flex;flex-direction:column;gap:8px';
     Data.getPackingProgressByTraveler().forEach(p => {
       const pct = p.total ? Math.round(p.done / p.total * 100) : 0;
       const fillPct = Math.max(pct ? 4 : 0, pct); // 4% minimum so 1 packed is never visually invisible
@@ -638,6 +638,27 @@ const BookingsScreen = (() => {
       sec.appendChild(addRow);
       frag.appendChild(sec);
     });
+
+    // Always-visible "new category" form — the per-category quick-add
+    // rows above only exist once a category already has items, which
+    // left brand-new trips with zero items and no way to add the first one.
+    const newCatWrap = document.createElement('div');
+    newCatWrap.style.cssText = 'background:var(--surface-raised);border:1.5px dashed var(--border);border-radius:var(--r-lg);padding:var(--s3);display:flex;flex-direction:column;gap:8px;margin-top:var(--s2)';
+    newCatWrap.innerHTML = `
+      <p style="font-size:var(--text-xs);font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Add a new item</p>
+      <input type="text" class="packing-add-input" id="new-cat-name" placeholder="Category (e.g. Clothing, Documents)">
+      <input type="text" class="packing-add-input" id="new-cat-item" placeholder="Item name">
+      <button class="packing-add-btn" id="new-cat-btn" style="align-self:flex-end">Add</button>`;
+    newCatWrap.querySelector('#new-cat-btn').addEventListener('click', async () => {
+      const catInp  = newCatWrap.querySelector('#new-cat-name');
+      const itemInp = newCatWrap.querySelector('#new-cat-item');
+      const cat = catInp.value.trim(), item = itemInp.value.trim();
+      if (!cat || !item) { Toast.show('Category and item are both required', 'warning'); return; }
+      await Data.addPackingItem({ cat, item, essential: false });
+      catInp.value = ''; itemInp.value = '';
+      render();
+    });
+    frag.appendChild(newCatWrap);
     return frag;
   }
 
