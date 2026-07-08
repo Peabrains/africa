@@ -850,6 +850,31 @@ const Data = (() => {
     return ordered;
   }
 
+  /* Per-traveler packing state, stored as {travelerName: boolean} on the
+     item itself — each traveler gets their own pill/checkmark on the same
+     row, rather than one shared checkbox or duplicate item rows. */
+  async function togglePackingFor(id, travelerName) {
+    const item = PACKING.find(p => p.id === id);
+    if (!item) return;
+    const current = item.checked_by_names || {};
+    const next = { ...current, [travelerName]: !current[travelerName] };
+    item.checked_by_names = next;
+
+    if (navigator.onLine) {
+      const { error } = await SB.from('packing_items').update({ checked_by_names: next }).eq('id', id);
+      if (error) console.error('[Data] togglePackingFor error:', error);
+    }
+    await DB.setMeta(CACHE_KEYS.packing, PACKING);
+  }
+
+  function getPackingProgressByTraveler() {
+    return TRAVELERS.map(name => ({
+      name,
+      done: PACKING.filter(p => p.checked_by_names?.[name]).length,
+      total: PACKING.length,
+    }));
+  }
+
   async function togglePacking(id, checked) {
     const item = PACKING.find(p => p.id === id);
     if (item) item.checked = checked;
@@ -866,6 +891,7 @@ const Data = (() => {
       item,
       essential,
       checked:   false,
+      checked_by_names: {},
       sort_order: PACKING.filter(p => p.category === cat).length,
     };
     PACKING.push({ ...newItem, id: 'local_' + Date.now() });
@@ -1559,6 +1585,7 @@ const Data = (() => {
     getTravelers, updateTravelers, calcSettlement, getBalances, setExpenses,
     // Packing
     getPackingItems, getPackingByCategory, togglePacking, addPackingItem, updatePackingItem, deletePacking,
+    togglePackingFor, getPackingProgressByTraveler,
     // Dex
     getAnimals, getAnimal, getDexState, setDexState, isCaught, getDexProgress,
     markCaught, unmarkCaught, addDexPhoto, removeDexPhoto, getDexPhoto,
