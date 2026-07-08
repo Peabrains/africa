@@ -510,25 +510,35 @@ const BookingsScreen = (() => {
   }
 
   /* ═══ PACKING ════════════════════════════════════════════ */
+  const TRAVELER_COLORS = ['#7A5C2E','#2A7A4B','#7B4EA0','#0E7C7B','#C1440E'];
+  function travelerColor(name) {
+    const idx = Data.getTravelers().indexOf(name);
+    return TRAVELER_COLORS[idx % TRAVELER_COLORS.length] || 'var(--accent)';
+  }
+
   function renderPacking() {
     const frag = document.createDocumentFragment();
     const items = Data.getPackingItems();
     const travelers = Data.getTravelers();
 
-    // One progress bar per traveler instead of a single shared one
-    const progressWrap = document.createElement('div');
-    progressWrap.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:var(--s3)';
+    // Compact stacked progress rows, one per traveler, in a single card —
+    // consistent colors (by list position) reused on the pills below too.
+    const progressCard = document.createElement('div');
+    progressCard.style.cssText = 'background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:10px 12px;margin-bottom:var(--s3);display:flex;flex-direction:column;gap:8px';
     Data.getPackingProgressByTraveler().forEach(p => {
-      const card = document.createElement('div');
-      card.style.cssText = 'flex:1;min-width:120px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:8px 10px';
       const pct = p.total ? Math.round(p.done / p.total * 100) : 0;
-      card.innerHTML = `
-        <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:2px">${p.name}</p>
-        <p style="font-size:var(--text-sm);font-weight:600;margin-bottom:5px">${p.done}/${p.total} packed</p>
-        <div class="budget-bar"><div class="budget-fill" style="width:${pct}%;background:var(--success-text)"></div></div>`;
-      progressWrap.appendChild(card);
+      const fillPct = Math.max(pct ? 4 : 0, pct); // 4% minimum so 1 packed is never visually invisible
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px';
+      row.innerHTML = `
+        <span style="font-size:var(--text-xs);font-weight:600;color:var(--text-muted);width:26px;flex-shrink:0">${p.name.slice(0,2).toUpperCase()}</span>
+        <div style="flex:1;height:6px;background:var(--surface-raised);border-radius:var(--r-pill);overflow:hidden">
+          <div style="width:${fillPct}%;height:100%;background:${travelerColor(p.name)};border-radius:var(--r-pill)"></div>
+        </div>
+        <span style="font-size:var(--text-xs);color:var(--text-muted);width:48px;text-align:right;flex-shrink:0">${p.done}/${p.total}</span>`;
+      progressCard.appendChild(row);
     });
-    frag.appendChild(progressWrap);
+    frag.appendChild(progressCard);
 
     Object.entries(Data.getPackingByCategory()).forEach(([cat,catItems]) => {
       const sec = document.createElement('div');
@@ -554,7 +564,8 @@ const BookingsScreen = (() => {
           const checked = !!item.checked_by_names?.[name];
           const pill = document.createElement('button');
           const initials = name.slice(0,2).toUpperCase();
-          pill.style.cssText = `display:flex;align-items:center;gap:3px;border:1.5px solid ${checked?'var(--accent)':'var(--border)'};background:${checked?'var(--accent)':'var(--surface)'};color:${checked?'#fff':'var(--text-muted)'};border-radius:var(--r-pill);padding:3px 10px;font-size:10.5px;font-weight:600;cursor:pointer`;
+          const tColor = travelerColor(name);
+          pill.style.cssText = `display:flex;align-items:center;gap:3px;border:1.5px solid ${checked?tColor:'var(--border)'};background:${checked?tColor:'var(--surface)'};color:${checked?'#fff':'var(--text-muted)'};border-radius:var(--r-pill);padding:3px 10px;font-size:10.5px;font-weight:600;cursor:pointer`;
           pill.innerHTML = `${checked?'✓ ':''}${initials}`;
           pill.title = name;
           pill.addEventListener('click', async () => {
