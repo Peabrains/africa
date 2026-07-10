@@ -1,10 +1,10 @@
 /* ============================================================
    SERVICE WORKER — Africa Safari PWA (platform branch)
    Cache version bumped manually alongside APP_VERSION.
-   BUILD: 202607101418
+   BUILD: 202607101424
    ============================================================ */
-const CACHE   = 'africa-safari-platform-202607101418';
-const VERSION = '202607101418';
+const CACHE   = 'africa-safari-platform-202607101424';
+const VERSION = '202607101424';
 
 const PRECACHE = [
   './', './index.html', './css/tokens.css', './css/print.css',
@@ -72,6 +72,27 @@ self.addEventListener('fetch', e => {
       fetch(e.request).catch(() =>
         new Response('{}', { headers: { 'Content-Type': 'application/json' } })
       )
+    );
+    return;
+  }
+
+  // CDN libraries (Supabase client, Leaflet) — cache first, same pattern as
+  // OSM tiles. These are version-pinned URLs (e.g. @supabase/supabase-js@2)
+  // so their content never changes; caching them long-term is safe.
+  // Without this, a truly offline first-ever load can't even construct the
+  // Supabase client (js/supabase.js throws synchronously if window.supabase
+  // is missing), which breaks the entire data layer before app.js's own
+  // error handling ever gets a chance to run.
+  if (url.hostname.includes('cdn.jsdelivr.net')) {
+    e.respondWith(
+      caches.match(e.request).then(cached => {
+        if (cached) return cached;
+        return fetch(e.request).then(res => {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+          return res;
+        });
+      })
     );
     return;
   }
