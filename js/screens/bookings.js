@@ -63,15 +63,18 @@ const BookingsScreen = (() => {
       const card = document.createElement('div');
       card.style.cssText = 'padding:var(--s3) var(--s4);border-bottom:1px solid var(--border-subtle);cursor:pointer';
       card.innerHTML = `
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-          <span class="badge badge-open" style="font-size:9px;padding:1px 5px">${day.label}</span>
-          <span style="font-size:var(--text-xs);color:var(--text-muted)">${day.date}</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="badge badge-open" style="font-size:9px;padding:1px 5px">${day.label}</span>
+            <span style="font-size:var(--text-xs);color:var(--text-muted)">${day.date}</span>
+          </div>
+          <span class="badge ${lf.status==='arranged'?'badge-booked':'badge-pending'}">${lf.status==='arranged'?'✓ Arranged':'Not yet arranged'}</span>
         </div>
-        <p style="font-weight:600;font-size:var(--text-md);color:var(--text-primary)">${lf.from && lf.to ? lf.from + ' → ' + lf.to : (lf.to || lf.from || 'Luggage forwarding')}</p>
+        <p style="font-weight:600;font-size:var(--text-md);color:var(--text-primary)">Luggage forwarding${lf.to ? ': ' + lf.to : ''}</p>
+        ${lf.from ? `<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">From ${lf.from}</p>` : ''}
         ${lf.cutoff ? `<p style="font-size:var(--text-sm);color:var(--text-secondary);margin-top:2px">Drop off by ${lf.cutoff}</p>` : ''}
         ${lf.courier ? `<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">${lf.courier}</p>` : ''}
-        ${lf.notes ? `<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:3px;font-style:italic">${lf.notes}</p>` : ''}
-        <p style="font-size:var(--text-xs);margin-top:4px;color:${lf.status==='arranged'?'var(--success-text)':'var(--warning-text)'}">${lf.status==='arranged'?'✓ Arranged':'⚠ Not yet arranged'}</p>`;
+        ${lf.notes ? `<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:3px;font-style:italic">${lf.notes}</p>` : ''}`;
       card.addEventListener('click', () => BottomSheet.openOvernight(day));
       frag.appendChild(card);
     });
