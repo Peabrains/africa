@@ -214,6 +214,19 @@ const BottomSheet = (() => {
         </div>
       </div>`;
   }
+  /* Next day (in order) that actually has an overnight set — used to
+     default the luggage forwarding "To" field. */
+  function nextOvernightName(currentDayId) {
+    const days = Data.getDays();
+    const idx = days.findIndex(d => d.id === currentDayId);
+    if (idx === -1) return '';
+    for (let i = idx + 1; i < days.length; i++) {
+      const o = Data.getOvernight(days[i].id);
+      if (o?.name) return o.name;
+    }
+    return '';
+  }
+
   function overnightHTML(day) {
     const o = Data.getOvernight(day.id) || {};
     const lf = o.luggage_forwarding || {};
@@ -232,8 +245,8 @@ const BottomSheet = (() => {
           <span style="font-size:var(--text-sm);font-weight:500">🧳 Luggage forwarding needed?</span>
         </label>
         <div id="o-lf-fields" style="display:${lf.enabled?'flex':'none'};flex-direction:column;gap:var(--s2);padding:var(--s3);background:var(--surface-raised);border-radius:var(--r-md);margin-bottom:var(--s3)">
-          ${field('From (drop-off point)','o-lf-from',lf.from||'','text','e.g. Hongu Taisha bus terminal counter')}
-          ${field('To (pickup point)','o-lf-to',lf.to||'','text','e.g. Koguchi guesthouse reception')}
+          ${field('From (drop-off point)','o-lf-from',lf.from || o.name || '','text','e.g. Hongu Taisha bus terminal counter')}
+          ${field('To (pickup point)','o-lf-to',lf.to || nextOvernightName(day.id) || '','text','e.g. Koguchi guesthouse reception')}
           ${field('Drop-off cutoff time','o-lf-cutoff',lf.cutoff||'','text','e.g. 8:00am')}
           ${field('Courier / service','o-lf-courier',lf.courier||'','text','e.g. Yamato Transport (Takkyubin)')}
           ${field(`Cost (${Data.getTripCurrency?.() || 'USD'})`,'o-lf-cost',lf.cost||'','number','e.g. 2000')}
