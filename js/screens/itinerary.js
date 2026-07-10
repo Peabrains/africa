@@ -152,9 +152,12 @@ const ItineraryScreen = (() => {
         }</span>
       </div>
       ${lf?.enabled ? `
-      <div style="display:flex;align-items:center;gap:6px;padding:6px 12px 10px;font-size:var(--text-xs);color:${lf.status==='arranged'?'var(--success-text)':'var(--warning-text)'}">
-        <span>🧳</span>
-        <span>Luggage forwarded${lf.to ? ' → ' + lf.to : ''}${lf.cutoff ? ' · drop off by ' + lf.cutoff : ''}${lf.status!=='arranged' ? ' · not yet arranged' : ''}</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 12px 10px">
+        <span style="font-size:var(--text-xs);color:var(--text-secondary);display:flex;align-items:center;gap:6px;min-width:0">
+          <span style="flex-shrink:0">🧳</span>
+          <span style="min-width:0">Luggage forwarding${lf.to ? ': ' + lf.to : ''}${lf.cutoff ? ' · by ' + lf.cutoff : ''}</span>
+        </span>
+        <span class="badge ${lf.status==='arranged'?'badge-booked':'badge-pending'}" style="flex-shrink:0">${lf.status==='arranged'?'✓ Arranged':'Not yet arranged'}</span>
       </div>` : ''}`;
     card.addEventListener('click', () => BottomSheet.openOvernight(day));
     return card;
