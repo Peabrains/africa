@@ -27,6 +27,7 @@ const BookingsScreen = (() => {
     const booked = nights.filter(({o})=>o.status==='booked').length;
     const transStops = Data.getTransportReservations();
     const actStops = Data.getActivityReservations();
+    const lfLegs = nights.filter(({o}) => o.luggage_forwarding?.enabled);
     frag.appendChild(accordionSection('accommodation',
       '🏨 Accommodation', `${booked}/${nights.length} confirmed`,
       renderAccommodationContent));
@@ -36,6 +37,44 @@ const BookingsScreen = (() => {
     frag.appendChild(accordionSection('activities',
       '🦁 Activities', `${actStops.length} to book`,
       renderActivitiesContent));
+    frag.appendChild(accordionSection('luggage',
+      '🧳 Luggage Forwarding', `${lfLegs.filter(({o})=>o.luggage_forwarding.status==='arranged').length}/${lfLegs.length} arranged`,
+      renderLuggageContent));
+    return frag;
+  }
+
+  /* ─── Luggage Forwarding — read-only summary, edit happens on the
+     overnight itself (same pattern as JR Pass) ──────────────────── */
+  function renderLuggageContent() {
+    const frag = document.createDocumentFragment();
+    const nights = Data.getDays().map(d=>({day:d,o:Data.getOvernight(d.id)})).filter(({o})=>o?.name);
+    const legs = nights.filter(({o}) => o.luggage_forwarding?.enabled);
+
+    if (!legs.length) {
+      const em = document.createElement('p');
+      em.style.cssText = 'font-size:var(--text-sm);color:var(--text-muted);padding:var(--s3) var(--s4)';
+      em.textContent = 'No luggage forwarding set up yet. Edit any overnight stay and check "Luggage forwarding needed?" — it\'ll show up here automatically.';
+      frag.appendChild(em);
+      return frag;
+    }
+
+    legs.forEach(({day, o}) => {
+      const lf = o.luggage_forwarding;
+      const card = document.createElement('div');
+      card.style.cssText = 'padding:var(--s3) var(--s4);border-bottom:1px solid var(--border-subtle);cursor:pointer';
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <span class="badge badge-open" style="font-size:9px;padding:1px 5px">${day.label}</span>
+          <span style="font-size:var(--text-xs);color:var(--text-muted)">${day.date}</span>
+        </div>
+        <p style="font-weight:600;font-size:var(--text-md);color:var(--text-primary)">${lf.from && lf.to ? lf.from + ' → ' + lf.to : (lf.to || lf.from || 'Luggage forwarding')}</p>
+        ${lf.cutoff ? `<p style="font-size:var(--text-sm);color:var(--text-secondary);margin-top:2px">Drop off by ${lf.cutoff}</p>` : ''}
+        ${lf.courier ? `<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">${lf.courier}</p>` : ''}
+        ${lf.notes ? `<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:3px;font-style:italic">${lf.notes}</p>` : ''}
+        <p style="font-size:var(--text-xs);margin-top:4px;color:${lf.status==='arranged'?'var(--success-text)':'var(--warning-text)'}">${lf.status==='arranged'?'✓ Arranged':'⚠ Not yet arranged'}</p>`;
+      card.addEventListener('click', () => BottomSheet.openOvernight(day));
+      frag.appendChild(card);
+    });
     return frag;
   }
 
