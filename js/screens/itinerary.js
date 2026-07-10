@@ -134,6 +134,7 @@ const ItineraryScreen = (() => {
     const o = Data.getOvernight(day.id);
     if (!o?.name) return null;
     const statusCls = {booked:'badge-booked',pending:'badge-pending',urgent:'badge-urgent',open:'badge-open'};
+    const lf = o.luggage_forwarding;
     const card = document.createElement('div');
     card.className = 'overnight-card';
     card.innerHTML = `
@@ -149,7 +150,12 @@ const ItineraryScreen = (() => {
         <span class="badge ${statusCls[o.status]||'badge-open'}">${
           o.status==='booked'?'✓ Booked':o.status==='urgent'?'⚡ Urgent':o.status==='pending'?'Pending':'Open'
         }</span>
-      </div>`;
+      </div>
+      ${lf?.enabled ? `
+      <div style="display:flex;align-items:center;gap:6px;padding:6px 12px 10px;font-size:var(--text-xs);color:${lf.status==='arranged'?'var(--success-text)':'var(--warning-text)'}">
+        <span>🧳</span>
+        <span>Luggage forwarded${lf.to ? ' → ' + lf.to : ''}${lf.cutoff ? ' · drop off by ' + lf.cutoff : ''}${lf.status!=='arranged' ? ' · not yet arranged' : ''}</span>
+      </div>` : ''}`;
     card.addEventListener('click', () => BottomSheet.openOvernight(day));
     return card;
   }
