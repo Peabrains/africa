@@ -216,6 +216,7 @@ const BottomSheet = (() => {
   }
   function overnightHTML(day) {
     const o = Data.getOvernight(day.id) || {};
+    const lf = o.luggage_forwarding || {};
     return `
       <div class="bs-detail">
         <div class="bs-tags"><span class="badge badge-open">${day.label}</span><span class="badge badge-open">${day.date}</span></div>
@@ -225,6 +226,21 @@ const BottomSheet = (() => {
         ${field('Booking reference','o-ref',o.ref||'','text','e.g. HTL-20270412')}
         ${field(`Cost (${Data.getTripCurrency?.() || 'USD'})`,'o-cost',o.cost||'','number','e.g. 18000')}
         ${field('Book by (deadline)','o-deadline',o.deadline||'','date')}
+
+        <label style="display:flex;align-items:center;gap:8px;margin:var(--s4) 0 var(--s2);cursor:pointer">
+          <input type="checkbox" id="o-lf-toggle" ${lf.enabled?'checked':''} style="accent-color:var(--accent);width:16px;height:16px">
+          <span style="font-size:var(--text-sm);font-weight:500">🧳 Luggage forwarding needed?</span>
+        </label>
+        <div id="o-lf-fields" style="display:${lf.enabled?'flex':'none'};flex-direction:column;gap:var(--s2);padding:var(--s3);background:var(--surface-raised);border-radius:var(--r-md);margin-bottom:var(--s3)">
+          ${field('From (drop-off point)','o-lf-from',lf.from||'','text','e.g. Hongu Taisha bus terminal counter')}
+          ${field('To (pickup point)','o-lf-to',lf.to||'','text','e.g. Koguchi guesthouse reception')}
+          ${field('Drop-off cutoff time','o-lf-cutoff',lf.cutoff||'','text','e.g. 8:00am')}
+          ${field('Courier / service','o-lf-courier',lf.courier||'','text','e.g. Yamato Transport (Takkyubin)')}
+          ${field(`Cost (${Data.getTripCurrency?.() || 'USD'})`,'o-lf-cost',lf.cost||'','number','e.g. 2000')}
+          ${select('Status','o-lf-status',lf.status||'not_arranged',[{v:'not_arranged',l:'Not yet arranged'},{v:'arranged',l:'✓ Arranged'}])}
+          ${field('Notes','o-lf-notes',lf.notes||'','text','optional')}
+        </div>
+
         <div class="bs-actions" style="margin-top:var(--s4)">
           <button class="btn btn-primary bs-full-btn" id="o-save-btn">Save</button>
           <button class="btn btn-ghost bs-full-btn" id="o-cancel-btn">Cancel</button>
@@ -407,8 +423,25 @@ const BottomSheet = (() => {
   /* ─── Wire: overnight ────────────────────────────────────── */
   function wireOvernight(day) {
     const g = id => body.querySelector('#'+id)?.value?.trim()||'';
+
+    const lfToggle = body.querySelector('#o-lf-toggle');
+    const lfFields = body.querySelector('#o-lf-fields');
+    lfToggle?.addEventListener('change', () => {
+      lfFields.style.display = lfToggle.checked ? 'flex' : 'none';
+    });
+
     body.querySelector('#o-save-btn')?.addEventListener('click', async () => {
       const patch = { name:g('o-name'), status:g('o-status')||'open', ref:g('o-ref'), cost:parseInt(g('o-cost'))||null, deadline:g('o-deadline')||null };
+      patch.luggage_forwarding = lfToggle?.checked ? {
+        enabled:  true,
+        from:     g('o-lf-from'),
+        to:       g('o-lf-to'),
+        cutoff:   g('o-lf-cutoff'),
+        courier:  g('o-lf-courier'),
+        cost:     parseInt(g('o-lf-cost'))||null,
+        status:   g('o-lf-status') || 'not_arranged',
+        notes:    g('o-lf-notes'),
+      } : null;
       await Data.updateOvernight(day.id, patch);
       Toast.show('Accommodation saved','success'); close();
       window.ItineraryScreen?.refresh(); window.BookingsScreen?.refresh?.();
