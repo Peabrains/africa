@@ -118,6 +118,68 @@ const BottomSheet = (() => {
   const statusCls  = {booked:'badge-booked',pending:'badge-pending',urgent:'badge-urgent',open:'badge-open'};
   const statusLbl  = {booked:'✓ Booked',pending:'Pending',urgent:'⚡ Urgent',open:'Open'};
 
+  /* ─── Transport detail block — differs for plane vs train/boat ──────
+     Plane only needs departure/arrival airport + time; seat reservation,
+     JR Pass coverage, and platform are rail-only concepts and don't apply. */
+  function editTrainDetailHTML(type, td, flightNoFallback) {
+    td = td || {};
+    const isPlane = type === 'plane';
+    return `
+      <label class="bs-edit-label">${isPlane ? 'Flight details' : 'Train details (for JR cheat sheet)'}</label>
+      ${!isPlane ? `
+      <div style="display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s3)">
+        <span style="font-size:var(--text-sm);color:var(--text-secondary)">Seat reservation required?</span>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto">
+          <input type="checkbox" id="e-seatres" ${td.seatReservation?'checked':''} style="accent-color:var(--accent);width:16px;height:16px">
+          <span style="font-size:var(--text-sm)">Yes</span>
+        </label>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s3)">
+        <span style="font-size:var(--text-sm);color:var(--text-secondary)">Covered by JR Pass?</span>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto">
+          <input type="checkbox" id="e-jrpass" ${td.jrPass!==false?'checked':''} style="accent-color:var(--accent);width:16px;height:16px">
+          <span style="font-size:var(--text-sm)">Yes</span>
+        </label>
+      </div>
+      ${field('Platform','e-platform',td.platform||'','text','e.g. Platform 2')}
+      ` : ''}
+      ${field(isPlane?'Departure airport':'Origin','e-origin',td.origin||'','text',isPlane?'e.g. NBO':'e.g. Shin-Osaka')}
+      ${field(isPlane?'Arrival airport':'Destination','e-destination',td.destination||'','text',isPlane?'e.g. JRO':'e.g. Kii-Tanabe')}
+      ${field('Arrive time','e-arrive',/^\d{2}:\d{2}$/.test(td.arriveTime||'')?td.arriveTime:'','time')}
+      <div class="bs-edit-group" style="display:flex;align-items:center;gap:var(--s3)">
+        <label class="bs-edit-label" style="margin-bottom:0">Duration</label>
+        <span id="e-duration-display" style="font-size:var(--text-sm);font-weight:500;color:var(--accent)">—</span>
+        <input id="e-duration" type="hidden" value="${td.duration||''}">
+      </div>
+      ${field(isPlane?'Flight number':'Flight/Train #','e-trainno',td.trainNumber||flightNoFallback||'','text',isPlane?'e.g. QR648':'e.g. QR648 or Kuroshio 5')}
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:-6px;margin-bottom:var(--s2)">${isPlane ? 'Airline code + number, no space (e.g. <strong>QR648</strong>, not "QR 648" or "Qatar 648"). Used to auto-track schedule changes.' : 'For flights: airline code + number, no space (e.g. <strong>QR648</strong>, not "QR 648" or "Qatar 648"). Used to auto-track schedule changes.'}</p>`;
+  }
+  function addTrainDetailHTML(type, td) {
+    td = td || {};
+    const isPlane = type === 'plane';
+    return `
+      <label class="bs-edit-label">${isPlane ? 'Flight details' : 'Train / service details (for JR cheat sheet)'}</label>
+      ${!isPlane ? `
+      <div style="display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s3)">
+        <span style="font-size:var(--text-sm);color:var(--text-secondary)">Seat reservation required?</span>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto">
+          <input type="checkbox" id="a-seatres" ${td.seatReservation?'checked':''} style="accent-color:var(--accent);width:16px;height:16px">
+          <span style="font-size:var(--text-sm)">Yes</span>
+        </label>
+      </div>
+      ` : ''}
+      ${field(isPlane?'Departure airport':'Origin (boarding station)','a-origin',td.origin||'','text',isPlane?'e.g. NBO':'e.g. Shin-Osaka')}
+      ${field(isPlane?'Arrival airport':'Destination (alighting)','a-destination',td.destination||'','text',isPlane?'e.g. JRO':'e.g. Kii-Tanabe')}
+      ${field('Arrive time','a-arrive',td.arriveTime||'','time')}
+      <div class="bs-edit-group" style="display:flex;align-items:center;gap:var(--s3)">
+        <label class="bs-edit-label" style="margin-bottom:0">Duration</label>
+        <span id="a-duration-display" style="font-size:var(--text-sm);font-weight:500;color:var(--accent)">—</span>
+        <input id="a-duration" type="hidden" value="${td.duration||''}">
+      </div>
+      ${field(isPlane?'Flight number':'Flight/Train #','a-trainno',td.trainNumber||'','text',isPlane?'e.g. QR648':'e.g. QR648 or TBD')}
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:-6px;margin-bottom:var(--s2)">${isPlane ? 'Airline code + number, no space (e.g. <strong>QR648</strong>, not "QR 648" or "Qatar 648"). Used to auto-track schedule changes.' : 'For flights: airline code + number, no space (e.g. <strong>QR648</strong>, not "QR 648" or "Qatar 648"). Used to auto-track schedule changes.'}</p>`;
+  }
+
   /* ─── Stop view mode ─────────────────────────────────────── */
   function stopViewHTML(stop, day) {
     const stampCollected = false; // no stamps in Africa PWA
@@ -165,33 +227,8 @@ const BottomSheet = (() => {
         <p class="bs-section-head">Transport</p>
         ${textarea('Transport detail','e-transport',stop.transport,'e.g. JR Oito Line · ~40 min · JR Pass \u2713')}
         ${select('Transport type','e-ttype',stop.transportType,transTypes)}
-        ${field('Platform','e-platform',stop.trainDetail?.platform||'','text','e.g. Platform 2')}
         <div id="e-train-detail-block" class="bs-train-detail-block" style="display:${showTrain?'block':'none'};margin-top:var(--s2)">
-          <label class="bs-edit-label">Train details (for JR cheat sheet)</label>
-          <div style="display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s3)">
-            <span style="font-size:var(--text-sm);color:var(--text-secondary)">Seat reservation required?</span>
-            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto">
-              <input type="checkbox" id="e-seatres" ${stop.trainDetail?.seatReservation?'checked':''} style="accent-color:var(--accent);width:16px;height:16px">
-              <span style="font-size:var(--text-sm)">Yes</span>
-            </label>
-          </div>
-          <div style="display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s3)">
-            <span style="font-size:var(--text-sm);color:var(--text-secondary)">Covered by JR Pass?</span>
-            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto">
-              <input type="checkbox" id="e-jrpass" ${stop.trainDetail?.jrPass!==false?'checked':''} style="accent-color:var(--accent);width:16px;height:16px">
-              <span style="font-size:var(--text-sm)">Yes</span>
-            </label>
-          </div>
-          ${field('Origin','e-origin',stop.trainDetail?.origin||'','text','e.g. Shin-Osaka')}
-          ${field('Destination','e-destination',stop.trainDetail?.destination||'','text','e.g. Kii-Tanabe')}
-          ${field('Arrive time','e-arrive',/^\d{2}:\d{2}$/.test(stop.trainDetail?.arriveTime||'')?stop.trainDetail.arriveTime:'','time')}
-          <div class="bs-edit-group" style="display:flex;align-items:center;gap:var(--s3)">
-            <label class="bs-edit-label" style="margin-bottom:0">Duration</label>
-            <span id="e-duration-display" style="font-size:var(--text-sm);font-weight:500;color:var(--accent)">—</span>
-            <input id="e-duration" type="hidden" value="${stop.trainDetail?.duration||''}">
-          </div>
-          ${field('Flight/Train #','e-trainno',stop.trainDetail?.trainNumber||stop.flightNo||'','text','e.g. QR648 or Kuroshio 5')}
-          <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:-6px;margin-bottom:var(--s2)">For flights: airline code + number, no space (e.g. <strong>QR648</strong>, not "QR 648" or "Qatar 648"). Used to auto-track schedule changes.</p>
+          ${editTrainDetailHTML(stop.transportType||'walk', stop.trainDetail, stop.flightNo)}
         </div>
         <p class="bs-section-head">Reservation</p>
         <div class="bs-edit-group" style="display:flex;align-items:center;gap:var(--s3)">
@@ -278,26 +315,7 @@ const BottomSheet = (() => {
         ${timeWithTz('a-time','a-tz','','')}
         ${textarea('Transport to get here','a-transport','','e.g. On foot · 3.6 km')}
         ${select('Transport type','a-ttype','walk',transTypes)}
-        <div id="a-train-detail-block" class="bs-train-detail-block" style="display:none;margin-top:var(--s2)">
-          <label class="bs-edit-label">Train / service details (for JR cheat sheet)</label>
-          <div style="display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s3)">
-            <span style="font-size:var(--text-sm);color:var(--text-secondary)">Seat reservation required?</span>
-            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto">
-              <input type="checkbox" id="a-seatres" style="accent-color:var(--accent);width:16px;height:16px">
-              <span style="font-size:var(--text-sm)">Yes</span>
-            </label>
-          </div>
-          ${field('Origin (boarding station)','a-origin','','text','e.g. Shin-Osaka')}
-          ${field('Destination (alighting)','a-destination','','text','e.g. Kii-Tanabe')}
-          ${field('Arrive time','a-arrive','','time')}
-          <div class="bs-edit-group" style="display:flex;align-items:center;gap:var(--s3)">
-            <label class="bs-edit-label" style="margin-bottom:0">Duration</label>
-            <span id="a-duration-display" style="font-size:var(--text-sm);font-weight:500;color:var(--accent)">—</span>
-            <input id="a-duration" type="hidden" value="">
-          </div>
-          ${field('Flight/Train #','a-trainno','','text','e.g. QR648 or TBD')}
-          <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:-6px;margin-bottom:var(--s2)">For flights: airline code + number, no space (e.g. <strong>QR648</strong>, not "QR 648" or "Qatar 648"). Used to auto-track schedule changes.</p>
-        </div>
+        <div id="a-train-detail-block" class="bs-train-detail-block" style="display:none;margin-top:var(--s2)"></div>
         <p class="bs-section-head" style="margin-top:var(--s3)">Reservation</p>
         <div class="bs-edit-group" style="display:flex;align-items:center;gap:var(--s3)">
           <label class="bs-edit-label" style="margin-bottom:0">Needs booking?</label>
@@ -382,20 +400,43 @@ const BottomSheet = (() => {
   /* ─── Wire: stop edit ────────────────────────────────────── */
   function wireStopEdit(stop, day) {
     const g = id => body.querySelector('#'+id)?.value?.trim()||'';
-    // Dynamic show/hide of train detail block on type change (fix #5 for edit too)
     const editTType = body.querySelector('#e-ttype');
-    function updateEditTrainBlock() {
-      const type = editTType?.value || stop.transportType;
-      const block = body.querySelector('.bs-train-detail-block');
-      if (block) block.style.display = ['train','plane','boat'].includes(type) ? 'block' : 'none';
+    const trainBlock = body.querySelector('.bs-train-detail-block');
+
+    // Reads whatever's currently in the block's fields (not stop.trainDetail)
+    // so switching the type dropdown doesn't discard in-progress edits.
+    function currentEditValues() {
+      return {
+        seatReservation: body.querySelector('#e-seatres')?.checked,
+        jrPass:          body.querySelector('#e-jrpass')?.checked,
+        platform:        body.querySelector('#e-platform')?.value,
+        origin:          body.querySelector('#e-origin')?.value,
+        destination:     body.querySelector('#e-destination')?.value,
+        arriveTime:      body.querySelector('#e-arrive')?.value,
+        duration:        body.querySelector('#e-duration')?.value,
+        trainNumber:     body.querySelector('#e-trainno')?.value,
+      };
     }
-    editTType?.addEventListener('change', updateEditTrainBlock);
+    function rerenderTrainBlock() {
+      const type = editTType?.value || stop.transportType;
+      const show = ['train','plane','boat'].includes(type);
+      if (!trainBlock) return;
+      const preserved = trainBlock.style.display !== 'none' ? currentEditValues() : (stop.trainDetail || {});
+      trainBlock.style.display = show ? 'block' : 'none';
+      if (show) {
+        trainBlock.innerHTML = editTrainDetailHTML(type, preserved, stop.flightNo);
+        wireAutoduration('e-time', 'e-arrive', 'e-duration-display', 'e-duration');
+        wireTimeInput('e-arrive');
+      }
+    }
+    editTType?.addEventListener('change', rerenderTrainBlock);
     wireAutoduration('e-time', 'e-arrive', 'e-duration-display', 'e-duration');
     wireTimeInput('e-time');
     wireTimeInput('e-arrive');
     body.querySelector('#bs-save-btn')?.addEventListener('click', async () => {
       const ttype = g('e-ttype')||stop.transportType;
       const hasTrain = ['train','plane','boat'].includes(ttype);
+      const isPlane = ttype === 'plane';
       const numberField = g('e-trainno');
       const patch = {
         name:          g('e-name')||stop.name,
@@ -411,9 +452,15 @@ const BottomSheet = (() => {
         ...(ttype === 'plane' ? { flightNo: numberField } : {}),
         trainDetail: hasTrain ? {
           ...stop.trainDetail,
-          platform:       g('e-platform'),
-          seatReservation: body.querySelector('#e-seatres')?.checked || false,
-          jrPass:         body.querySelector('#e-jrpass')?.checked !== false,
+          // Seat reservation / JR Pass / platform are rail-only — don't
+          // overwrite them with blanks when saving a plane stop, just
+          // leave whatever was last stored (they're not shown or used
+          // for planes either way).
+          ...(isPlane ? {} : {
+            platform:        g('e-platform'),
+            seatReservation: body.querySelector('#e-seatres')?.checked || false,
+            jrPass:          body.querySelector('#e-jrpass')?.checked !== false,
+          }),
           origin:         g('e-origin'),
           destination:    g('e-destination'),
           arriveTime:     body.querySelector('#e-arrive')?.value || '',
@@ -491,27 +538,45 @@ const BottomSheet = (() => {
   function wireAdd(dayId) {
     const g = id => body.querySelector('#'+id)?.value?.trim()||'';
 
-    // Show/hide train detail block based on transport type (fix #5)
     const tTypeSelect = body.querySelector('#a-ttype');
     const trainBlock  = body.querySelector('#a-train-detail-block');
+
+    function currentAddValues() {
+      return {
+        seatReservation: body.querySelector('#a-seatres')?.checked,
+        origin:          body.querySelector('#a-origin')?.value,
+        destination:     body.querySelector('#a-destination')?.value,
+        arriveTime:      body.querySelector('#a-arrive')?.value,
+        duration:        body.querySelector('#a-duration')?.value,
+        trainNumber:     body.querySelector('#a-trainno')?.value,
+      };
+    }
     function updateTrainBlock() {
-      const type = tTypeSelect?.value;
-      if (trainBlock) trainBlock.style.display = ['train','plane','boat'].includes(type) ? 'block' : 'none';
+      const type = tTypeSelect?.value || 'walk';
+      const show = ['train','plane','boat'].includes(type);
+      const preserved = currentAddValues();
+      if (trainBlock) {
+        trainBlock.innerHTML = show ? addTrainDetailHTML(type, preserved) : '';
+        trainBlock.style.display = show ? 'block' : 'none';
+      }
+      if (show) {
+        wireAutoduration('a-time', 'a-arrive', 'a-duration-display', 'a-duration');
+        wireTimeInput('a-arrive');
+      }
     }
     tTypeSelect?.addEventListener('change', updateTrainBlock);
-    updateTrainBlock(); // run on open too
-    wireAutoduration('a-time', 'a-arrive', 'a-duration-display', 'a-duration');
+    updateTrainBlock(); // build correct initial content (hidden, since default type is 'walk')
     wireTimeInput('a-time');
-    wireTimeInput('a-arrive');
 
     body.querySelector('#bs-add-btn')?.addEventListener('click', async () => {
       const name = g('a-name');
       if (!name) { Toast.show('Stop name is required','warning'); return; }
       const tType = g('a-ttype') || 'walk';
       const hasTrainDetail = ['train','plane','boat'].includes(tType);
+      const isPlane = tType === 'plane';
       const numberField = g('a-trainno');
       const trainDetail = hasTrainDetail ? {
-        seatReservation: body.querySelector('#a-seatres')?.checked || false,
+        ...(isPlane ? {} : { seatReservation: body.querySelector('#a-seatres')?.checked || false }),
         origin:      g('a-origin'),
         destination: g('a-destination'),
         arriveTime:  body.querySelector('#a-arrive')?.value || '',
