@@ -11,17 +11,17 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <title>Africa Safari 2026</title>
-  <link rel="stylesheet" href="css/tokens.css?v=98">
-  <link rel="stylesheet" href="css/print.css?v=98">
+  <link rel="stylesheet" href="css/tokens.css?v=99">
+  <link rel="stylesheet" href="css/print.css?v=99">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
   <!-- InstantDB real-time sync -->
   <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase.js?v=98"></script>
+  <script src="js/supabase.js?v=99"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <!-- Platform data layer + auth + trip switcher -->
-  <script src="js/data-platform.js?v=98"></script>
-  <script src="js/trip-switcher.js?v=98"></script>
+  <script src="js/data-platform.js?v=99"></script>
+  <script src="js/trip-switcher.js?v=99"></script>
 
   <style>
     /* ── Shell ─────────────────────────────────────────────────── */
@@ -118,9 +118,13 @@
     .flight-card-code{font-size:19px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;line-height:1}
     .flight-card-code--verified{color:var(--text-primary)}
     .flight-card-terminal{font-size:10px;color:var(--text-muted);margin-top:3px}
-    .flight-card-arrow{flex:1;display:flex;flex-direction:column;align-items:center;padding:0 6px;min-width:0}
-    .flight-card-duration{font-size:10px;color:var(--text-muted);margin-bottom:3px;white-space:nowrap}
-    .flight-card-times{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--border-subtle);border-bottom:1px solid var(--border-subtle);margin-bottom:8px}
+    .flight-card-arrow{flex:1;display:flex;flex-direction:column;align-items:center;padding:0 4px;min-width:0}
+    .flight-card-flightno{font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:4px;white-space:nowrap}
+    .flight-card-arrow-glyph{font-size:20px;line-height:1;color:var(--text-muted)}
+    .flight-card-times{display:flex;align-items:flex-end;padding:8px 0;border-top:1px solid var(--border-subtle);border-bottom:1px solid var(--border-subtle);margin-bottom:8px}
+    .flight-card-times-col{flex:1;min-width:0}
+    .flight-card-times-col--right{text-align:right}
+    .flight-card-times-duration{flex-shrink:0;padding:0 8px 3px;text-align:center;font-size:10px;color:var(--text-muted);white-space:nowrap}
     .flight-card-times-label{font-size:9px;font-weight:600;letter-spacing:.4px;color:var(--text-muted);margin-bottom:3px}
     .flight-card-times-val{font-size:14px;font-weight:700;color:var(--text-primary)}
     .flight-card-times-val--delayed{color:var(--danger-text)}
@@ -372,22 +376,22 @@
   </nav>
 </div>
 
-<script src="js/auth.js?v=98"></script>
-<script src="js/config.js?v=98"></script>
-<script src="js/db.js?v=98"></script>
-<script src="js/icons.js?v=98"></script>
-<script src="js/toast.js?v=98"></script>
-<script src="js/bottom-sheet.js?v=98"></script>
-<script src="js/weather.js?v=98"></script>
-<script src="js/screens/itinerary.js?v=98"></script>
-<script src="js/screens/map.js?v=98"></script>
-<script src="js/screens/dex.js?v=98"></script>
-<script src="js/screens/bookings.js?v=98"></script>
-<script src="js/screens/sos.js?v=98"></script>
-<script src="js/screens/stamps.js?v=98"></script>
-<script src="js/screens/food.js?v=98"></script>
-<script src="js/screens/landing.js?v=98"></script>
-<script src="js/app.js?v=98"></script>
+<script src="js/auth.js?v=99"></script>
+<script src="js/config.js?v=99"></script>
+<script src="js/db.js?v=99"></script>
+<script src="js/icons.js?v=99"></script>
+<script src="js/toast.js?v=99"></script>
+<script src="js/bottom-sheet.js?v=99"></script>
+<script src="js/weather.js?v=99"></script>
+<script src="js/screens/itinerary.js?v=99"></script>
+<script src="js/screens/map.js?v=99"></script>
+<script src="js/screens/dex.js?v=99"></script>
+<script src="js/screens/bookings.js?v=99"></script>
+<script src="js/screens/sos.js?v=99"></script>
+<script src="js/screens/stamps.js?v=99"></script>
+<script src="js/screens/food.js?v=99"></script>
+<script src="js/screens/landing.js?v=99"></script>
+<script src="js/app.js?v=99"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const navCfg = [
