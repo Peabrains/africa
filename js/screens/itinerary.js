@@ -78,9 +78,105 @@ const ItineraryScreen = (() => {
     return `${Math.round(hrs / 24)}d ago`;
   }
 
-  function retimedBadge(stop) {
-    if (stop.transportType !== 'plane' || !stop.isRetimed) return '';
-    return `<span class="tl-flight-badge" style="background:var(--danger-bg,#FEF2F2);color:var(--danger-text);border:1px solid var(--danger-text)">⚠ Retimed</span>`;
+  /* ── Flight card ───────────────────────────────────────────────
+     Local code -> friendly name fallback, only for the airports these
+     trips actually touch. Verified flights (state C) use AeroDataBox's
+     own airport name instead — this table is just the A/B fallback. */
+  const AIRPORT_NAMES = {
+    EBB:'Entebbe', NBO:'Nairobi', JRO:'Kilimanjaro', DAR:'Dar es Salaam', ZNZ:'Zanzibar',
+    KGL:'Kigali', DOH:'Doha', KUL:'Kuala Lumpur', KIX:'Osaka', NRT:'Tokyo', HND:'Tokyo',
+    BKK:'Bangkok', DMK:'Bangkok', CNX:'Chiang Mai', HKT:'Phuket', USM:'Koh Samui',
+  };
+  function friendlyAirportLabel(code, verifiedName) {
+    if (verifiedName) return verifiedName;
+    const key = (code || '').trim().toUpperCase();
+    return AIRPORT_NAMES[key] || code || '?';
+  }
+  function formatDuration(mins) {
+    if (mins == null) return null;
+    const h = Math.floor(mins / 60), m = mins % 60;
+    if (h && m) return `${h}h ${m}m`;
+    if (h) return `${h}h`;
+    return `${m}m`;
+  }
+
+  /* State A = never checked · B = checked, AeroDataBox has nothing published
+     yet · C = verified. See check_flights.py for how flightSchedule is built. */
+  function flightCardHTML(stop) {
+    const sched = stop.flightSchedule;
+    const state = stop.flightState || 'A';
+    const verified = state === 'C';
+
+    const delayedDep = verified && !!sched.dep_revised_local;
+    const delayedArr = verified && !!sched.arr_revised_local;
+    const delayed = delayedDep || delayedArr;
+
+    const depShown = verified ? (sched.dep_revised_local || sched.dep_scheduled_local) : (stop.time || '—');
+    const arrShown = verified ? (sched.arr_revised_local || sched.arr_scheduled_local) : null;
+
+    const originLabel = friendlyAirportLabel(stop.origin, verified ? sched.dep_airport_name : null);
+    const destLabel    = friendlyAirportLabel(stop.destination, verified ? sched.arr_airport_name : null);
+    const origCode = stop.origin || '—';
+    const destCode = stop.destination || '—';
+
+    let badge = '';
+    if (state === 'A') badge = `<span class="flight-card-badge flight-card-badge--warn">Not yet verified</span>`;
+    else if (state === 'B') badge = `<span class="flight-card-badge flight-card-badge--warn">Hasn't been published yet</span>`;
+    else if (delayed) badge = `<span class="flight-card-badge flight-card-badge--danger">⚠ Delayed</span>`;
+
+    const day = Data.getDays().find(d => d.id === stop.dayId);
+    const dateLabel = day ? formatDayDate(day.date) : '';
+    const timeLabel = verified ? `${depShown}–${arrShown || '—'}` : (stop.time || '—');
+    const subtitle = [dateLabel, timeLabel].filter(Boolean).join(' · ');
+
+    const footerParts = [];
+    if (stop.booking?.ref) footerParts.push(`#${stop.booking.ref}`);
+    footerParts.push(stop.airline || 'Airline TBA');
+    if (stop.flightNo) footerParts.push(stop.flightNo);
+
+    return `
+      <div class="flight-card ${verified ? 'flight-card--verified' : 'flight-card--unverified'}">
+        <div class="flight-card-head">
+          <div class="flight-card-route">
+            ${Icons.plane ? Icons.plane('icon-sm') : ''}
+            <span class="flight-card-route-text">${originLabel} → ${destLabel}</span>
+          </div>
+          ${badge}
+        </div>
+        <div class="flight-card-sub ${delayed ? 'flight-card-sub--delayed' : ''}">${subtitle}</div>
+        <div class="flight-card-codes">
+          <div class="flight-card-code-block">
+            <div class="flight-card-code ${verified ? 'flight-card-code--verified' : ''}">${origCode}</div>
+            <div class="flight-card-terminal">${verified && sched.dep_terminal ? `Terminal ${sched.dep_terminal}` : 'Terminal TBA'}</div>
+          </div>
+          <div class="flight-card-arrow">
+            <span class="flight-card-duration">${verified && sched.duration_minutes != null ? formatDuration(sched.duration_minutes) : '—'}</span>
+            <span style="color:var(--text-muted)">→</span>
+          </div>
+          <div class="flight-card-code-block flight-card-code-block--right">
+            <div class="flight-card-code ${verified ? 'flight-card-code--verified' : ''}">${destCode}</div>
+            <div class="flight-card-terminal">${verified && sched.arr_terminal ? `Terminal ${sched.arr_terminal}` : 'Terminal TBA'}</div>
+          </div>
+        </div>
+        <div class="flight-card-times">
+          <div>
+            <div class="flight-card-times-label">DEPARTS</div>
+            <div class="flight-card-times-val ${delayedDep ? 'flight-card-times-val--delayed' : ''}">
+              ${delayedDep ? `<span class="flight-card-times-old">${sched.dep_scheduled_local}</span>` : ''}${depShown}
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div class="flight-card-times-label">ARRIVES</div>
+            <div class="flight-card-times-val ${delayedArr ? 'flight-card-times-val--delayed' : ''}">
+              ${verified ? `${delayedArr ? `<span class="flight-card-times-old">${sched.arr_scheduled_local}</span>` : ''}${arrShown}` : '—'}
+            </div>
+          </div>
+        </div>
+        <div class="flight-card-foot">
+          <span>${footerParts.join(' · ')}</span>
+          ${state !== 'A' && sched?.last_checked_at ? `<span>Checked ${timeSinceLabel(sched.last_checked_at)}</span>` : ''}
+        </div>
+      </div>`;
   }
 
   /* Country divider removed — see localityDivider() further down,
@@ -182,11 +278,55 @@ const ItineraryScreen = (() => {
     return btn;
   }
 
+  /* ── Stop row content — non-plane stops (walk/train/bus/boat/cable) ──── */
+  function nonPlaneContentHTML(stop) {
+    const iconKey = stop.transportType || 'walk';
+    return `
+      <div class="tl-name-row">
+        <p class="tl-name">${stop.name}</p>
+      </div>
+      <p class="tl-activity">${stop.activity || ''}</p>
+      ${stop.transport ? `<div class="tl-transport"> ${Icons[iconKey]?Icons[iconKey]('icon-sm'):''}<span>${stop.transport}</span></div>` : ''}
+      ${stop.transportType === 'train' && stop.trainDetail?.jrPass === false
+        ? '<p class="tl-note" style="color:var(--warning-text)">⚠ Not on JR Pass · buy separately</p>'
+        : stop.transportType === 'train' && stop.trainDetail?.seatReservation
+          ? '<p class="tl-note" style="color:var(--success-text)">JR Pass ✓</p>' : ''}
+      ${stop.transportType === 'train' && stop.trainDetail?.platform
+        ? `<p class="tl-note">Platform: ${stop.trainDetail.platform}</p>` : ''}
+      ${stop.notes ? `<p class="tl-note">${stop.notes}</p>` : ''}
+      <div class="tl-footer">
+        ${badge(stop.booking.status)}
+        ${stop.category==='transport' ? '<span class="cat-chip cat-chip--transport">Transport</span>' :
+          stop.category==='activity'  ? '<span class="cat-chip cat-chip--activity">Activity</span>'  : ''}
+        ${stop.booking.cost ? `<span class="cat-chip cat-chip--activity">USD ${stop.booking.cost.toLocaleString()}</span>` : ''}
+        ${stop.transportType === 'train' && stop.trainDetail?.seatReservation ? '<span class="cat-chip cat-chip--jr">Seat res.</span>' : ''}
+      </div>`;
+  }
+
+  /* ── Stop row content — plane stops (dedicated flight card) ──────────── */
+  function planeContentHTML(stop) {
+    return `
+      <div class="tl-name-row">
+        <p class="tl-name">${stop.name}</p>
+      </div>
+      ${stop.activity ? `<p class="tl-activity">${stop.activity}</p>` : ''}
+      <div style="margin-top:6px">${flightCardHTML(stop)}</div>
+      ${stop.notes ? `<p class="tl-note">${stop.notes}</p>` : ''}
+      <div class="tl-footer">
+        ${badge(stop.booking.status)}
+        ${flightBadge(stop)}
+        ${stop.category==='transport' ? '<span class="cat-chip cat-chip--transport">Transport</span>' :
+          stop.category==='activity'  ? '<span class="cat-chip cat-chip--activity">Activity</span>'  : ''}
+        ${stop.booking.cost ? `<span class="cat-chip cat-chip--activity">USD ${stop.booking.cost.toLocaleString()}</span>` : ''}
+      </div>`;
+  }
+
   /* ── Stop row ───────────────────────────────────────────────── */
   function stopRow(stop, isLast) {
     const day = Data.getDays().find(d => d.id === stop.dayId);
     const iconKey = stop.transportType || 'walk';
     const segColorVal = segColor(stop);
+    const isPlane = stop.transportType === 'plane';
 
     const row = document.createElement('div');
     row.className = 'tl-row';
@@ -202,32 +342,7 @@ const ItineraryScreen = (() => {
         ${!isLast ? '<div class="tl-line"></div>' : ''}
       </div>
       <div class="tl-content">
-        <div class="tl-name-row">
-          <p class="tl-name">${stop.name}</p>
-          ${stop.transportType === 'plane' && stop.flightNo ? `<span class="tl-flight-no" style="font-size:var(--text-xs);color:var(--text-muted);font-weight:500;margin-left:6px">${stop.flightNo}</span>` : ''}
-        </div>
-        <p class="tl-activity">${stop.activity || ''}</p>
-        ${stop.transport ? `<div class="tl-transport"> ${Icons[iconKey]?Icons[iconKey]('icon-sm'):''}<span>${stop.transport}</span></div>` : ''}
-        ${stop.transportType === 'train' && stop.trainDetail?.jrPass === false
-          ? '<p class="tl-note" style="color:var(--warning-text)">⚠ Not on JR Pass · buy separately</p>'
-          : stop.transportType === 'train' && stop.trainDetail?.seatReservation
-            ? '<p class="tl-note" style="color:var(--success-text)">JR Pass ✓</p>' : ''}
-        ${stop.transportType === 'train' && stop.trainDetail?.platform
-          ? `<p class="tl-note">Platform: ${stop.trainDetail.platform}</p>` : ''}
-        ${stop.isRetimed ? `<p class="tl-note" style="color:var(--danger-text)">
-          <span style="text-decoration:line-through;opacity:.6">${stop.originalDepartTime}</span> → <strong>${stop.departTime}</strong>
-          ${stop.lastCheckedAt ? ` · Checked ${timeSinceLabel(stop.lastCheckedAt)}` : ''}
-        </p>` : (stop.transportType === 'plane' && stop.lastCheckedAt ? `<p class="tl-note" style="color:var(--text-muted);font-size:var(--text-xs)">Checked ${timeSinceLabel(stop.lastCheckedAt)}</p>` : '')}
-        ${stop.notes ? `<p class="tl-note">${stop.notes}</p>` : ''}
-        <div class="tl-footer">
-          ${badge(stop.booking.status)}
-          ${flightBadge(stop)}
-          ${retimedBadge(stop)}
-          ${stop.category==='transport' ? '<span class="cat-chip cat-chip--transport">Transport</span>' :
-            stop.category==='activity'  ? '<span class="cat-chip cat-chip--activity">Activity</span>'  : ''}
-          ${stop.booking.cost ? `<span class="cat-chip cat-chip--activity">USD ${stop.booking.cost.toLocaleString()}</span>` : ''}
-          ${stop.transportType === 'train' && stop.trainDetail?.seatReservation ? '<span class="cat-chip cat-chip--jr">Seat res.</span>' : ''}
-        </div>
+        ${isPlane ? planeContentHTML(stop) : nonPlaneContentHTML(stop)}
       </div>`;
     row.addEventListener('click', () => BottomSheet.openStop(stop, day));
     return row;
