@@ -129,11 +129,6 @@ const ItineraryScreen = (() => {
     const timeLabel = verified ? `${depShown}–${arrShown || '—'}` : (stop.time || '—');
     const subtitle = [dateLabel, timeLabel].filter(Boolean).join(' · ');
 
-    const footerParts = [];
-    if (stop.booking?.ref) footerParts.push(`#${stop.booking.ref}`);
-    footerParts.push(stop.airline || 'Airline TBA');
-    if (stop.flightNo) footerParts.push(stop.flightNo);
-
     return `
       <div class="flight-card ${verified ? 'flight-card--verified' : 'flight-card--unverified'}">
         <div class="flight-card-head">
@@ -150,8 +145,8 @@ const ItineraryScreen = (() => {
             <div class="flight-card-terminal">${verified && sched.dep_terminal ? `Terminal ${sched.dep_terminal}` : 'Terminal TBA'}</div>
           </div>
           <div class="flight-card-arrow">
-            <span class="flight-card-duration">${verified && sched.duration_minutes != null ? formatDuration(sched.duration_minutes) : '—'}</span>
-            <span style="color:var(--text-muted)">→</span>
+            <span class="flight-card-flightno">${stop.flightNo || '—'}</span>
+            <span class="flight-card-arrow-glyph">→</span>
           </div>
           <div class="flight-card-code-block flight-card-code-block--right">
             <div class="flight-card-code ${verified ? 'flight-card-code--verified' : ''}">${destCode}</div>
@@ -159,13 +154,14 @@ const ItineraryScreen = (() => {
           </div>
         </div>
         <div class="flight-card-times">
-          <div>
+          <div class="flight-card-times-col">
             <div class="flight-card-times-label">DEPARTS</div>
             <div class="flight-card-times-val ${delayedDep ? 'flight-card-times-val--delayed' : ''}">
               ${delayedDep ? `<span class="flight-card-times-old">${sched.dep_scheduled_local}</span>` : ''}${depShown}
             </div>
           </div>
-          <div style="text-align:right">
+          <div class="flight-card-times-duration">${verified && sched.duration_minutes != null ? formatDuration(sched.duration_minutes) : '—'}</div>
+          <div class="flight-card-times-col flight-card-times-col--right">
             <div class="flight-card-times-label">ARRIVES</div>
             <div class="flight-card-times-val ${delayedArr ? 'flight-card-times-val--delayed' : ''}">
               ${verified ? `${delayedArr ? `<span class="flight-card-times-old">${sched.arr_scheduled_local}</span>` : ''}${arrShown}` : '—'}
@@ -173,7 +169,7 @@ const ItineraryScreen = (() => {
           </div>
         </div>
         <div class="flight-card-foot">
-          <span>${footerParts.join(' · ')}</span>
+          <span>${stop.airline || 'Airline TBA'}</span>
           ${state !== 'A' && sched?.last_checked_at ? `<span>Checked ${timeSinceLabel(sched.last_checked_at)}</span>` : ''}
         </div>
       </div>`;
