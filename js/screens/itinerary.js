@@ -169,7 +169,7 @@ const ItineraryScreen = (() => {
           </div>
         </div>
         <div class="flight-card-foot">
-          <span>${stop.airline || 'Airline TBA'}</span>
+          <span>${(verified && sched.airline_name) || stop.airline || 'Airline TBA'}</span>
           ${state !== 'A' && sched?.last_checked_at ? `<span>Checked ${timeSinceLabel(sched.last_checked_at)}</span>` : ''}
         </div>
       </div>`;
