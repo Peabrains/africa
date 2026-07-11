@@ -743,6 +743,8 @@ const SOSScreen = (() => {
 
     const allDays = Data.getDays?.() || [];
     const customLinks = Data.getCustomLinks?.() || [];
+    // Existing categories on THIS trip only (getCustomLinks() is already trip-scoped)
+    const existingSections = [...new Set(customLinks.map(l => l.section).filter(Boolean))];
 
     if (!customLinks.length) {
       const em = document.createElement('p');
@@ -767,7 +769,7 @@ const SOSScreen = (() => {
         wrap.appendChild(gHead);
         groups[section].forEach(link => {
           const day = allDays.find(d => d.id === link.dayId);
-          wrap.appendChild(myLinkCard(link, day, allDays));
+          wrap.appendChild(myLinkCard(link, day, allDays, existingSections));
         });
       });
     }
@@ -777,24 +779,45 @@ const SOSScreen = (() => {
     addForm.style.cssText = 'margin-top:var(--s3);background:var(--surface-raised);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:var(--s3);display:flex;flex-direction:column;gap:var(--s2)';
     const dayOptions = `<option value="">No specific day</option>` +
       allDays.map(d => `<option value="${d.id}">${d.label} · ${d.date}</option>`).join('');
+
+    // picking one is exact by construction, no more retyping/typos creating near-duplicate groups.
+    const sectionOptions = existingSections.map(s => `<option value="${s}">${s}</option>`).join('')
+      + `<option value="__new__">+ New group…</option>`;
+
     addForm.innerHTML = `
       <p style="font-size:var(--text-xs);font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Add link</p>
       <input id="cl-title" placeholder="Title (e.g. Asilia Camps)" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 10px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
       <input id="cl-url" placeholder="URL (https://...)" type="url" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 10px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
-      <input id="cl-section" placeholder="Group (e.g. 🛂 Entry Requirements) — optional" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 10px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
+      <select id="cl-section-select" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 10px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
+        <option value="">No group</option>
+        ${sectionOptions}
+      </select>
+      <input id="cl-section-new" placeholder="New group name (e.g. 🛂 Entry Requirements)" style="display:none;width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 10px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
       <select id="cl-day" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 10px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">${dayOptions}</select>
       <button id="cl-add-btn" style="background:var(--accent);color:#fff;border:none;border-radius:var(--r-md);padding:8px 16px;font-size:var(--text-sm);font-weight:500;cursor:pointer;font-family:var(--font);align-self:flex-end">Add link</button>`;
+
+    const sectionSelect = addForm.querySelector('#cl-section-select');
+    const sectionNewInput = addForm.querySelector('#cl-section-new');
+    sectionSelect.addEventListener('change', () => {
+      sectionNewInput.style.display = sectionSelect.value === '__new__' ? '' : 'none';
+      if (sectionSelect.value === '__new__') sectionNewInput.focus();
+    });
+
     addForm.querySelector('#cl-add-btn').addEventListener('click', async () => {
-      const title   = addForm.querySelector('#cl-title').value.trim();
-      const url     = addForm.querySelector('#cl-url').value.trim();
-      const section = addForm.querySelector('#cl-section').value.trim();
-      const dayId   = addForm.querySelector('#cl-day').value || null;
+      const title = addForm.querySelector('#cl-title').value.trim();
+      const url   = addForm.querySelector('#cl-url').value.trim();
+      const section = sectionSelect.value === '__new__'
+        ? sectionNewInput.value.trim()
+        : sectionSelect.value;
+      const dayId = addForm.querySelector('#cl-day').value || null;
       if (!title || !url) { Toast.show('Title and URL are required', 'warning'); return; }
       if (!url.startsWith('http')) { Toast.show('URL must start with https://', 'warning'); return; }
       await Data.addCustomLink({ title, url, dayId, section });
       addForm.querySelector('#cl-title').value = '';
       addForm.querySelector('#cl-url').value = '';
-      addForm.querySelector('#cl-section').value = '';
+      sectionSelect.value = '';
+      sectionNewInput.value = '';
+      sectionNewInput.style.display = 'none';
       addForm.querySelector('#cl-day').value = '';
       Toast.show('Link added ✓', 'success');
       render();
@@ -805,7 +828,7 @@ const SOSScreen = (() => {
   }
 
   /* ── Editable "My links" card (day badge + edit + delete) ────── */
-  function myLinkCard(link, day, allDays) {
+  function myLinkCard(link, day, allDays, existingSections = []) {
     const card = document.createElement('div');
     card.className = 'card';
     card.style.cssText = 'margin-bottom:var(--s2);padding:10px var(--s3)';
@@ -863,16 +886,29 @@ const SOSScreen = (() => {
     editForm.style.cssText = 'display:none;flex-direction:column;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border-subtle)';
     const dayOptions = `<option value="">No specific day</option>` +
       allDays.map(d => `<option value="${d.id}" ${d.id===link.dayId?'selected':''}>${d.label} · ${d.date}</option>`).join('');
+    const editSectionOptions = existingSections.map(s => `<option value="${s}" ${s===link.section?'selected':''}>${s}</option>`).join('')
+      + `<option value="__new__" ${link.section && !existingSections.includes(link.section)?'selected':''}>+ New group…</option>`;
     editForm.innerHTML = `
       <input class="el-title" value="${link.title.replace(/"/g,'&quot;')}" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:6px 8px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
       <input class="el-url" value="${link.url.replace(/"/g,'&quot;')}" type="url" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:6px 8px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
-      <input class="el-section" placeholder="Group — optional" value="${(link.section||'').replace(/"/g,'&quot;')}" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:6px 8px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
+      <select class="el-section-select" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:6px 8px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
+        <option value="">No group</option>
+        ${editSectionOptions}
+      </select>
+      <input class="el-section-new" placeholder="New group name" value="${link.section && !existingSections.includes(link.section) ? link.section.replace(/"/g,'&quot;') : ''}" style="display:${link.section && !existingSections.includes(link.section)?'':'none'};width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:6px 8px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">
       <select class="el-day" style="width:100%;border:1.5px solid var(--border);border-radius:var(--r-md);padding:6px 8px;font-size:var(--text-sm);background:var(--surface);color:var(--text-primary);font-family:var(--font);box-sizing:border-box">${dayOptions}</select>
       <div style="display:flex;gap:6px">
         <button class="el-save" style="flex:1;background:var(--accent);color:#fff;border:none;border-radius:var(--r-md);padding:6px;font-size:var(--text-xs);font-weight:500;cursor:pointer;font-family:var(--font)">Save</button>
         <button class="el-cancel" style="flex:1;background:none;border:1.5px solid var(--border);border-radius:var(--r-md);padding:6px;font-size:var(--text-xs);cursor:pointer;font-family:var(--font);color:var(--text-secondary)">Cancel</button>
       </div>`;
     card.appendChild(editForm);
+
+    const elSectionSelect = editForm.querySelector('.el-section-select');
+    const elSectionNew = editForm.querySelector('.el-section-new');
+    elSectionSelect.addEventListener('change', () => {
+      elSectionNew.style.display = elSectionSelect.value === '__new__' ? '' : 'none';
+      if (elSectionSelect.value === '__new__') elSectionNew.focus();
+    });
 
     editBtn.addEventListener('click', () => {
       editForm.style.display = editForm.style.display === 'none' ? 'flex' : 'none';
@@ -881,7 +917,7 @@ const SOSScreen = (() => {
     editForm.querySelector('.el-save').addEventListener('click', async () => {
       const title   = editForm.querySelector('.el-title').value.trim();
       const url     = editForm.querySelector('.el-url').value.trim();
-      const section = editForm.querySelector('.el-section').value.trim();
+      const section = elSectionSelect.value === '__new__' ? elSectionNew.value.trim() : elSectionSelect.value;
       const dayId   = editForm.querySelector('.el-day').value || null;
       if (!title || !url) { Toast.show('Title and URL are required', 'warning'); return; }
       await Data.updateCustomLink(link.id, { title, url, dayId, section });
