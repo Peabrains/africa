@@ -262,6 +262,19 @@ const Data = (() => {
   /* ── Normalise a stop row from Supabase to match itinerary.js field names ── */
   function normaliseStop(s) {
     const parentDay = DAYS.find(d => d.id === s.day_id);
+    const fd = s.flight_detail || null;
+    // flight_detail.schedule is written by check_flights.py (main branch) —
+    // scheduled/revised times are refreshed live on every check, never frozen.
+    const sched = fd?.schedule || null;
+    // "Retimed" is a pure current-state read: a revised time is present AND
+    // differs from the scheduled one right now. No diffing against history.
+    const isRetimed = !!sched && (
+      (sched.dep_revised_local && sched.dep_revised_local !== sched.dep_scheduled_local) ||
+      (sched.arr_revised_local && sched.arr_revised_local !== sched.arr_scheduled_local)
+    );
+    // A = never checked · B = checked but AeroDataBox has nothing published yet · C = verified
+    const flightState = !sched ? 'A' : (sched.published ? 'C' : 'B');
+
     return {
       ...s,
       // camelCase aliases for snake_case Supabase columns
@@ -272,28 +285,28 @@ const Data = (() => {
       transportType: s.transport_type || 'walk',
       needsBooking:  s.needs_booking || false,
       isBooked:      s.is_booked || false,
-      flightIncluded: s.flight_detail?.included === true,
-      flightExcluded: s.flight_detail?.included === false,
-      trainDetail:   s.flight_detail?.trainDetail || null,
+      flightIncluded: fd?.included === true,
+      flightExcluded: fd?.included === false,
+      trainDetail:   fd?.trainDetail || null,
       booking: {
         status: s.is_booked ? 'booked' : 'open',
-        ref:    s.flight_detail?.ref || '',
-        cost:   s.flight_detail?.cost ?? null,
-        deadline: s.flight_detail?.deadline || null,
+        ref:    fd?.ref || '',
+        cost:   fd?.cost ?? null,
+        deadline: fd?.deadline || null,
       },
       // flight detail fields itinerary.js uses
-      ...(s.flight_detail ? {
-        airline:    s.flight_detail.airline || '',
-        flightNo:   s.flight_detail.flight_no || '',
-        origin:     s.flight_detail.origin || '',
-        destination:s.flight_detail.destination || '',
-        departTime: s.flight_detail.depart_time || s.time || '',
-        arriveTime: s.flight_detail.arrive_time || '',
-        originalDepartTime: s.flight_detail.original_depart_time || null,
-        lastCheckedAt:      s.flight_detail.last_checked_at || null,
-        isRetimed: !!(s.flight_detail.original_depart_time &&
-                      s.flight_detail.depart_time &&
-                      s.flight_detail.original_depart_time !== s.flight_detail.depart_time),
+      ...(fd ? {
+        airline:    fd.airline || '',
+        flightNo:   fd.flight_no || '',
+        // Origin/destination actually live under flight_detail.trainDetail
+        // (shared with train/boat stops) — this used to read flight_detail.origin
+        // directly, which is never where the edit form writes it, so these
+        // were silently empty for every real stop. Fixed here.
+        origin:      fd.trainDetail?.origin || '',
+        destination: fd.trainDetail?.destination || '',
+        flightSchedule: sched,   // raw schedule object — see check_flights.py header comment
+        flightState,             // 'A' not yet verified · 'B' not yet published · 'C' verified
+        isRetimed,
       } : {}),
     };
   }
