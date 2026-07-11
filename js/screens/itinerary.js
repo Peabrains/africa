@@ -116,8 +116,8 @@ const ItineraryScreen = (() => {
 
     const originLabel = friendlyAirportLabel(stop.origin, verified ? sched.dep_airport_name : null);
     const destLabel    = friendlyAirportLabel(stop.destination, verified ? sched.arr_airport_name : null);
-    const origCode = stop.origin || '—';
-    const destCode = stop.destination || '—';
+    const origCode = (verified && sched.dep_iata) || stop.origin || '—';
+    const destCode = (verified && sched.arr_iata) || stop.destination || '—';
 
     let badge = '';
     if (state === 'A') badge = `<span class="flight-card-badge flight-card-badge--warn">Not yet verified</span>`;
