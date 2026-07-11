@@ -248,6 +248,7 @@ const BottomSheet = (() => {
           ${field('From (drop-off point)','o-lf-from',lf.from || o.name || '','text','e.g. Hongu Taisha bus terminal counter')}
           ${field('To (pickup point)','o-lf-to',lf.to || nextOvernightName(day.id) || '','text','e.g. Koguchi guesthouse reception')}
           ${field('Drop-off cutoff time','o-lf-cutoff',lf.cutoff||'','text','e.g. 8:00am')}
+          ${field('Pickup time','o-lf-pickup',lf.pickup||'','text','e.g. after 4:00pm')}
           ${field('Courier / service','o-lf-courier',lf.courier||'','text','e.g. Yamato Transport (Takkyubin)')}
           ${field(`Cost (${Data.getTripCurrency?.() || 'USD'})`,'o-lf-cost',lf.cost||'','number','e.g. 2000')}
           ${select('Status','o-lf-status',lf.status||'not_arranged',[{v:'not_arranged',l:'Not yet arranged'},{v:'arranged',l:'✓ Arranged'}])}
@@ -450,6 +451,7 @@ const BottomSheet = (() => {
         from:     g('o-lf-from'),
         to:       g('o-lf-to'),
         cutoff:   g('o-lf-cutoff'),
+        pickup:   g('o-lf-pickup'),
         courier:  g('o-lf-courier'),
         cost:     parseInt(g('o-lf-cost'))||null,
         status:   g('o-lf-status') || 'not_arranged',
