@@ -11,6 +11,7 @@ frozen as a permanent "original" value.
     checked:              true once we've ever gotten a real API response
     published:            true if AeroDataBox currently has schedule data
     last_checked_at:      updated on every run, changed or not
+    airline_name:         from AeroDataBox, e.g. "Thai Airways"
     dep_scheduled_local:  "HH:MM", refreshed every run
     dep_revised_local:    "HH:MM" or absent — only present if AeroDataBox
                            is *currently* reporting an active delay
@@ -163,6 +164,7 @@ def check_flight(flight_no, date_str, retries=1):
     flight = results[0]
     dep = flight.get("departure", {}) or {}
     arr = flight.get("arrival", {}) or {}
+    airline_name = (flight.get("airline") or {}).get("name") or None
 
     dep_sched_block = dep.get("scheduledTime")
     dep_rev_block   = dep.get("revisedTime")
@@ -170,7 +172,7 @@ def check_flight(flight_no, date_str, retries=1):
     arr_rev_block   = arr.get("revisedTime")
 
     print(f"[AeroDataBox] {flight_no}/{date_str}: "
-          f"from={dep.get('airport', {}).get('iata')} to={arr.get('airport', {}).get('iata')} "
+          f"airline={airline_name} from={dep.get('airport', {}).get('iata')} to={arr.get('airport', {}).get('iata')} "
           f"dep_sched={dep_sched_block} dep_revised={dep_rev_block}")
 
     dep_scheduled_local = _hhmm(dep_sched_block)
@@ -196,6 +198,7 @@ def check_flight(flight_no, date_str, retries=1):
 
     return {
         "published": True,
+        "airline_name":        airline_name,
         "dep_scheduled_local": dep_scheduled_local,
         "dep_revised_local":   dep_revised_local,
         "dep_terminal":        dep.get("terminal") or None,
