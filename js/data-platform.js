@@ -373,9 +373,10 @@ const Data = (() => {
       needs_booking:  stop.needsBooking || false,
       is_booked:      stop.booking?.status === 'booked' || false,
       category:       stop.category || null,
-      flight_detail:  (stop.trainDetail || stop.flightNo || stop.booking?.ref || stop.booking?.cost || stop.booking?.deadline) ? {
+      flight_detail:  (stop.trainDetail || stop.flightNo || stop.airline || stop.booking?.ref || stop.booking?.cost || stop.booking?.deadline) ? {
         ...(stop.trainDetail ? { trainDetail: stop.trainDetail } : {}),
         ...(stop.flightNo          ? { flight_no: stop.flightNo } : {}),
+        ...(stop.airline           ? { airline: stop.airline } : {}),
         ...(stop.booking?.ref      ? { ref: stop.booking.ref } : {}),
         ...(stop.booking?.cost     != null ? { cost: stop.booking.cost } : {}),
         ...(stop.booking?.deadline ? { deadline: stop.booking.deadline } : {}),
@@ -420,7 +421,7 @@ const Data = (() => {
     }
 
     // Fold anything with no dedicated column into flight_detail (merge, don't overwrite)
-    const needsFlightDetailMerge = changes.booking || ('trainDetail' in changes) || ('flightNo' in changes);
+    const needsFlightDetailMerge = changes.booking || ('trainDetail' in changes) || ('flightNo' in changes) || ('airline' in changes);
     if (needsFlightDetailMerge) {
       const merged = { ...(current.flight_detail || {}) };
       if (changes.booking) {
@@ -435,6 +436,10 @@ const Data = (() => {
       if ('flightNo' in changes) {
         if (changes.flightNo) merged.flight_no = changes.flightNo;
         else delete merged.flight_no;
+      }
+      if ('airline' in changes) {
+        if (changes.airline) merged.airline = changes.airline;
+        else delete merged.airline;
       }
       patch.flight_detail = merged;
     }
