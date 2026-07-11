@@ -60,21 +60,25 @@ const BookingsScreen = (() => {
 
     legs.forEach(({day, o}) => {
       const lf = o.luggage_forwarding;
+      const route = lf.from && lf.to ? `${lf.from} → ${lf.to}` : (lf.to || lf.from || 'Route not set');
+      const times = [lf.cutoff ? `Drop off by ${lf.cutoff}` : null, lf.pickup ? `Pick up ${lf.pickup}` : null].filter(Boolean).join(' · ');
       const card = document.createElement('div');
-      card.style.cssText = 'padding:var(--s3) var(--s4);border-bottom:1px solid var(--border-subtle);cursor:pointer';
+      card.className = 'card';
+      card.style.cssText = 'margin-bottom:var(--s2);cursor:pointer';
       card.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
-          <div style="display:flex;align-items:center;gap:6px">
-            <span class="badge badge-open" style="font-size:9px;padding:1px 5px">${day.label}</span>
-            <span style="font-size:var(--text-xs);color:var(--text-muted)">${day.date}</span>
+        <div style="padding:10px var(--s3);display:flex;align-items:flex-start;gap:var(--s2);min-height:44px">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">
+              <span class="badge badge-open" style="font-size:9px;padding:1px 5px">${day.label}</span>
+              <span style="font-size:var(--text-xs);color:var(--text-muted)">${day.date}</span>
+            </div>
+            <p style="font-weight:500;font-size:var(--text-sm);color:var(--text-primary)">${route}</p>
+            ${times ? `<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">${times}</p>` : ''}
+            ${lf.courier ? `<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">${lf.courier}</p>` : ''}
+            ${lf.notes ? `<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px;font-style:italic">${lf.notes}</p>` : ''}
           </div>
           <span class="badge ${lf.status==='arranged'?'badge-booked':'badge-pending'}">${lf.status==='arranged'?'✓ Arranged':'Not yet arranged'}</span>
-        </div>
-        <p style="font-weight:600;font-size:var(--text-md);color:var(--text-primary)">Luggage forwarding${lf.to ? ': ' + lf.to : ''}</p>
-        ${lf.from ? `<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">From ${lf.from}</p>` : ''}
-        ${lf.cutoff ? `<p style="font-size:var(--text-sm);color:var(--text-secondary);margin-top:2px">Drop off by ${lf.cutoff}</p>` : ''}
-        ${lf.courier ? `<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">${lf.courier}</p>` : ''}
-        ${lf.notes ? `<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:3px;font-style:italic">${lf.notes}</p>` : ''}`;
+        </div>`;
       card.addEventListener('click', () => BottomSheet.openOvernight(day));
       frag.appendChild(card);
     });
