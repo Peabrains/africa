@@ -2,7 +2,7 @@ name: Flight Status Check
 
 on:
   schedule:
-    - cron: '0 */6 * * *'   # every 6 hours, UTC
+    - cron: '0 4 * * *'    # once a day, 04:00 UTC
   workflow_dispatch: {}      # allows manual "Run workflow" from the Actions tab for testing
 
 jobs:
