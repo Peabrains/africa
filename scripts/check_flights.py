@@ -1,18 +1,39 @@
 #!/usr/bin/env python3
 """
-Flight status checker — Africa Safari 2026 platform branch.
+Flight status checker — Trip Companion platform branch.
 
 For every stop with a flight_detail.flight_no, asks AeroDataBox for the
-current scheduled/revised departure time and compares it to what's stored
-in Supabase. Updates:
-  - flight_detail.depart_time      -> current authoritative time
-  - flight_detail.original_depart_time -> set once, first run only, never overwritten
-  - flight_detail.last_checked_at  -> updated on every run, changed or not
+current scheduled AND revised times for departure and arrival, and writes
+them straight into flight_detail.schedule on every run — nothing is ever
+frozen as a permanent "original" value.
 
-The app itself (data-platform.js normaliseStop / itinerary.js) reads these
-fields to show the "Retimed" badge and strikethrough-old / new-time display.
-No email is sent — this is purely a data update; the badge is a normal
-read the next time the app loads.
+  flight_detail.schedule = {
+    checked:              true once we've ever gotten a real API response
+    published:            true if AeroDataBox currently has schedule data
+    last_checked_at:      updated on every run, changed or not
+    dep_scheduled_local:  "HH:MM", refreshed every run
+    dep_revised_local:    "HH:MM" or absent — only present if AeroDataBox
+                           is *currently* reporting an active delay
+    dep_terminal:         e.g. "1A", or absent if unknown
+    dep_iata / dep_airport_name:  from AeroDataBox, for display
+    arr_scheduled_local / arr_revised_local / arr_terminal /
+    arr_iata / arr_airport_name:  same, for the arrival side
+    duration_minutes:     scheduled (or revised, if delayed) flight time
+  }
+
+"Retimed" is a pure current-state read: revised present + differs from
+scheduled right now. There is no diffing against any previous run's data,
+so a flight that was wrongly reported once and later corrects itself does
+not stay stuck showing a false delay forever (the old bug).
+
+If a run gets no data at all (AeroDataBox has nothing for that flight/date
+yet, or a transient lookup failure), only last_checked_at is updated —
+whatever schedule data we already have from a previous successful run is
+left untouched rather than wiped.
+
+The app (data-platform.js normaliseStop / itinerary.js flight card) reads
+flight_detail.schedule directly. No email is sent — this is purely a data
+update; the card is a normal read the next time the app loads.
 """
 
 import os
@@ -80,8 +101,33 @@ def get_flight_stops(trip_id):
     return out
 
 
+def _hhmm(time_block):
+    """AeroDataBox local time format e.g. '2026-09-01 14:20+03:00' -> 'HH:MM'."""
+    if not time_block:
+        return None
+    local = time_block.get("local", "")
+    try:
+        return local.split(" ")[1][:5]
+    except Exception:
+        return None
+
+
+def _parse_utc(time_block):
+    """Returns a datetime for duration math, or None."""
+    if not time_block:
+        return None
+    s = time_block.get("utc", "")
+    if not s:
+        return None
+    s = s.replace("Z", "+00:00").replace(" ", "T", 1) if " " in s and "T" not in s else s.replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(s)
+    except Exception:
+        return None
+
+
 def check_flight(flight_no, date_str, retries=1):
-    """Returns the current local departure time string, or None if no data yet."""
+    """Returns a dict of parsed schedule fields, or None if no data at all yet."""
     url = f"https://{AERODB_HOST}/flights/number/{flight_no}/{date_str}"
     results = None
 
@@ -89,7 +135,7 @@ def check_flight(flight_no, date_str, retries=1):
         req = urllib.request.Request(url)
         req.add_header("X-RapidAPI-Key", RAPIDAPI_KEY)
         req.add_header("X-RapidAPI-Host", AERODB_HOST)
-        req.add_header("User-Agent", "Mozilla/5.0 (compatible; SafariApp-FlightCheck/1.0)")
+        req.add_header("User-Agent", "Mozilla/5.0 (compatible; TripCompanion-FlightCheck/2.0)")
         try:
             with urllib.request.urlopen(req, timeout=20) as r:
                 results = json.loads(r.read())
@@ -114,27 +160,54 @@ def check_flight(flight_no, date_str, retries=1):
     if len(results) > 1:
         print(f"[AeroDataBox] {flight_no}/{date_str} -> WARNING: {len(results)} results returned, using first")
 
-    for i, r in enumerate(results):
-        dep_dbg = r.get("departure", {})
-        arr_dbg = r.get("arrival", {})
-        print(f"[AeroDataBox] {flight_no}/{date_str} result[{i}]: "
-              f"from={dep_dbg.get('airport', {}).get('iata')} "
-              f"to={arr_dbg.get('airport', {}).get('iata')} "
-              f"scheduled={dep_dbg.get('scheduledTime')} "
-              f"revised={dep_dbg.get('revisedTime')}")
-
     flight = results[0]
-    dep = flight.get("departure", {})
-    # Prefer the revised (actual current) time if present, else the original schedule
-    time_block = dep.get("revisedTime") or dep.get("scheduledTime")
-    if not time_block:
+    dep = flight.get("departure", {}) or {}
+    arr = flight.get("arrival", {}) or {}
+
+    dep_sched_block = dep.get("scheduledTime")
+    dep_rev_block   = dep.get("revisedTime")
+    arr_sched_block = arr.get("scheduledTime")
+    arr_rev_block   = arr.get("revisedTime")
+
+    print(f"[AeroDataBox] {flight_no}/{date_str}: "
+          f"from={dep.get('airport', {}).get('iata')} to={arr.get('airport', {}).get('iata')} "
+          f"dep_sched={dep_sched_block} dep_revised={dep_rev_block}")
+
+    dep_scheduled_local = _hhmm(dep_sched_block)
+    if not dep_scheduled_local:
+        # No usable departure schedule at all — treat as not-yet-published.
         return None
-    local = time_block.get("local", "")
-    # AeroDataBox local time format e.g. "2026-09-01 14:20+03:00" -> take HH:MM
-    try:
-        return local.split(" ")[1][:5]
-    except Exception:
-        return None
+
+    dep_revised_local = _hhmm(dep_rev_block)
+    if dep_revised_local == dep_scheduled_local:
+        dep_revised_local = None  # only report a revised time if it's actually different
+
+    arr_scheduled_local = _hhmm(arr_sched_block)
+    arr_revised_local = _hhmm(arr_rev_block)
+    if arr_revised_local == arr_scheduled_local:
+        arr_revised_local = None
+
+    # Duration from whichever pair of UTC timestamps is most current
+    dep_dt = _parse_utc(dep_rev_block) or _parse_utc(dep_sched_block)
+    arr_dt = _parse_utc(arr_rev_block) or _parse_utc(arr_sched_block)
+    duration_minutes = None
+    if dep_dt and arr_dt and arr_dt > dep_dt:
+        duration_minutes = int((arr_dt - dep_dt).total_seconds() // 60)
+
+    return {
+        "published": True,
+        "dep_scheduled_local": dep_scheduled_local,
+        "dep_revised_local":   dep_revised_local,
+        "dep_terminal":        dep.get("terminal") or None,
+        "dep_iata":            dep.get("airport", {}).get("iata") or None,
+        "dep_airport_name":    dep.get("airport", {}).get("name") or None,
+        "arr_scheduled_local": arr_scheduled_local,
+        "arr_revised_local":   arr_revised_local,
+        "arr_terminal":        arr.get("terminal") or None,
+        "arr_iata":            arr.get("airport", {}).get("iata") or None,
+        "arr_airport_name":    arr.get("airport", {}).get("name") or None,
+        "duration_minutes":    duration_minutes,
+    }
 
 
 def main():
@@ -157,29 +230,29 @@ def main():
                 print(f"  {stop['name']}: no day date found, skipping")
                 continue
 
-            current_time = check_flight(flight_no, date_str)
-            patch = {**fd, "last_checked_at": now_iso}
+            result = check_flight(flight_no, date_str)
+            prev_schedule = fd.get("schedule") or {}
+            schedule = {**prev_schedule, "checked": True, "last_checked_at": now_iso}
             stop_patch = {}
 
-            if current_time:
-                is_first_check = "original_depart_time" not in fd
-                if is_first_check:
-                    # First real data we've ever gotten for this flight — this is the
-                    # baseline, not a detected change. Whatever was in depart_time
-                    # before was a manual placeholder, not a genuine prior schedule.
-                    patch["original_depart_time"] = current_time
-                    patch["depart_time"] = current_time
-                    stop_patch["time"] = current_time
-                    print(f"  {stop['name']} ({flight_no}): baseline set ({current_time})")
-                elif current_time != fd.get("depart_time"):
-                    print(f"  {stop['name']} ({flight_no}): {fd.get('depart_time')} -> {current_time} — RETIMED")
-                    patch["depart_time"] = current_time
-                    stop_patch["time"] = current_time
+            if result:
+                schedule.update(result)  # fresh values every run, nothing frozen
+                current_dep = result["dep_revised_local"] or result["dep_scheduled_local"]
+                prev_dep = prev_schedule.get("dep_revised_local") or prev_schedule.get("dep_scheduled_local")
+                if result.get("dep_revised_local"):
+                    print(f"  {stop['name']} ({flight_no}): {result['dep_scheduled_local']} -> "
+                          f"{result['dep_revised_local']} — currently reporting a delay")
+                elif current_dep != prev_dep:
+                    print(f"  {stop['name']} ({flight_no}): schedule now {current_dep} (was {prev_dep or 'unset'})")
                 else:
-                    print(f"  {stop['name']} ({flight_no}): unchanged ({current_time})")
+                    print(f"  {stop['name']} ({flight_no}): unchanged ({current_dep})")
+                stop_patch["time"] = current_dep  # keep timeline sort order correct
             else:
-                print(f"  {stop['name']} ({flight_no}): no data this run, just updating checked-at")
+                schedule["published"] = prev_schedule.get("published", False)
+                print(f"  {stop['name']} ({flight_no}): no data this run "
+                      f"({'kept prior verified data' if prev_schedule.get('published') else 'still unpublished'})")
 
+            patch = {**fd, "schedule": schedule}
             sb_request("PATCH", f"stops?id=eq.{stop['id']}", {"flight_detail": patch, **stop_patch})
 
     print("\nDone.")
