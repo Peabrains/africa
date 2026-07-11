@@ -11,17 +11,17 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <title>Africa Safari 2026</title>
-  <link rel="stylesheet" href="css/tokens.css?v=68">
-  <link rel="stylesheet" href="css/print.css?v=68">
+  <link rel="stylesheet" href="css/tokens.css?v=96">
+  <link rel="stylesheet" href="css/print.css?v=96">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
   <!-- InstantDB real-time sync -->
   <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase.js?v=68"></script>
+  <script src="js/supabase.js?v=96"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <!-- Platform data layer + auth + trip switcher -->
-  <script src="js/data-platform.js?v=68"></script>
-  <script src="js/trip-switcher.js?v=68"></script>
+  <script src="js/data-platform.js?v=96"></script>
+  <script src="js/trip-switcher.js?v=96"></script>
 
   <style>
     /* ── Shell ─────────────────────────────────────────────────── */
@@ -102,6 +102,33 @@
     .tl-flight-badge{display:inline-flex;align-items:center;font-size:9px;font-weight:500;padding:2px 6px;border-radius:var(--r-pill);border:1px solid;white-space:nowrap}
     .tl-flight-badge--in{background:var(--flight-included-bg);color:var(--flight-included-text);border-color:var(--flight-included-border)}
     .tl-flight-badge--out{background:var(--flight-excluded-bg);color:var(--flight-excluded-text);border-color:var(--flight-excluded-border)}
+
+    /* ── Flight card (v96) — dedicated card for transportType==='plane' ─── */
+    .flight-card{border-radius:var(--r-lg);padding:10px 12px;background:var(--surface)}
+    .flight-card--unverified{border:1.5px dashed var(--border)}
+    .flight-card--verified{border:1.5px solid var(--accent)}
+    .flight-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+    .flight-card-route{display:flex;align-items:center;gap:6px;min-width:0}
+    .flight-card-route-text{font-size:var(--text-sm);font-weight:700;color:var(--text-primary);line-height:1.3}
+    .flight-card-sub{font-size:10px;color:var(--text-muted);margin-top:2px;margin-bottom:10px}
+    .flight-card-sub--delayed{color:var(--danger-text);font-weight:600}
+    .flight-card-codes{display:flex;align-items:center;margin-bottom:8px}
+    .flight-card-code-block{min-width:52px}
+    .flight-card-code-block--right{text-align:right}
+    .flight-card-code{font-size:19px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;line-height:1}
+    .flight-card-code--verified{color:var(--text-primary)}
+    .flight-card-terminal{font-size:10px;color:var(--text-muted);margin-top:3px}
+    .flight-card-arrow{flex:1;display:flex;flex-direction:column;align-items:center;padding:0 6px;min-width:0}
+    .flight-card-duration{font-size:10px;color:var(--text-muted);margin-bottom:3px;white-space:nowrap}
+    .flight-card-times{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--border-subtle);border-bottom:1px solid var(--border-subtle);margin-bottom:8px}
+    .flight-card-times-label{font-size:9px;font-weight:600;letter-spacing:.4px;color:var(--text-muted);margin-bottom:3px}
+    .flight-card-times-val{font-size:14px;font-weight:700;color:var(--text-primary)}
+    .flight-card-times-val--delayed{color:var(--danger-text)}
+    .flight-card-times-old{text-decoration:line-through;opacity:.5;font-weight:400;font-size:12px;margin-right:5px}
+    .flight-card-foot{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:10px;color:var(--text-muted)}
+    .flight-card-badge{font-size:10px;font-weight:600;padding:3px 9px;border-radius:var(--r-pill);white-space:nowrap;flex-shrink:0;border:1px solid}
+    .flight-card-badge--warn{background:var(--warning-bg);color:var(--warning-text);border-color:var(--warning-border)}
+    .flight-card-badge--danger{background:var(--danger-bg);color:var(--danger-text);border-color:var(--danger-border)}
 
     /* Category chips */
     .cat-chip{display:inline-flex;align-items:center;font-size:9px;font-weight:500;padding:2px 6px;border-radius:var(--r-pill);border:1px solid}
@@ -345,22 +372,22 @@
   </nav>
 </div>
 
-<script src="js/auth.js?v=68"></script>
-<script src="js/config.js?v=68"></script>
-<script src="js/db.js?v=68"></script>
-<script src="js/icons.js?v=68"></script>
-<script src="js/toast.js?v=68"></script>
-<script src="js/bottom-sheet.js?v=68"></script>
-<script src="js/weather.js?v=68"></script>
-<script src="js/screens/itinerary.js?v=68"></script>
-<script src="js/screens/map.js?v=68"></script>
-<script src="js/screens/dex.js?v=68"></script>
-<script src="js/screens/bookings.js?v=68"></script>
-<script src="js/screens/sos.js?v=68"></script>
-<script src="js/screens/stamps.js?v=68"></script>
-<script src="js/screens/food.js?v=81"></script>
-<script src="js/screens/landing.js?v=68"></script>
-<script src="js/app.js?v=68"></script>
+<script src="js/auth.js?v=96"></script>
+<script src="js/config.js?v=96"></script>
+<script src="js/db.js?v=96"></script>
+<script src="js/icons.js?v=96"></script>
+<script src="js/toast.js?v=96"></script>
+<script src="js/bottom-sheet.js?v=96"></script>
+<script src="js/weather.js?v=96"></script>
+<script src="js/screens/itinerary.js?v=96"></script>
+<script src="js/screens/map.js?v=96"></script>
+<script src="js/screens/dex.js?v=96"></script>
+<script src="js/screens/bookings.js?v=96"></script>
+<script src="js/screens/sos.js?v=96"></script>
+<script src="js/screens/stamps.js?v=96"></script>
+<script src="js/screens/food.js?v=96"></script>
+<script src="js/screens/landing.js?v=96"></script>
+<script src="js/app.js?v=96"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const navCfg = [
