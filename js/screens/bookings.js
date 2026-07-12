@@ -85,7 +85,7 @@ const BookingsScreen = (() => {
     return frag;
   }
 
-  /* ─── JR Pass Seat Reservations — standalone highlighted card ──
+  /* ─── JR Train Seat Reservations — standalone highlighted card ──
      Auto-populated: any itinerary stop with transport type "Train" and
      "Seat reservation required" checked (in the stop's own edit sheet)
      shows up here automatically. Nothing to add/manage separately —
@@ -101,7 +101,7 @@ const BookingsScreen = (() => {
     head.style.cssText = 'display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s2);margin-bottom:2px';
     head.innerHTML = `
       <div>
-        <p style="font-size:var(--text-md);font-weight:600;color:var(--accent)">JR Pass Seat Reservations</p>
+        <p style="font-size:var(--text-md);font-weight:600;color:var(--accent)">JR Train Seat Reservations</p>
         <p style="font-size:var(--text-xs);color:var(--text-muted)">Show this to the officer when booking</p>
       </div>
       <button id="jr-share-btn" style="background:var(--accent);color:#fff;border:none;border-radius:var(--r-md);padding:8px 16px;font-size:var(--text-sm);font-weight:500;cursor:pointer;font-family:var(--font);flex-shrink:0">Share</button>`;
@@ -152,7 +152,7 @@ const BookingsScreen = (() => {
   /* Build a plain-text summary and share it (native share sheet if available, else clipboard) */
   async function shareJrPassLegs(legs, allDays) {
     if (!legs.length) { Toast.show('No reservations to share yet', 'warning'); return; }
-    const lines = ['JR Pass Seat Reservations', ''];
+    const lines = ['JR Train Seat Reservations', ''];
     legs.forEach(leg => {
       const day = allDays.find(d => d.id === leg.dayId);
       lines.push(`${day ? day.label + ' · ' + day.date : ''}`.trim());
@@ -166,7 +166,7 @@ const BookingsScreen = (() => {
     const text = lines.join('\n').trim();
 
     if (navigator.share) {
-      try { await navigator.share({ title: 'JR Pass Seat Reservations', text }); return; }
+      try { await navigator.share({ title: 'JR Train Seat Reservations', text }); return; }
       catch (e) { if (e.name === 'AbortError') return; }
     }
     try {
