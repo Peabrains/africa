@@ -291,8 +291,9 @@ const Data = (() => {
       booking: {
         // Prefer the full 4-state status stored in flight_detail (new data);
         // fall back to the boolean is_booked column for older rows that
-        // predate this (which can only ever have been open/booked anyway).
-        status: fd?.status || (s.is_booked ? 'booked' : 'open'),
+        // predate this. No implicit "Open" default — a stop with no status
+        // explicitly set shows no badge at all rather than assuming Open.
+        status: fd?.status || (s.is_booked ? 'booked' : ''),
         ref:    fd?.ref || '',
         cost:   fd?.cost ?? null,
         deadline: fd?.deadline || null,
