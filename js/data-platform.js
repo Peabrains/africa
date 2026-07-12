@@ -289,7 +289,10 @@ const Data = (() => {
       flightExcluded: fd?.included === false,
       trainDetail:   fd?.trainDetail || null,
       booking: {
-        status: s.is_booked ? 'booked' : 'open',
+        // Prefer the full 4-state status stored in flight_detail (new data);
+        // fall back to the boolean is_booked column for older rows that
+        // predate this (which can only ever have been open/booked anyway).
+        status: fd?.status || (s.is_booked ? 'booked' : 'open'),
         ref:    fd?.ref || '',
         cost:   fd?.cost ?? null,
         deadline: fd?.deadline || null,
@@ -425,9 +428,13 @@ const Data = (() => {
     if (needsFlightDetailMerge) {
       const merged = { ...(current.flight_detail || {}) };
       if (changes.booking) {
-        if ('ref'      in changes.booking) merged.ref      = changes.booking.ref || undefined;
-        if ('cost'     in changes.booking) merged.cost     = changes.booking.cost ?? undefined;
-        if ('deadline' in changes.booking) merged.deadline = changes.booking.deadline || undefined;
+        // Full 4-state status (open/pending/urgent/booked) — stored here since
+        // is_booked is just a boolean and can't represent pending/urgent.
+        // normaliseStop() prefers this over the is_booked-derived fallback.
+        if ('status'   in changes.booking) merged.status   = changes.booking.status || undefined;
+        if ('ref'      in changes.booking) { if (changes.booking.ref)      merged.ref      = changes.booking.ref;      else delete merged.ref; }
+        if ('cost'     in changes.booking) { if (changes.booking.cost != null) merged.cost = changes.booking.cost;     else delete merged.cost; }
+        if ('deadline' in changes.booking) { if (changes.booking.deadline) merged.deadline = changes.booking.deadline; else delete merged.deadline; }
       }
       if ('trainDetail' in changes) {
         if (changes.trainDetail) merged.trainDetail = changes.trainDetail;
