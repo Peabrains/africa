@@ -190,6 +190,17 @@ const ItineraryScreen = (() => {
     return `${weekday}, ${Number(d)} ${month} ${y}`;
   }
 
+  /* Compact date for chips — "9 Aug" (no weekday/year, keeps chips short) */
+  function formatShortDate(iso) {
+    if (!iso) return '';
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+    if (!m) return iso;
+    const [, y, mo, d] = m;
+    const dt = new Date(Number(y), Number(mo) - 1, Number(d));
+    const month = dt.toLocaleDateString('en-US', { month: 'short' });
+    return `${Number(d)} ${month}`;
+  }
+
   /* ── Day header ─────────────────────────────────────────────── */
   function dayHeader(day, stops, isOpen) {
     const wrap = document.createElement('div');
@@ -295,6 +306,7 @@ const ItineraryScreen = (() => {
         ${stop.category==='transport' ? '<span class="cat-chip cat-chip--transport">Transport</span>' :
           stop.category==='activity'  ? '<span class="cat-chip cat-chip--activity">Activity</span>'  : ''}
         ${stop.booking.cost ? `<span class="cat-chip cat-chip--activity">USD ${stop.booking.cost.toLocaleString()}</span>` : ''}
+        ${stop.booking.deadline && stop.booking.status !== 'booked' ? `<span class="cat-chip" style="background:var(--warning-bg);color:var(--warning-text);border:1px solid var(--warning-border)">Book by ${formatShortDate(stop.booking.deadline)}</span>` : ''}
         ${stop.transportType === 'train' && stop.trainDetail?.seatReservation ? '<span class="cat-chip cat-chip--jr">Seat res.</span>' : ''}
       </div>`;
   }
@@ -314,6 +326,7 @@ const ItineraryScreen = (() => {
         ${stop.category==='transport' ? '<span class="cat-chip cat-chip--transport">Transport</span>' :
           stop.category==='activity'  ? '<span class="cat-chip cat-chip--activity">Activity</span>'  : ''}
         ${stop.booking.cost ? `<span class="cat-chip cat-chip--activity">USD ${stop.booking.cost.toLocaleString()}</span>` : ''}
+        ${stop.booking.deadline && stop.booking.status !== 'booked' ? `<span class="cat-chip" style="background:var(--warning-bg);color:var(--warning-text);border:1px solid var(--warning-border)">Book by ${formatShortDate(stop.booking.deadline)}</span>` : ''}
       </div>`;
   }
 
