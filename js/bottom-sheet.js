@@ -245,7 +245,13 @@ const BottomSheet = (() => {
         ${select('Status','e-status',stop.booking.status,statusOpts)}
         ${field('Reference','e-ref',stop.booking.ref||'','text','e.g. HTL-20270412')}
         ${field('Cost (\u00a5)','e-cost',stop.booking.cost||'','number','e.g. 18000')}
-        ${field('Deadline','e-deadline',stop.booking.deadline||'','date')}
+        <div class="bs-edit-group">
+          <label class="bs-edit-label">Deadline</label>
+          <div style="display:flex;align-items:center;gap:var(--s2)">
+            <input id="e-deadline" type="date" value="${stop.booking.deadline||''}" class="bs-input" style="flex:1">
+            <button type="button" id="e-deadline-clear" class="btn btn-ghost" style="padding:8px 12px;font-size:var(--text-sm);flex-shrink:0">Clear</button>
+          </div>
+        </div>
         ${textarea('Notes','e-notes',stop.notes||'','Reminders, tips\u2026')}
         <div class="bs-actions" style="margin-top:var(--s4)">
           <button class="btn btn-primary bs-full-btn" id="bs-save-btn">Save changes</button>
@@ -436,6 +442,10 @@ const BottomSheet = (() => {
     wireAutoduration('e-time', 'e-arrive', 'e-duration-display', 'e-duration');
     wireTimeInput('e-time');
     wireTimeInput('e-arrive');
+    body.querySelector('#e-deadline-clear')?.addEventListener('click', () => {
+      const input = body.querySelector('#e-deadline');
+      if (input) input.value = '';
+    });
     body.querySelector('#bs-save-btn')?.addEventListener('click', async () => {
       const ttype = g('e-ttype')||stop.transportType;
       const hasTrain = ['train','plane','boat'].includes(ttype);
