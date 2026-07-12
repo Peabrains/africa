@@ -49,6 +49,7 @@ const ItineraryScreen = (() => {
 
   /* ── Booking badge ──────────────────────────────────────────── */
   function badge(status) {
+    if (!status) return ''; // stops that don't need booking tracking show nothing at all
     const m = {
       booked:  ['badge-booked',  '✓ Booked'],
       pending: ['badge-pending', 'Pending'],
