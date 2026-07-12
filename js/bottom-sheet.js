@@ -480,7 +480,7 @@ const BottomSheet = (() => {
           trainNumber:    numberField,
           duration:       body.querySelector('#e-duration')?.value || stop.trainDetail?.duration || '',
         } : stop.trainDetail,
-        booking: { ...stop.booking, status:g('e-status')||stop.booking.status, ref:g('e-ref'), cost:parseInt(g('e-cost'))||null, deadline:g('e-deadline')||null },
+        booking: { ...stop.booking, status:g('e-status'), ref:g('e-ref'), cost:parseInt(g('e-cost'))||null, deadline:g('e-deadline')||null },
       };
       try {
         await Data.updateStop(stop.id, patch);
