@@ -7,6 +7,15 @@ current scheduled AND revised times for departure and arrival, and writes
 them straight into flight_detail.schedule on every run — nothing is ever
 frozen as a permanent "original" value.
 
+QUOTA POLICY (to make each RapidAPI call count, since the free tier is
+capped): this workflow is meant to run on a frequent cron (e.g. every 6h),
+but not every flight gets an API call on every run —
+  - Already departed (day's date is in the past)     -> never checked again
+  - Departing within the next 14 days                -> checked every run
+  - Departing more than 14 days out                   -> checked once per
+    calendar day (UTC) even if the workflow runs more often than that,
+    since far-out flights rarely change and often aren't published yet
+
   flight_detail.schedule = {
     checked:              true once we've ever gotten a real API response
     published:            true if AeroDataBox currently has schedule data
@@ -214,18 +223,19 @@ def check_flight(flight_no, date_str, retries=1):
 
 
 def main():
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    today = now.date()
     total_checked = 0
+    total_skipped_past = 0
+    total_skipped_throttled = 0
 
     trip_ids = get_all_trip_ids()
     for trip_id in trip_ids:
         stops = get_flight_stops(trip_id)
-        print(f"\n=== Trip {trip_id}: checking {len(stops)} flight-carrying stop(s) ===")
+        print(f"\n=== Trip {trip_id}: {len(stops)} flight-carrying stop(s) found ===")
 
-        for i, stop in enumerate(stops):
-            if total_checked > 0 or i > 0:
-                time.sleep(2)  # stay under the BASIC plan's per-second rate limit
-            total_checked += 1
+        for stop in stops:
             fd = stop["flight_detail"]
             flight_no = fd["flight_no"]
             date_str = (stop.get("itinerary_days") or {}).get("date")
@@ -233,8 +243,38 @@ def main():
                 print(f"  {stop['name']}: no day date found, skipping")
                 continue
 
-            result = check_flight(flight_no, date_str)
+            try:
+                dep_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            except ValueError:
+                print(f"  {stop['name']}: unparseable date '{date_str}', skipping")
+                continue
+            days_out = (dep_date - today).days
             prev_schedule = fd.get("schedule") or {}
+
+            # Already departed — schedule is final, never worth another call.
+            if days_out < 0:
+                total_skipped_past += 1
+                continue
+
+            # More than 2 weeks out — these rarely change and often aren't
+            # published yet anyway, so only spend one call on them per day
+            # regardless of how often this workflow runs.
+            if days_out > 14:
+                last_checked_at = prev_schedule.get("last_checked_at")
+                if last_checked_at:
+                    try:
+                        last_checked_date = datetime.fromisoformat(last_checked_at.replace("Z", "+00:00")).date()
+                        if last_checked_date == today:
+                            total_skipped_throttled += 1
+                            continue
+                    except ValueError:
+                        pass  # malformed timestamp — fall through and check anyway
+
+            if total_checked > 0:
+                time.sleep(2)  # stay under the BASIC plan's per-second rate limit
+            total_checked += 1
+
+            result = check_flight(flight_no, date_str)
             schedule = {**prev_schedule, "checked": True, "last_checked_at": now_iso}
             stop_patch = {}
 
@@ -258,7 +298,8 @@ def main():
             patch = {**fd, "schedule": schedule}
             sb_request("PATCH", f"stops?id=eq.{stop['id']}", {"flight_detail": patch, **stop_patch})
 
-    print("\nDone.")
+    print(f"\nDone. Checked {total_checked}, skipped {total_skipped_past} already-departed, "
+          f"{total_skipped_throttled} throttled (>14 days out, already checked today).")
 
 
 if __name__ == "__main__":
