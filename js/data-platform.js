@@ -487,6 +487,23 @@ const Data = (() => {
     return OVERNIGHTS[dayId] || null;
   }
 
+  /* Luggage forwarding is stored on the ORIGIN day's overnight (the hotel
+     you're leaving), but the actual drop-off happens the next morning —
+     i.e. it belongs, visually, to the following day on the itinerary.
+     This resolves "what forwarding, if any, is incoming for dayId's
+     morning" so screens don't have to re-derive the day-shift themselves.
+     Returns { sourceDay, lf } or null. No entry for the trip's first day
+     (nothing precedes it) or when the previous overnight has forwarding
+     disabled/unset. */
+  function getIncomingLuggageForwarding(dayId) {
+    const days = getDays();
+    const idx = days.findIndex(d => d.id === dayId);
+    if (idx <= 0) return null;
+    const sourceDay = days[idx - 1];
+    const lf = getOvernight(sourceDay.id)?.luggage_forwarding;
+    return lf?.enabled ? { sourceDay, lf } : null;
+  }
+
   /* Anything (overnight or stop) with a booking deadline within `daysAhead` days */
   function getUpcomingDeadlines(daysAhead = 14) {
     const now = Date.now();
@@ -1605,7 +1622,7 @@ const Data = (() => {
     // Stops
     getStops, getStopsByDay, addStop, updateStop, deleteStop,
     // Overnight
-    getOvernight, updateOvernight, deleteOvernight, getUpcomingDeadlines,
+    getOvernight, updateOvernight, deleteOvernight, getUpcomingDeadlines, getIncomingLuggageForwarding,
     // Expenses
     getExpenses, addExpense, updateExpense, deleteExpense, getTotalSpentJPY,
     getTravelers, updateTravelers, calcSettlement, getBalances, setExpenses,
