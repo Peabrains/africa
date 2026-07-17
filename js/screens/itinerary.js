@@ -600,8 +600,11 @@ const ItineraryScreen = (() => {
         const story = storyCard(day);
         if (story) root.appendChild(story);
 
-        // Luggage forwarding — standalone card, ahead of the day's stops
-        const lfCard = luggageForwardingCard(day);
+        // Luggage forwarding — belongs to the day you actually leave the
+        // origin hotel, which is the day AFTER the overnight it's stored
+        // on. Data.getIncomingLuggageForwarding() resolves that shift.
+        const incomingLf = Data.getIncomingLuggageForwarding(day.id);
+        const lfCard = incomingLf ? luggageForwardingCard(incomingLf.sourceDay) : null;
         if (lfCard) root.appendChild(lfCard);
 
         stops.forEach((s, i) => root.appendChild(stopRow(s, i === stops.length - 1)));
