@@ -238,7 +238,6 @@ const ItineraryScreen = (() => {
     const o = Data.getOvernight(day.id);
     if (!o?.name) return null;
     const statusCls = {booked:'badge-booked',pending:'badge-pending',urgent:'badge-urgent',open:'badge-open'};
-    const lf = o.luggage_forwarding;
     const card = document.createElement('div');
     card.className = 'overnight-card';
     card.innerHTML = `
@@ -254,15 +253,27 @@ const ItineraryScreen = (() => {
         <span class="badge ${statusCls[o.status]||'badge-open'}">${
           o.status==='booked'?'✓ Booked':o.status==='urgent'?'⚡ Urgent':o.status==='pending'?'Pending':'Open'
         }</span>
+      </div>`;
+    card.addEventListener('click', () => BottomSheet.openOvernight(day));
+    return card;
+  }
+
+  /* ── Luggage forwarding card — standalone, sits after the Story card ── */
+  function luggageForwardingCard(day) {
+    const o = Data.getOvernight(day.id);
+    const lf = o?.luggage_forwarding;
+    if (!lf?.enabled) return null;
+    const card = document.createElement('div');
+    card.className = 'lf-card';
+    card.innerHTML = `
+      <div class="lf-left">
+        <span class="lf-icon">🧳</span>
+        <div class="lf-text">
+          <p class="lf-label">Luggage forwarding</p>
+          <p class="lf-detail">${lf.to ? 'To ' + lf.to : 'Forwarding arranged'}${lf.cutoff ? ' · by ' + lf.cutoff : ''}</p>
+        </div>
       </div>
-      ${lf?.enabled ? `
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 12px 10px">
-        <span style="font-size:var(--text-xs);color:var(--text-secondary);display:flex;align-items:center;gap:6px;min-width:0">
-          <span style="flex-shrink:0">🧳</span>
-          <span style="min-width:0">Luggage forwarding${lf.to ? ': ' + lf.to : ''}${lf.cutoff ? ' · by ' + lf.cutoff : ''}</span>
-        </span>
-        <span class="badge ${lf.status==='arranged'?'badge-booked':'badge-pending'}" style="flex-shrink:0">${lf.status==='arranged'?'✓ Arranged':'Not yet arranged'}</span>
-      </div>` : ''}`;
+      <span class="badge ${lf.status==='arranged'?'badge-booked':'badge-pending'}">${lf.status==='arranged'?'✓ Arranged':'Not yet arranged'}</span>`;
     card.addEventListener('click', () => BottomSheet.openOvernight(day));
     return card;
   }
@@ -588,6 +599,10 @@ const ItineraryScreen = (() => {
         // The Story — background & cultural context, if this day has one
         const story = storyCard(day);
         if (story) root.appendChild(story);
+
+        // Luggage forwarding — standalone card, ahead of the day's stops
+        const lfCard = luggageForwardingCard(day);
+        if (lfCard) root.appendChild(lfCard);
 
         stops.forEach((s, i) => root.appendChild(stopRow(s, i === stops.length - 1)));
 
