@@ -185,7 +185,7 @@ const BottomSheet = (() => {
   /* ─── Stop view mode ─────────────────────────────────────── */
   function stopViewHTML(stop, day) {
     const stampCollected = false; // no stamps in Africa PWA
-    const tIconKey = {plane:'plane',train:'train',bus:'bus',walk:'walk',boat:'boat',cable:'cable'}[stop.transportType] || 'walk';
+    const tIconKey = {plane:'plane',train:'train',bus:'bus',walk:'walk',boat:'boat',cable:'cable',car:'car'}[stop.transportType] || 'walk';
     let transportBlock = '';
     if (stop.transport || stop.trainDetail) {
       const rows = [];
@@ -216,7 +216,7 @@ const BottomSheet = (() => {
   /* ─── Stop edit mode ─────────────────────────────────────── */
   function stopEditHTML(stop, day) {
     const days = Data.getDays().map(d => ({ v:d.id, l:`${d.label} · ${d.date}` }));
-    const transTypes = [{v:'plane',l:'Plane'},{v:'train',l:'Train'},{v:'bus',l:'Bus'},{v:'walk',l:'Walk'},{v:'boat',l:'Boat'},{v:'cable',l:'Cable car'}];
+    const transTypes = [{v:'plane',l:'Plane'},{v:'train',l:'Train'},{v:'bus',l:'Bus'},{v:'car',l:'Car'},{v:'walk',l:'Walk'},{v:'boat',l:'Boat'},{v:'cable',l:'Cable car'}];
     const showTrain = ['train','plane','boat'].includes(stop.transportType||'');
     return `
       <div class="bs-detail">
@@ -312,7 +312,7 @@ const BottomSheet = (() => {
   function addHTML(dayId) {
     const day = Data.getDays().find(d => d.id === dayId);
     const days = Data.getDays().map(d => ({ v:d.id, l:`${d.label} · ${d.date}` }));
-    const transTypes = [{v:'plane',l:'Plane'},{v:'train',l:'Train'},{v:'bus',l:'Bus'},{v:'walk',l:'Walk'},{v:'boat',l:'Boat'},{v:'cable',l:'Cable car'}];
+    const transTypes = [{v:'plane',l:'Plane'},{v:'train',l:'Train'},{v:'bus',l:'Bus'},{v:'car',l:'Car'},{v:'walk',l:'Walk'},{v:'boat',l:'Boat'},{v:'cable',l:'Cable car'}];
     return `
       <div class="bs-detail">
         <p class="bs-name" style="margin-bottom:4px">Add stop</p>
