@@ -24,6 +24,7 @@ const Icons = {
   bus:         (c) => Icons._svg(`<path d="M5 3h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" ${S}/><path d="M3 9h18M9 18v2M15 18v2M8 13h.01M16 13h.01" ${S}/>`, c),
   walk:        (c) => Icons._svg(`<circle cx="13" cy="4" r="1" ${S}/><path d="m6 20 4-9 3 3 2-5M13 8l3 2 2-3" ${S}/>`, c),
   boat:        (c) => Icons._svg(`<path d="M2 20a11 11 0 0 0 20 0M12 4v8M5 12l7-8 7 8" ${S}/>`, c),
+  car:         (c) => Icons._svg(`<path d="M5 17h14M5 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm14 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM5 17v-4l2-5a2 2 0 0 1 1.9-1.4h6.2A2 2 0 0 1 17 7.6l2 5.4v4" ${S}/><path d="M3 13h18" ${S}/>`, c),
   cable:       (c) => Icons._svg(`<path d="M3 3h18M7 3v10a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3V3" ${S}/><circle cx="12" cy="20" r="2" ${S}/>`, c),
   route:       (c) => Icons._svg(`<circle cx="6" cy="19" r="3" ${S}/><circle cx="18" cy="5" r="3" ${S}/><path d="M12 19h4.5a3.5 3.5 0 0 0 0-7h-8a3.5 3.5 0 0 1 0-7H12" ${S}/>`, c),
 
