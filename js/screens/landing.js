@@ -198,16 +198,29 @@ const LandingScreen = (() => {
     const xOf = d => padX + (dates.indexOf(d) * (300) / ((dates.length - 1) || 1));
     const yOf = v => botY - ((v - min) / span) * (botY - topY);
     const lineFor = (series, color) => {
-      const pts = series.filter(p=>p.price!=null).map(p => `${xOf(p.date).toFixed(1)},${yOf(p.price).toFixed(1)}`).join(' ');
-      const last = series[series.length-1];
-      const dot = last ? `<circle cx="${xOf(last.date).toFixed(1)}" cy="${yOf(last.price).toFixed(1)}" r="3" fill="${color}"/>` : '';
-      return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>${dot}`;
+      const pts = series.filter(p=>p.price!=null);
+      const line = pts.map(p => `${xOf(p.date).toFixed(1)},${yOf(p.price).toFixed(1)}`).join(' ');
+      const dots = pts.map((p, i) => {
+        const isLast = i === pts.length - 1;
+        const cx = xOf(p.date).toFixed(1), cy = yOf(p.price).toFixed(1);
+        return isLast
+          ? `<circle cx="${cx}" cy="${cy}" r="3" fill="${color}"/>`
+          : `<circle cx="${cx}" cy="${cy}" r="2" fill="var(--surface-raised)" stroke="${color}" stroke-width="1.3"/>`;
+      }).join('');
+      return `<polyline points="${line}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>${dots}`;
     };
+    // Small tick per date on the x-axis — makes the reading count
+    // countable at a glance even where the two lines overlap.
+    const ticks = dates.map(d => {
+      const x = xOf(d).toFixed(1);
+      return `<line x1="${x}" y1="128" x2="${x}" y2="132" stroke="var(--border)" stroke-width="1"/>`;
+    }).join('');
     const fmtDate = d => new Date(d+'T00:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
     return svgFromString(`
       <svg viewBox="0 0 320 150">
         <line x1="10" y1="10" x2="10" y2="130" stroke="var(--border)" stroke-width="1"/>
         <line x1="10" y1="130" x2="310" y2="130" stroke="var(--border)" stroke-width="1"/>
+        ${ticks}
         ${lineFor(seriesA, 'var(--accent)')}
         ${lineFor(seriesB, 'var(--flight-line-2)')}
         <text x="10" y="144" font-size="8" fill="var(--text-muted)">${fmtDate(dates[0])}</text>
