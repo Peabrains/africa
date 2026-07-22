@@ -49,7 +49,11 @@ const FlightPrice = (() => {
         return res.json();
       })
       .then(json => {
-        if (!json.ok) throw new Error('feed returned ok:false');
+        console.log('[FlightPrice] raw response:', json);
+        if (!json || json.ok !== true) throw new Error('feed did not return ok:true');
+        if (!Array.isArray(json.data)) {
+          throw new Error('data is not an array — got ' + (json.data === null ? 'null' : typeof json.data));
+        }
         cache = shape(json.data);
         status = 'ready';
         lastError = null;
