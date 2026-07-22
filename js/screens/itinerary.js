@@ -317,7 +317,7 @@ const ItineraryScreen = (() => {
         ${badge(stop.booking.status)}
         ${stop.category==='transport' ? '<span class="cat-chip cat-chip--transport">Transport</span>' :
           stop.category==='activity'  ? '<span class="cat-chip cat-chip--activity">Activity</span>'  : ''}
-        ${stop.booking.cost ? `<span class="cat-chip cat-chip--activity">USD ${stop.booking.cost.toLocaleString()}</span>` : ''}
+        ${stop.booking.cost ? `<span class="cat-chip cat-chip--activity">${Data.getTripCurrency()} ${stop.booking.cost.toLocaleString()}</span>` : ''}
         ${stop.booking.deadline && stop.booking.status !== 'booked' ? `<span class="cat-chip" style="background:var(--warning-bg);color:var(--warning-text);border:1px solid var(--warning-border)">Book by ${formatShortDate(stop.booking.deadline)}</span>` : ''}
         ${stop.transportType === 'train' && stop.trainDetail?.seatReservation ? '<span class="cat-chip cat-chip--jr">Seat res.</span>' : ''}
       </div>`;
@@ -337,7 +337,7 @@ const ItineraryScreen = (() => {
         ${flightBadge(stop)}
         ${stop.category==='transport' ? '<span class="cat-chip cat-chip--transport">Transport</span>' :
           stop.category==='activity'  ? '<span class="cat-chip cat-chip--activity">Activity</span>'  : ''}
-        ${stop.booking.cost ? `<span class="cat-chip cat-chip--activity">USD ${stop.booking.cost.toLocaleString()}</span>` : ''}
+        ${stop.booking.cost ? `<span class="cat-chip cat-chip--activity">${Data.getTripCurrency()} ${stop.booking.cost.toLocaleString()}</span>` : ''}
         ${stop.booking.deadline && stop.booking.status !== 'booked' ? `<span class="cat-chip" style="background:var(--warning-bg);color:var(--warning-text);border:1px solid var(--warning-border)">Book by ${formatShortDate(stop.booking.deadline)}</span>` : ''}
       </div>`;
   }
