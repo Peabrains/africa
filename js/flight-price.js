@@ -14,8 +14,11 @@
 const FlightPrice = (() => {
   const FEED_URL = 'https://script.google.com/macros/s/AKfycbwTM0Fbz7FVLFyu6FRd3MYR6Q3KjMi8dle9Cux_9NR61gWN4kNteBSGthjAd2-_rYMFkA/exec?action=history';
 
-  let cache    = null;   // shaped result, once loaded — { currency, days: [...] }
-  let inFlight = null;   // in-progress fetch, so concurrent callers share one request
+  let cache     = null;    // shaped result, once loaded — { currency, days: [...] }
+  let status    = 'idle';  // 'idle' | 'loading' | 'ready' | 'error'
+  let lastError = null;
+  let inFlight  = null;    // in-progress fetch, so concurrent callers share one request
+  let attempted = false;   // only auto-fire once per session; retry() resets this
 
   /* Raw rows -> per-day buckets, sorted oldest→newest:
      [{ date:'2027-04-09', legs: { MH52:{Economy,Business}, MH53:{Economy,Business} } }] */
@@ -39,26 +42,51 @@ const FlightPrice = (() => {
   async function fetchHistory() {
     if (cache) return cache;
     if (inFlight) return inFlight;
+    status = 'loading';
     inFlight = fetch(FEED_URL)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
       .then(json => {
         if (!json.ok) throw new Error('feed returned ok:false');
         cache = shape(json.data);
+        status = 'ready';
+        lastError = null;
         return cache;
+      })
+      .catch(err => {
+        status = 'error';
+        lastError = err.message || String(err);
+        // Left in deliberately — this is the fastest way to tell CORS
+        // vs. bad JSON vs. network failure apart from the console.
+        console.error('[FlightPrice] fetch failed:', err);
+        throw err;
       })
       .finally(() => { inFlight = null; });
     return inFlight;
   }
 
-  function getCached() { return cache; }
-
-  /* Fire-and-forget prefetch; calls cb() once resolved, whether it
-     succeeded or failed (caller just re-renders — getCached() will
-     reflect whatever happened, including staying null on failure). */
+  /* Fire-and-forget prefetch; calls cb() once resolved either way.
+     Only auto-fires once per session — on failure it does NOT keep
+     retrying itself on every re-render. Call retry() for that. */
   function prefetch(cb) {
-    if (cache) return;
+    if (attempted) return;
+    attempted = true;
     fetchHistory().then(cb).catch(() => cb && cb());
   }
+
+  function retry(cb) {
+    attempted = false;
+    cache = null;
+    status = 'idle';
+    lastError = null;
+    prefetch(cb);
+  }
+
+  function getCached() { return cache; }
+  function getStatus()  { return status; }
+  function getError()   { return lastError; }
 
   /* Series for one leg + cabin across all cached days, e.g. series('MH52','Economy') */
   function series(legNo, cabin) {
@@ -90,7 +118,7 @@ const FlightPrice = (() => {
     return diff + ' days ago';
   }
 
-  return { fetchHistory, prefetch, getCached, series, totals, relDay };
+  return { fetchHistory, prefetch, retry, getCached, getStatus, getError, series, totals, relDay };
 })();
 
 window.FlightPrice = FlightPrice;
