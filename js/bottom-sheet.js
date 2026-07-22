@@ -202,7 +202,7 @@ const BottomSheet = (() => {
         <div class="bs-rows">
           ${detailRow(Icons.clock, stop.time ? `${stop.time}${stop.timeZone?' '+stop.timeZone:''}` : '')}
           ${detailRow(Icons.card, stop.booking?.ref ? 'Ref: '+stop.booking.ref : '')}
-          ${detailRow(Icons.yen, stop.booking?.cost ? 'USD '+stop.booking.cost.toLocaleString() : '')}
+          ${detailRow(Icons.yen, stop.booking?.cost ? Data.getTripCurrency()+' '+stop.booking.cost.toLocaleString() : '')}
           ${detailRow(Icons.info, stop.notes, 'style="color:var(--accent)"')}
         </div>
         <!-- no stamp section for Africa -->
