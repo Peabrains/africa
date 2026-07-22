@@ -37,6 +37,9 @@
   --seg-kenya:     #2A7A4B; /* savannah green — Kenya */
   --seg-uganda:    #7B4EA0; /* forest purple — Uganda */
 
+  /* Flight price watch — 2nd chart series (outbound leg uses --accent) */
+  --flight-line-2: #3E7C89; /* muted teal — return leg */
+
   --font:    'Plus Jakarta Sans', sans-serif;
   --text-xs: 10px; --text-sm: 12px; --text-base: 14px;
   --text-md: 15px; --text-lg: 16px;
@@ -65,6 +68,7 @@
     --seg-tanzania:   #E86040;
     --seg-kenya:      #4AAA6B;
     --seg-uganda:     #9B6EC0;
+    --flight-line-2:  #5FA8B5;
   }
 }
 
