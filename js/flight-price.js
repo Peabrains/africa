@@ -52,6 +52,8 @@ const FlightPrice = (() => {
         console.log('[FlightPrice] raw response:', json);
         if (!json || json.ok !== true) throw new Error('feed did not return ok:true');
         if (!Array.isArray(json.data)) {
+          console.log('[FlightPrice] data is not an array. Object.keys(data):', Object.keys(json.data || {}));
+          console.log('[FlightPrice] data sample (stringified):', JSON.stringify(json.data).slice(0, 1500));
           throw new Error('data is not an array — got ' + (json.data === null ? 'null' : typeof json.data));
         }
         cache = shape(json.data);
