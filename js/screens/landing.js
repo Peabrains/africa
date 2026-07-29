@@ -194,8 +194,10 @@ const LandingScreen = (() => {
     const allPrices = [...seriesA, ...seriesB].map(p=>p.price);
     const min = Math.min(...allPrices), max = Math.max(...allPrices);
     const span = (max - min) || 1;
-    const padX = 10, topY = 10, botY = 130;
-    const xOf = d => padX + (dates.indexOf(d) * (300) / ((dates.length - 1) || 1));
+    // Left margin widened to fit y-axis price labels; plot area
+    // shrinks accordingly rather than the SVG growing.
+    const padXL = 36, padXR = 306, topY = 14, botY = 118;
+    const xOf = d => padXL + (dates.indexOf(d) * (padXR - padXL) / ((dates.length - 1) || 1));
     const yOf = v => botY - ((v - min) / span) * (botY - topY);
     const lineFor = (series, color) => {
       const pts = series.filter(p=>p.price!=null);
@@ -213,18 +215,25 @@ const LandingScreen = (() => {
     // countable at a glance even where the two lines overlap.
     const ticks = dates.map(d => {
       const x = xOf(d).toFixed(1);
-      return `<line x1="${x}" y1="128" x2="${x}" y2="132" stroke="var(--border)" stroke-width="1"/>`;
+      return `<line x1="${x}" y1="116" x2="${x}" y2="120" stroke="var(--border)" stroke-width="1"/>`;
     }).join('');
     const fmtDate = d => new Date(d+'T00:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+    // Date labels are anchored to the SAME xOf() the dots/ticks use —
+    // not independent pixel guesses — so they line up with the real
+    // first/last markers. text-anchor flips per side so each label
+    // grows away from the canvas edge instead of running off it.
+    const firstX = xOf(dates[0]).toFixed(1), lastX = xOf(dates[dates.length-1]).toFixed(1);
     return svgFromString(`
       <svg viewBox="0 0 320 150">
-        <line x1="10" y1="10" x2="10" y2="130" stroke="var(--border)" stroke-width="1"/>
-        <line x1="10" y1="130" x2="310" y2="130" stroke="var(--border)" stroke-width="1"/>
+        <line x1="${padXL}" y1="${topY}" x2="${padXL}" y2="${botY}" stroke="var(--border)" stroke-width="1"/>
+        <line x1="${padXL}" y1="${botY}" x2="${padXR}" y2="${botY}" stroke="var(--border)" stroke-width="1"/>
+        <text x="${padXL - 6}" y="${topY + 3}" font-size="8" fill="var(--text-muted)" text-anchor="end">${Math.round(max).toLocaleString()}</text>
+        <text x="${padXL - 6}" y="${botY + 3}" font-size="8" fill="var(--text-muted)" text-anchor="end">${Math.round(min).toLocaleString()}</text>
         ${ticks}
         ${lineFor(seriesA, 'var(--accent)')}
         ${lineFor(seriesB, 'var(--flight-line-2)')}
-        <text x="10" y="144" font-size="8" fill="var(--text-muted)">${fmtDate(dates[0])}</text>
-        <text x="270" y="144" font-size="8" fill="var(--text-muted)">${fmtDate(dates[dates.length-1])}</text>
+        <text x="${firstX}" y="134" font-size="8" fill="var(--text-muted)" text-anchor="start">${fmtDate(dates[0])}</text>
+        <text x="${lastX}" y="134" font-size="8" fill="var(--text-muted)" text-anchor="end">${fmtDate(dates[dates.length-1])}</text>
       </svg>`);
   }
 
