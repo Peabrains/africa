@@ -311,7 +311,7 @@ const JournalScreen = (() => {
 
     const addRow = document.createElement('div');
     addRow.style.cssText = 'padding:20px 26px 40px;text-align:center';
-    addRow.innerHTML = `<button id="j-new-btn" style="border:none;background:#C84B35;color:#fff;font-size:13px;font-weight:700;padding:12px 22px;border-radius:100px;cursor:pointer;font-family:var(--font)">+ New Entry</button>`;
+    addRow.innerHTML = `<button id="j-new-btn" style="border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:700;padding:12px 22px;border-radius:100px;cursor:pointer;font-family:var(--font)">+ New Entry</button>`;
     page.appendChild(addRow);
 
     root.appendChild(page);
@@ -384,6 +384,51 @@ const JournalScreen = (() => {
     return out;
   }
 
+  // One point per day-locality (not per stop) — averages that day's
+  // stops' coordinates as a representative position, scoped to only
+  // the days actually referenced by entries in this export, so the
+  // illustration stays proportional to what's actually in the journal
+  // rather than duplicating the full Itinerary tab's every stop.
+  function getJournalDayPoints(entries) {
+    const dayIds = [...new Set(entries.map(e => e.day_id).filter(Boolean))];
+    if (!dayIds.length) return [];
+    const days = (Data.getDays?.() || [])
+      .filter(d => dayIds.includes(d.id))
+      .sort((a, b) => (a.day_index ?? 0) - (b.day_index ?? 0));
+    const points = [];
+    for (const day of days) {
+      const stops = (Data.getStopsByDay?.(day.id) || []).filter(s => typeof s.lat === 'number' && typeof s.lng === 'number');
+      if (!stops.length) continue;
+      const lat = stops.reduce((sum, s) => sum + s.lat, 0) / stops.length;
+      const lng = stops.reduce((sum, s) => sum + s.lng, 0) / stops.length;
+      points.push({ lat, lng, label: day.locality || day.label || '' });
+    }
+    return points;
+  }
+
+  // Plain linear scaling of the real lat/lng into drawing-area pixels —
+  // no map projection library needed at this scale (one trip within one
+  // region). Latitude increases northward but canvas Y increases
+  // downward, so that axis has to be flipped or north would end up
+  // at the bottom.
+  function projectPoints(points, w, h, pad = 24) {
+    if (points.length < 2) return [];
+    const lats = points.map(p => p.lat), lngs = points.map(p => p.lng);
+    const latRange = Math.max(Math.max(...lats) - Math.min(...lats), 0.0005);
+    const lngRange = Math.max(Math.max(...lngs) - Math.min(...lngs), 0.0005);
+    const minLat = Math.min(...lats), minLng = Math.min(...lngs);
+    return points.map(p => ({
+      x: pad + ((p.lng - minLng) / lngRange) * (w - pad * 2),
+      y: pad + (1 - (p.lat - minLat) / latRange) * (h - pad * 2), // flipped: higher latitude = smaller y
+      label: p.label,
+    }));
+  }
+
+  function currentAccentColor() {
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    return v || '#C84B35';
+  }
+
   async function exportJournalImage() {
     Toast.show('Preparing image…', 'info');
     const trip = Data.getCurrentTrip?.();
@@ -412,16 +457,21 @@ const JournalScreen = (() => {
 
     // Measure pass — figure out the total height needed before creating
     // the real canvas, using a scratch context purely for text metrics.
+    // This has to mirror the real draw pass's cy progression exactly,
+    // line for line, or the header and the first entry drift apart.
     const scratch = document.createElement('canvas').getContext('2d');
-    let y = 0;
-    y += 70; // top margin
-    scratch.font = '700 11px "Plus Jakarta Sans", sans-serif';
-    y += 20; // kicker
-    scratch.font = '400 40px Georgia, serif';
-    y += 50; // trip title
-    scratch.font = '400 14px "Plus Jakarta Sans", sans-serif';
-    y += 30; // countries subline
-    y += 40; // gap before first entry
+    let y = 70; // top margin, matches draw pass's initial cy
+    y += 40; // after kicker
+    y += 30; // after trip title
+    y += 40; // after countries subline
+
+    const dayPoints = getJournalDayPoints(entries);
+    const routeProjected = projectPoints(dayPoints, CW, 190);
+    const ROUTE_H = 190;
+    if (routeProjected.length) {
+      y += ROUTE_H + 30; // illustration + breathing room
+    }
+    y += 20; // gap before first entry
 
     const blocks = []; // { type, ...layout info, yStart }
     for (const { entry, heroImg, heroFocal, otherImgs } of entryData) {
@@ -478,6 +528,34 @@ const JournalScreen = (() => {
     ctx.fillStyle = '#A39A8C';
     ctx.font = '400 14px "Plus Jakarta Sans", sans-serif';
     ctx.fillText((trip?.countries || []).join(' · '), W / 2, cy);
+    cy += 40;
+
+    if (routeProjected.length) {
+      const accentColor = currentAccentColor();
+      ctx.save();
+      ctx.translate(PAD, cy);
+      ctx.strokeStyle = accentColor;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([1, 7]);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      routeProjected.forEach((p, i) => { i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y); });
+      ctx.stroke();
+      ctx.setLineDash([]);
+      routeProjected.forEach(p => {
+        ctx.fillStyle = accentColor;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.fillStyle = '#1C1A18';
+      ctx.font = '400 13px Georgia, serif';
+      ctx.textAlign = 'center';
+      routeProjected.forEach(p => {
+        const labelY = p.y < ROUTE_H / 2 ? p.y - 14 : p.y + 22;
+        ctx.fillText(p.label, p.x, labelY);
+      });
+      ctx.restore();
+      cy += ROUTE_H + 30;
+    }
 
     for (const b of blocks) {
       let by = b.startY;
@@ -584,7 +662,7 @@ const JournalScreen = (() => {
       </div>
       <div style="display:flex;gap:10px">
         <button id="focal-reset" style="padding:10px 18px;border-radius:100px;border:1px solid rgba(255,255,255,.3);background:none;color:rgba(255,255,255,.7);font-size:12px;font-family:var(--font)">Reset</button>
-        <button id="focal-done" style="padding:10px 22px;border-radius:100px;border:none;background:#C84B35;color:#fff;font-size:12px;font-weight:700;font-family:var(--font)">Done</button>
+        <button id="focal-done" style="padding:10px 22px;border-radius:100px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:700;font-family:var(--font)">Done</button>
       </div>`;
     document.body.appendChild(overlay);
 
@@ -666,7 +744,7 @@ const JournalScreen = (() => {
       <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #E4DECE">
         <div id="j-cancel" style="font-size:12px;color:#A39A8C;cursor:pointer">Cancel</div>
         <div style="font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#A39A8C">${editingEntryId ? 'Edit Entry' : 'New Entry'}</div>
-        <div id="j-save" style="font-size:12px;font-weight:700;color:#C84B35;cursor:pointer">Save</div>
+        <div id="j-save" style="font-size:12px;font-weight:700;color:var(--accent);cursor:pointer">Save</div>
       </div>
 
       <div style="padding:18px 20px">
@@ -689,7 +767,7 @@ const JournalScreen = (() => {
 
       <div style="padding:0 20px 20px">
         <div style="font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#A39A8C;margin:8px 0 8px">Preview — pull-quote</div>
-        <div id="j-quote-preview" style="font-family:Georgia,serif;font-size:19px;line-height:1.4;color:#1C1A18;padding:14px 16px;border-left:3px solid #C84B35;background:#F1EDE5">${currentQuote ? '"'+currentQuote+'"' : '—'}</div>
+        <div id="j-quote-preview" style="font-family:Georgia,serif;font-size:19px;line-height:1.4;color:#1C1A18;padding:14px 16px;border-left:3px solid var(--accent);background:#F1EDE5">${currentQuote ? '"'+currentQuote+'"' : '—'}</div>
       </div>
 
       ${editingEntryId ? `
@@ -703,14 +781,14 @@ const JournalScreen = (() => {
     const dayPillWrap = wrap.querySelector('#j-day-pills');
     const noneOpt = document.createElement('div');
     noneOpt.textContent = 'No day';
-    noneOpt.style.cssText = `flex-shrink:0;padding:6px 12px;border-radius:100px;font-size:11px;font-weight:600;cursor:pointer;background:${!composeDayId?'#C84B35':'#F1EDE5'};color:${!composeDayId?'#fff':'#6B6357'}`;
+    noneOpt.style.cssText = `flex-shrink:0;padding:6px 12px;border-radius:100px;font-size:11px;font-weight:600;cursor:pointer;background:${!composeDayId?'var(--accent)':'#F1EDE5'};color:${!composeDayId?'#fff':'#6B6357'}`;
     noneOpt.addEventListener('click', () => { composeDayId = null; renderCompose(); });
     dayPillWrap.appendChild(noneOpt);
     days.forEach(d => {
       const pill = document.createElement('div');
       pill.textContent = d.label || d.title || d.date;
       const active = composeDayId === d.id;
-      pill.style.cssText = `flex-shrink:0;padding:6px 12px;border-radius:100px;font-size:11px;font-weight:600;cursor:pointer;background:${active?'#C84B35':'#F1EDE5'};color:${active?'#fff':'#6B6357'}`;
+      pill.style.cssText = `flex-shrink:0;padding:6px 12px;border-radius:100px;font-size:11px;font-weight:600;cursor:pointer;background:${active?'var(--accent)':'#F1EDE5'};color:${active?'#fff':'#6B6357'}`;
       pill.addEventListener('click', () => { composeDayId = d.id; renderCompose(); });
       dayPillWrap.appendChild(pill);
     });
