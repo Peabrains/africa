@@ -1,35 +1,45 @@
 'use strict';
 
 /* ============================================================
-   JOURNAL — magazine-style trip journal. Read view: centered trip
-   title, each entry opens with a hero photo (sized landscape or
-   portrait depending on the photo's own orientation, not one
-   fixed box for everything), a pull-quote, quiet body text, and
-   any extra photos arranged in a fixed collage template chosen by
-   how many there are (1/2/3/4+ each get their own layout, rather
-   than an equal-width row that mangles anything non-landscape).
+   JOURNAL — magazine-style trip journal.
 
-   Compose view handles both new entries and editing existing ones
-   — same form either way, pre-filled when editing, with delete
-   available via the same tap-twice-to-confirm pattern used for
-   deleting a trip on Home.
+   Photos render as real <img loading="lazy"> elements, not CSS
+   background-image on a separately-probed Image() — that used to
+   mean every photo loaded twice (once to check orientation, once
+   to actually display). One load now does both: orientation comes
+   from the same <img>'s onload event, and loading="lazy" means
+   photos below the fold don't fetch until they're scrolled near,
+   which is the main real fix for lag on a journal with many entries.
+
+   Each photo also carries its own focal_position (a 3x3-grid CSS
+   object-position choice, set via the composer) so cropping isn't
+   always dead-center regardless of what's actually in the photo.
+
+   Compose view handles new + edit, with delete via the same
+   tap-twice-to-confirm pattern used for deleting a trip on Home.
+   Read view also offers a PDF export via the browser's native
+   print-to-PDF, same technique already staged (but never wired up)
+   for the Kit screen's print.css.
    ============================================================ */
 
 const JournalScreen = (() => {
   let root;
   let mode = 'read'; // 'read' | 'compose'
-  let composePhotos = []; // [{ localKey?, id?, dataUrl, isHero, removed? }] — id present only for existing (already-saved) photos
+  let composePhotos = []; // [{ localKey?, id?, dataUrl, isHero, focalPosition, removed? }]
   let composeNarration = '';
   let composeQuoteIndex = 0;
   let composeDayId = null;
-  let editingEntryId = null; // null = new entry, else editing this entry's id
+  let editingEntryId = null;
+  let focalPickerPhoto = null; // photo object currently open in the focal-point picker overlay
 
   function splitSentences(text) {
     if (!text) return [];
     return (text.match(/[^.!?]+[.!?]*/g) || []).map(s => s.trim()).filter(Boolean);
   }
 
-  function compressImage(file, maxWidth = 1400, quality = 0.78) {
+  // Resized smaller than before (was 1400/0.78) — trades a little sharpness
+  // for meaningfully smaller files and faster loads, on request.
+  function compressImage(file, maxWidth = 1000, quality = 0.7) {
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -46,18 +56,6 @@ const JournalScreen = (() => {
         img.src = e.target.result;
       };
       reader.readAsDataURL(file);
-    });
-  }
-
-  // Resolves once we know if an (already-loaded, e.g. via URL) image is
-  // landscape or portrait — used to pick which fixed-size box to use,
-  // rather than one box for every photo regardless of its own shape.
-  function getOrientation(url) {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve(img.naturalWidth >= img.naturalHeight ? 'landscape' : 'portrait');
-      img.onerror = () => resolve('landscape');
-      img.src = url;
     });
   }
 
@@ -78,6 +76,7 @@ const JournalScreen = (() => {
           localKey: 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
           dataUrl,
           isHero: noVisiblePhotosYet,
+          focalPosition: 'center',
         });
       }
       input.remove();
@@ -96,57 +95,82 @@ const JournalScreen = (() => {
     return day ? (day.label || day.title || day.date) : null;
   }
 
+  function makePhotoImg({ url, focalPosition, boxHeight, onOrientation }) {
+    const img = document.createElement('img');
+    img.loading = 'lazy';
+    img.alt = '';
+    img.style.cssText = `width:100%;display:block;object-fit:cover;object-position:${focalPosition || 'center'};background:#EDE8DE;border-radius:inherit`;
+    if (boxHeight) img.style.height = boxHeight + 'px';
+    img.addEventListener('load', () => {
+      if (onOrientation) onOrientation(img.naturalWidth >= img.naturalHeight ? 'landscape' : 'portrait', img);
+    });
+    img.src = url;
+    return img;
+  }
+
   // Fixed collage templates chosen by count — not a naive equal-width
   // row, since a row that assumes every photo is landscape mangles
   // anything portrait down to a thin sliver.
-  async function renderCollage(container, urls) {
+  function renderCollage(container, photosWithUrls) {
     container.innerHTML = '';
     container.style.cssText = 'margin-top:18px';
-    const n = urls.length;
+    const n = photosWithUrls.length;
     if (n === 0) return;
 
     if (n === 1) {
-      container.style.cssText += ';display:block';
-      const orientation = await getOrientation(urls[0]);
-      const h = orientation === 'portrait' ? 280 : 150;
-      const d = document.createElement('div');
-      d.style.cssText = `width:100%;height:${h}px;border-radius:3px;background-size:cover;background-position:center;background-image:url(${urls[0]})`;
-      container.appendChild(d);
+      container.style.cssText += ';display:block;border-radius:3px;overflow:hidden';
+      const { url, focal_position } = photosWithUrls[0];
+      const img = makePhotoImg({
+        url, focalPosition: focal_position, boxHeight: 150,
+        onOrientation: (orientation) => { img.style.height = (orientation === 'portrait' ? 280 : 150) + 'px'; },
+      });
+      container.appendChild(img);
       return;
     }
     if (n === 2) {
       container.style.cssText += ';display:flex;gap:8px';
-      urls.forEach(u => {
-        const d = document.createElement('div');
-        d.style.cssText = `flex:1;aspect-ratio:1/1;border-radius:3px;background-size:cover;background-position:center;background-image:url(${u})`;
-        container.appendChild(d);
+      photosWithUrls.forEach(({ url, focal_position }) => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'flex:1;aspect-ratio:1/1;border-radius:3px;overflow:hidden';
+        wrap.appendChild(makePhotoImg({ url, focalPosition: focal_position }));
+        wrap.querySelector('img').style.height = '100%';
+        container.appendChild(wrap);
       });
       return;
     }
     if (n === 3) {
       container.style.cssText += ';display:flex;gap:8px;height:160px';
-      const big = document.createElement('div');
-      big.style.cssText = `flex:1.5;border-radius:3px;background-size:cover;background-position:center;background-image:url(${urls[0]})`;
+      const bigWrap = document.createElement('div');
+      bigWrap.style.cssText = 'flex:1.5;border-radius:3px;overflow:hidden;height:100%';
+      const bigImg = makePhotoImg({ url: photosWithUrls[0].url, focalPosition: photosWithUrls[0].focal_position });
+      bigImg.style.height = '100%';
+      bigWrap.appendChild(bigImg);
       const col = document.createElement('div');
       col.style.cssText = 'flex:1;display:flex;flex-direction:column;gap:8px';
-      [urls[1], urls[2]].forEach(u => {
-        const d = document.createElement('div');
-        d.style.cssText = `flex:1;border-radius:3px;background-size:cover;background-position:center;background-image:url(${u})`;
-        col.appendChild(d);
+      [photosWithUrls[1], photosWithUrls[2]].forEach(({ url, focal_position }) => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'flex:1;border-radius:3px;overflow:hidden';
+        const img = makePhotoImg({ url, focalPosition: focal_position });
+        img.style.height = '100%';
+        wrap.appendChild(img);
+        col.appendChild(wrap);
       });
-      container.appendChild(big);
+      container.appendChild(bigWrap);
       container.appendChild(col);
       return;
     }
     // 4 or more — 2x2 grid, extras beyond 4 show as a "+N" overlay on the last tile
     container.style.cssText += ';display:grid;grid-template-columns:1fr 1fr;gap:8px';
-    urls.slice(0, 4).forEach((u, i) => {
-      const d = document.createElement('div');
-      d.style.cssText = `aspect-ratio:1/1;border-radius:3px;background-size:cover;background-position:center;background-image:url(${u});position:relative`;
+    photosWithUrls.slice(0, 4).forEach(({ url, focal_position }, i) => {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'aspect-ratio:1/1;border-radius:3px;overflow:hidden;position:relative';
+      const img = makePhotoImg({ url, focalPosition: focal_position });
+      img.style.height = '100%';
+      wrap.appendChild(img);
       if (i === 3 && n > 4) {
-        d.innerHTML = `<div style="position:absolute;inset:0;background:rgba(0,0,0,.5);border-radius:3px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:700">+${n-4}</div>`;
+        wrap.innerHTML += `<div style="position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:700">+${n-4}</div>`;
       }
-      container.appendChild(d);
+      container.appendChild(wrap);
     });
   }
 
@@ -157,10 +181,13 @@ const JournalScreen = (() => {
     page.style.cssText = 'background:#FAF8F4;min-height:100%';
 
     page.innerHTML = `
-      <div style="padding:40px 26px 30px;text-align:center">
+      <div style="padding:40px 26px 14px;text-align:center">
         <div style="font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#A39A8C">Trip Journal</div>
         <div style="font-family:Georgia,'Times New Roman',serif;font-size:30px;color:#1C1A18;margin-top:10px;line-height:1.15">${trip?.name || ''}</div>
         <div style="font-size:11px;color:#A39A8C;margin-top:8px">${(trip?.countries||[]).join(' · ')}</div>
+      </div>
+      <div style="text-align:center;padding-bottom:26px">
+        <button id="j-export-btn" style="border:1px solid #E4DECE;background:#fff;color:#6B6357;font-size:11px;font-weight:600;padding:8px 16px;border-radius:100px;cursor:pointer;font-family:var(--font)">Export as PDF</button>
       </div>`;
 
     const entries = Data.getJournalEntries();
@@ -179,38 +206,44 @@ const JournalScreen = (() => {
       const dayLabel = dayLabelFor(entry.day_id);
       const dateStr = new Date(entry.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
 
-      block.innerHTML = `
-        <div style="height:1px;background:#1C1A18;opacity:.08;margin:0 26px 30px"></div>
-        <div id="hero-${entry.id}" style="width:100%;height:200px;background-size:cover;background-position:center;background-color:#EDE8DE;position:relative;transition:height .15s">
-          <div style="position:absolute;bottom:14px;left:26px;right:26px;color:#fff;font-size:10px;letter-spacing:.03em;text-shadow:0 1px 6px rgba(0,0,0,.4)">${dayLabel ? dayLabel : dateStr}</div>
-          <button class="j-edit-btn" data-entry="${entry.id}" style="position:absolute;top:14px;right:20px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.4);border:none;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
-          </button>
-        </div>
-        <div style="padding:26px 26px 8px">
-          ${entry.pull_quote ? `<div style="font-family:Georgia,serif;font-size:20px;line-height:1.4;color:#1C1A18;margin-bottom:14px">"${entry.pull_quote}"</div>` : ''}
-          <div style="font-size:13px;line-height:1.75;color:#6B6357">${(entry.narration||'').replace(/</g,'&lt;')}</div>
-          <div id="inset-${entry.id}"></div>
-        </div>`;
+      const heroWrap = document.createElement('div');
+      heroWrap.style.cssText = 'width:100%;height:200px;background-color:#EDE8DE;position:relative;overflow:hidden';
+
+      block.innerHTML = `<div style="height:1px;background:#1C1A18;opacity:.08;margin:0 26px 30px"></div>`;
+      block.appendChild(heroWrap);
+      heroWrap.innerHTML = `
+        <div style="position:absolute;bottom:14px;left:26px;right:26px;color:#fff;font-size:10px;letter-spacing:.03em;text-shadow:0 1px 6px rgba(0,0,0,.4);z-index:2">${dayLabel ? dayLabel : dateStr}</div>
+        <button class="j-edit-btn" data-entry="${entry.id}" style="position:absolute;top:14px;right:20px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.4);border:none;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+        </button>`;
+
+      const bodyBlock = document.createElement('div');
+      bodyBlock.style.cssText = 'padding:26px 26px 8px';
+      bodyBlock.innerHTML = `
+        ${entry.pull_quote ? `<div style="font-family:Georgia,serif;font-size:20px;line-height:1.4;color:#1C1A18;margin-bottom:14px">"${entry.pull_quote}"</div>` : ''}
+        <div style="font-size:13px;line-height:1.75;color:#6B6357">${(entry.narration||'').replace(/</g,'&lt;')}</div>
+        <div id="inset-${entry.id}"></div>`;
+      block.appendChild(bodyBlock);
       page.appendChild(block);
 
       const hero = (entry.journal_photos || []).find(p => p.is_hero) || (entry.journal_photos || [])[0];
       if (hero) {
-        Data.getJournalPhotoUrl(hero).then(async (url) => {
+        Data.getJournalPhotoUrl(hero).then((url) => {
           if (!url) return;
-          const orientation = await getOrientation(url);
-          const el = page.querySelector(`#hero-${entry.id}`);
-          if (!el) return;
-          el.style.backgroundImage = `url(${url})`;
-          el.style.height = HERO_H[orientation] + 'px';
+          const img = makePhotoImg({
+            url, focalPosition: hero.focal_position, boxHeight: 200,
+            onOrientation: (orientation) => { heroWrap.style.height = HERO_H[orientation] + 'px'; img.style.height = HERO_H[orientation] + 'px'; },
+          });
+          img.style.position = 'absolute'; img.style.inset = '0'; img.style.zIndex = '1'; img.style.height = '100%';
+          heroWrap.insertBefore(img, heroWrap.firstChild);
         });
       }
 
       const others = (entry.journal_photos || []).filter(p => !p.is_hero);
       if (others.length) {
-        Promise.all(others.map(p => Data.getJournalPhotoUrl(p))).then(urls => {
+        Promise.all(others.map(p => Data.getJournalPhotoUrl(p).then(url => ({ url, focal_position: p.focal_position })))).then(list => {
           const insetEl = page.querySelector(`#inset-${entry.id}`);
-          if (insetEl) renderCollage(insetEl, urls.filter(Boolean));
+          if (insetEl) renderCollage(insetEl, list.filter(x => x.url));
         });
       }
     }
@@ -223,12 +256,61 @@ const JournalScreen = (() => {
     root.appendChild(page);
 
     page.querySelector('#j-new-btn')?.addEventListener('click', () => openComposer(null));
+    page.querySelector('#j-export-btn')?.addEventListener('click', exportPdf);
     page.querySelectorAll('.j-edit-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         openComposer(btn.dataset.entry);
       });
     });
+  }
+
+  /* ── PDF export — same "isolate a hidden div, window.print()" technique
+     print.css already had CSS staged for (SOS), just never wired to any
+     JS anywhere in the app. This is a fresh build following that same
+     idea, not a reuse of something that was actually working already. ── */
+  async function exportPdf() {
+    Toast.show('Preparing PDF…', 'info');
+    const trip = Data.getCurrentTrip?.();
+    const entries = Data.getJournalEntries();
+
+    let existing = document.getElementById('journal-print-content');
+    if (existing) existing.remove();
+    const printEl = document.createElement('div');
+    printEl.id = 'journal-print-content';
+    document.body.appendChild(printEl);
+
+    let html = `
+      <div class="print-header">
+        <div class="print-title">${trip?.name || 'Trip Journal'}</div>
+        <div class="print-sub">${(trip?.countries||[]).join(' · ')}</div>
+      </div>`;
+
+    for (const entry of entries) {
+      const dayLabel = dayLabelFor(entry.day_id);
+      const dateStr = new Date(entry.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+      const hero = (entry.journal_photos || []).find(p => p.is_hero) || (entry.journal_photos || [])[0];
+      const others = (entry.journal_photos || []).filter(p => !p.is_hero);
+      const heroUrl = hero ? await Data.getJournalPhotoUrl(hero) : null;
+      const otherUrls = (await Promise.all(others.map(p => Data.getJournalPhotoUrl(p)))).filter(Boolean);
+
+      html += `<div class="print-entry">
+        <div class="print-entry-head">${dayLabel || dateStr}</div>
+        ${entry.pull_quote ? `<div class="print-quote">"${entry.pull_quote}"</div>` : ''}
+        ${heroUrl ? `<img class="print-photo print-photo-hero" src="${heroUrl}">` : ''}
+        ${entry.narration ? `<div class="print-body">${entry.narration.replace(/</g,'&lt;')}</div>` : ''}
+        <div class="print-photo-row">${otherUrls.map(u => `<img class="print-photo" src="${u}">`).join('')}</div>
+      </div>`;
+    }
+
+    printEl.innerHTML = html;
+
+    // Give the browser a moment to lay out the freshly-inserted images
+    // before invoking print, rather than printing an empty/partial page.
+    setTimeout(() => {
+      window.print();
+      printEl.remove();
+    }, 300);
   }
 
   /* ── Open composer, either blank or pre-filled for editing ──── */
@@ -255,10 +337,48 @@ const JournalScreen = (() => {
     Toast.show('Loading entry…', 'info');
     const photos = entry.journal_photos || [];
     const urls = await Promise.all(photos.map(p => Data.getJournalPhotoUrl(p)));
-    composePhotos = photos.map((p, i) => ({ id: p.id, dataUrl: urls[i], isHero: p.is_hero, removed: false }));
+    composePhotos = photos.map((p, i) => ({ id: p.id, dataUrl: urls[i], isHero: p.is_hero, focalPosition: p.focal_position || 'center', removed: false }));
 
     mode = 'compose';
     render();
+  }
+
+  /* ── Focal-point picker — 3x3 grid over a preview of the photo ── */
+  function openFocalPicker(photo) {
+    focalPickerPhoto = photo;
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:300;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px';
+    const positions = [
+      ['top left','top center','top right'],
+      ['center left','center','center right'],
+      ['bottom left','bottom center','bottom right'],
+    ];
+    overlay.innerHTML = `
+      <div style="font-size:12px;color:rgba(255,255,255,.7)">Tap where the important part of the photo is</div>
+      <div style="position:relative;width:260px;height:260px;border-radius:8px;overflow:hidden">
+        <img src="${photo.dataUrl}" style="width:100%;height:100%;object-fit:cover;object-position:${photo.focalPosition||'center'}">
+        <div id="focal-grid" style="position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1fr"></div>
+      </div>
+      <button id="focal-close" style="padding:10px 22px;border-radius:100px;border:1px solid rgba(255,255,255,.3);background:none;color:#fff;font-size:12px;font-family:var(--font)">Done</button>`;
+    document.body.appendChild(overlay);
+
+    const grid = overlay.querySelector('#focal-grid');
+    positions.flat().forEach(pos => {
+      const cell = document.createElement('div');
+      cell.style.cssText = `border:1px dashed rgba(255,255,255,.35);cursor:pointer;${pos===photo.focalPosition?'background:rgba(200,75,53,.35)':''}`;
+      cell.addEventListener('click', () => {
+        photo.focalPosition = pos;
+        overlay.querySelector('img').style.objectPosition = pos;
+        grid.querySelectorAll('div').forEach(c => c.style.background = '');
+        cell.style.background = 'rgba(200,75,53,.35)';
+      });
+      grid.appendChild(cell);
+    });
+
+    overlay.querySelector('#focal-close').addEventListener('click', () => {
+      overlay.remove();
+      renderCompose();
+    });
   }
 
   /* ── COMPOSE VIEW ─────────────────────────────────────────── */
@@ -289,7 +409,7 @@ const JournalScreen = (() => {
       <div style="padding:18px 20px">
         <div style="font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#A39A8C;margin-bottom:10px">Photos</div>
         <div id="j-photo-row" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:2px"></div>
-        <div style="font-size:9.5px;color:#A39A8C;margin-top:8px;line-height:1.4">Tap a photo to make it the hero image · tap × to remove · tap + to add more</div>
+        <div style="font-size:9.5px;color:#A39A8C;margin-top:8px;line-height:1.4">Tap a photo to make it the hero image · ⤢ to reposition how it crops · × to remove · + to add more</div>
       </div>
 
       <div style="padding:18px 20px">
@@ -330,10 +450,12 @@ const JournalScreen = (() => {
     const photoRow = wrap.querySelector('#j-photo-row');
     visiblePhotos.forEach(p => {
       const thumb = document.createElement('div');
-      thumb.style.cssText = `position:relative;flex-shrink:0;width:76px;height:76px;border-radius:6px;background-size:cover;background-position:center;background-image:url(${p.dataUrl});cursor:pointer`;
+      thumb.style.cssText = `position:relative;flex-shrink:0;width:76px;height:76px;border-radius:6px;overflow:hidden;cursor:pointer`;
+      thumb.innerHTML = `<img src="${p.dataUrl}" style="width:100%;height:100%;object-fit:cover;object-position:${p.focalPosition||'center'}">`;
       if (p.isHero) {
         thumb.innerHTML += `<div style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,.55);color:#fff;font-size:8px;font-weight:700;letter-spacing:.04em;padding:2px 6px;border-radius:4px;text-transform:uppercase">Hero</div>`;
       }
+      thumb.innerHTML += `<div class="j-photo-focal" style="position:absolute;bottom:4px;left:4px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center">⤢</div>`;
       thumb.innerHTML += `<div class="j-photo-remove" style="position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center">×</div>`;
       thumb.addEventListener('click', (e) => {
         if (e.target.closest('.j-photo-remove')) {
@@ -343,6 +465,10 @@ const JournalScreen = (() => {
             if (next) next.isHero = true;
           }
           renderCompose();
+          return;
+        }
+        if (e.target.closest('.j-photo-focal')) {
+          openFocalPicker(p);
           return;
         }
         composePhotos.forEach(x => x.isHero = false);
@@ -423,15 +549,17 @@ const JournalScreen = (() => {
       entryId = entry.id;
     }
 
-    // Removed existing photos
     for (const p of composePhotos.filter(p => p.removed && p.id)) {
       await Data.removeJournalPhoto(entryId, p.id);
     }
-    // Brand new photos (no id yet)
     for (const p of visiblePhotos.filter(p => !p.id)) {
-      await Data.addJournalPhoto(entryId, p.dataUrl, { isHero: p.isHero });
+      await Data.addJournalPhoto(entryId, p.dataUrl, { isHero: p.isHero, focalPosition: p.focalPosition });
     }
-    // If the current hero is an existing (already-saved) photo, make sure that's reflected
+    // Existing photos — persist any focal-position change, and make sure
+    // hero status is correct even if no new photo was added this session.
+    for (const p of visiblePhotos.filter(p => p.id)) {
+      await Data.setJournalPhotoFocal(entryId, p.id, p.focalPosition || 'center');
+    }
     const existingHero = visiblePhotos.find(p => p.id && p.isHero);
     if (existingHero) await Data.setJournalHeroPhoto(entryId, existingHero.id);
 
