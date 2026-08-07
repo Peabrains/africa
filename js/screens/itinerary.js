@@ -421,7 +421,7 @@ const ItineraryScreen = (() => {
   function subTabBar() {
     const bar = document.createElement('div');
     bar.style.cssText = 'display:flex;border-bottom:1.5px solid var(--border);background:var(--surface);flex-shrink:0;padding:0 var(--s2);overflow-x:auto;scrollbar-width:none';
-    [['itinerary','Itinerary'],['included',"What's included"]].forEach(([id, label]) => {
+    [['itinerary','Itinerary'],['map','Map'],['included',"What's included"]].forEach(([id, label]) => {
       const btn = document.createElement('button');
       btn.style.cssText = `flex-shrink:0;padding:10px var(--s3);font-size:var(--text-sm);font-weight:${activeTab===id?'500':'400'};color:${activeTab===id?'var(--accent)':'var(--text-muted)'};background:none;border:none;border-bottom:${activeTab===id?'2px solid var(--accent)':'2px solid transparent'};margin-bottom:-1.5px;cursor:pointer;font-family:var(--font);transition:color .15s`;
       btn.textContent = label;
@@ -550,8 +550,18 @@ const ItineraryScreen = (() => {
   function render() {
     if (!root) return;
     root.innerHTML = '';
+    root.classList.remove('map-active');
 
     root.appendChild(subTabBar());
+
+    if (activeTab === 'map') {
+      root.classList.add('map-active');
+      const body = document.createElement('div');
+      body.style.cssText = 'flex:1;min-height:0';
+      root.appendChild(body);
+      MapScreen.init(body);
+      return;
+    }
 
     if (activeTab === 'included') {
       root.appendChild(renderIncExc());
@@ -630,7 +640,7 @@ const ItineraryScreen = (() => {
 
   return {
     init(el) { root = el; render(); },
-    destroy() { root = null; },
+    destroy() { if (activeTab === 'map') MapScreen.destroy(); root = null; },
     refresh() { render(); },
   };
 })();
