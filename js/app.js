@@ -2,14 +2,11 @@
 
 const App = (() => {
   const SCREENS = {
-    itinerary: () => window.ItineraryScreen,
-    map:       () => window.MapScreen,
-    dex:       () => window.DexScreen,
-    stamps:    () => window.StampsScreen,
-    food:      () => window.FoodScreen,
-    bookings:  () => window.BookingsScreen,
-    sos:       () => window.SOSScreen,
-    landing:   () => window.LandingScreen,
+    home:        () => window.LandingScreen,
+    itinerary:   () => window.ItineraryScreen,
+    'bucket-list': () => window.BucketListScreen,
+    bookings:    () => window.BookingsScreen,
+    sos:         () => window.SOSScreen,
   };
 
   let currentScreen = null;
@@ -27,11 +24,17 @@ const App = (() => {
       b.classList.toggle('active', b.dataset.screen === name)
     );
 
+    // Home carries its own wordmark/branding — the persistent header
+    // would be pure duplication there, so it's hidden entirely on Home
+    // and shown (in its simplified, hamburger-free form) everywhere else.
+    const headerEl = document.getElementById('app-header');
+    if (headerEl) headerEl.style.display = (name === 'home') ? 'none' : '';
+
     const el = document.getElementById('screen-content');
     el.style.cssText = '';
     el.innerHTML    = '';
     el.scrollTop    = 0;
-    el.classList.toggle('map-active', name === 'map');
+    el.classList.remove('map-active'); // itinerary.js toggles this itself when its internal Map sub-tab is active
 
     const sp = document.getElementById('stamp-persistent');
     if (sp) sp.style.display = 'none';
@@ -230,37 +233,11 @@ const App = (() => {
       dbg('Data.init ✓ days:' + Data.getDays().length);
     } catch(e) { dbg('Data.init ✗ ' + e.message, '#f66'); }
 
-    // Third nav slot is trip-specific: Dex for the Africa trip, Pilgrim
-    // Stamps for the Japan trip, Food Passport for the Thailand trip. Any
-    // other (e.g. a newly created) trip gets a blank slot rather than
-    // guessing — nothing to show yet.
-    try {
-      const AFRICA_TRIP_ID   = '83891de6-44ee-4ec2-bb95-6726cbd8c370';
-      const JAPAN_TRIP_ID    = '91a41e0d-f247-4d89-ba15-02f0994a16c8';
-      const THAILAND_TRIP_ID = '2b3c82f2-040f-4f2a-9d01-579129d1203b';
-      const tripId = Data.getCurrentTrip?.()?.id;
-      const navBtns = document.querySelectorAll('.nav-btn');
-      const thirdBtn = navBtns[2];
-      if (thirdBtn) {
-        if (tripId === JAPAN_TRIP_ID) {
-          thirdBtn.style.display = '';
-          thirdBtn.dataset.screen = 'stamps';
-          thirdBtn.innerHTML = `${Icons.star('icon-lg')}<span class="nav-label">Stamps</span>`;
-        } else if (tripId === AFRICA_TRIP_ID) {
-          thirdBtn.style.display = '';
-          thirdBtn.dataset.screen = 'dex';
-          thirdBtn.innerHTML = `${Icons.star('icon-lg')}<span class="nav-label">Dex</span>`;
-        } else if (tripId === THAILAND_TRIP_ID) {
-          thirdBtn.style.display = '';
-          thirdBtn.dataset.screen = 'food';
-          thirdBtn.innerHTML = `${Icons.star('icon-lg')}<span class="nav-label">Food</span>`;
-        } else {
-          thirdBtn.style.display = 'none';
-          thirdBtn.dataset.screen = '';
-        }
-      }
-      dbg('navSwap ✓ trip:' + tripId);
-    } catch(e) { dbg('navSwap ✗ ' + e.message, '#f66'); }
+    // Third nav slot is always Bucket List now — it's the one screen
+    // that's genuinely identical across every trip. The trip-specific
+    // curated collection (Dex/Stamps/Food) lives as a sub-tab inside
+    // it (see bucket-list.js), not swapped in at the nav-bar level.
+    dbg('nav ✓ trip:' + Data.getCurrentTrip?.()?.id);
 
     TripSwitcher?.init();
     dbg('TripSwitcher ✓');
@@ -305,8 +282,11 @@ const App = (() => {
       App.reload?.();
     });
 
-    let start = 'landing';
-    try { start = sessionStorage.getItem('lastScreen') || 'landing'; } catch(_) {}
+    let start = 'home';
+    try {
+      const saved = sessionStorage.getItem('lastScreen');
+      if (saved && saved in SCREENS) start = saved; // guard against stale values from before this restructure
+    } catch(_) {}
     dbg('switching to: ' + start);
     try {
       switchTo(start);
@@ -384,9 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Show trip name in header
     const tripNameEl = document.getElementById('header-trip-name-text');
-    if (tripNameEl) tripNameEl.textContent = Data.getCurrentTrip()?.name || 'Trip Companion';
-    const vEl = document.getElementById('app-version-display');
-    if (vEl) vEl.textContent = Config.APP_VERSION || 'v1';
+    if (tripNameEl) tripNameEl.textContent = Data.getCurrentTrip()?.name || 'Trip';
 
     navigator.serviceWorker.ready.then(reg => {
       reg.update().catch(() => {});
