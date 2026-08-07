@@ -19,6 +19,9 @@ const Icons = {
   shield:      (c) => Icons._svg(`<path d="M12 3 3 7v5c0 5 4 8.5 9 10 5-1.5 9-5 9-10V7z" ${S}/>`, c),
   home:        (c) => Icons._svg(`<path d="M3 11l9-8 9 8" ${S}/><path d="M5 10v10h14V10" ${S}/>`, c),
   checklist:   (c) => Icons._svg(`<path d="M9 6h11M9 12h11M9 18h11" ${S}/><path d="M4 6l1.2 1.2L7.5 4.7" ${S}/><path d="M4 12l1.2 1.2L7.5 10.7" ${S}/><path d="M4 18l1.2 1.2L7.5 16.7" ${S}/>`, c),
+  paw:         (c) => Icons._svg(`<circle cx="12" cy="15" r="5" ${S}/><circle cx="6" cy="8" r="2" ${S}/><circle cx="10" cy="5" r="2" ${S}/><circle cx="14" cy="5" r="2" ${S}/><circle cx="18" cy="8" r="2" ${S}/>`, c),
+  stamp:       (c) => Icons._svg(`<rect x="4" y="4" width="16" height="16" rx="3" ${S}/><circle cx="12" cy="12" r="3" ${S}/>`, c),
+  bowl:        (c) => Icons._svg(`<path d="M3 12h18a9 6 0 0 1-18 0z" ${S}/><path d="M12 3v3M9 4.5v2M15 4.5v2" ${S}/>`, c),
 
   /* Transport */
   plane:       (c) => Icons._svg(`<path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z" ${S}/>`, c),
