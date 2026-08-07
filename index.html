@@ -56,9 +56,16 @@
     .conflict-btns{display:flex;gap:var(--s2);flex-shrink:0}
 
     /* ── Screen ────────────────────────────────────────────────── */
-    #screen-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;min-height:0;padding:0 0 calc(140px + env(safe-area-inset-bottom))}
-    #screen-content.map-active{padding:0 0 calc(140px + env(safe-area-inset-bottom));display:flex;flex-direction:column}
+    #screen-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;min-height:0;padding:0 0 calc(88px + env(safe-area-inset-bottom))}
+    #screen-content.map-active{padding:0 0 calc(88px + env(safe-area-inset-bottom));display:flex;flex-direction:column}
     #map-container{flex:1;margin:var(--s2) var(--s3);border-radius:var(--r-lg);overflow:hidden;border:1.5px solid var(--border)}
+    /* Class, not inline style, on purpose — MapScreen.render() sets its own
+       root.style.cssText internally, which would silently wipe an inline
+       flex:1 set by the parent (itinerary.js) before handing off. A class
+       rule survives that since inline reassignment only clears properties
+       it actually declares, not the whole cascade. This is what was making
+       the map render short, with empty space below it. */
+    .map-embed-wrap{flex:1;min-height:0}
 
     /* ── Bottom nav ────────────────────────────────────────────── */
     /* ── Bottom nav — floating pill (Polarsteps-style). Always has
