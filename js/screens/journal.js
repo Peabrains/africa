@@ -221,7 +221,7 @@ const JournalScreen = (() => {
       bodyBlock.style.cssText = 'padding:26px 26px 8px';
       bodyBlock.innerHTML = `
         ${entry.pull_quote ? `<div style="font-family:Georgia,serif;font-size:20px;line-height:1.4;color:#1C1A18;margin-bottom:14px">"${entry.pull_quote}"</div>` : ''}
-        <div style="font-size:13px;line-height:1.75;color:#6B6357">${(entry.narration||'').replace(/</g,'&lt;')}</div>
+        <div style="font-size:13px;line-height:1.75;color:#6B6357;white-space:pre-wrap">${(entry.narration||'').replace(/</g,'&lt;')}</div>
         <div id="inset-${entry.id}"></div>`;
       block.appendChild(bodyBlock);
       page.appendChild(block);
