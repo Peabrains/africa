@@ -142,7 +142,7 @@ const SOSScreen = (() => {
     ].forEach(([id, label]) => {
       const btn = document.createElement('button');
       btn.className = `sub-tab ${activeTab===id?'sub-tab--active':''}`;
-      btn.textContent = label;
+      btn.innerHTML = `<span class="sub-tab-pill">${label}</span>`;
       btn.addEventListener('click', () => { activeTab = id; render(); });
       bar.appendChild(btn);
     });
