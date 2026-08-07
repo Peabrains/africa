@@ -103,9 +103,9 @@ const App = (() => {
     const depart = startDate ? new Date(startDate + 'T00:00:00') : null;
     if (!depart || isNaN(depart.getTime())) { cEl.style.display = 'none'; return; }
     const diff   = Math.ceil((depart - today) / 864e5);
-    if      (diff > 1)  cEl.textContent = diff + ' days to go \uD83C\uDF0D';
-    else if (diff === 1) cEl.textContent = 'Departing tomorrow! \uD83C\uDF0D';
-    else if (diff === 0) cEl.textContent = 'Departure day! \u2708\uFE0F';
+    if      (diff > 1)  cEl.textContent = diff + ' days to go';
+    else if (diff === 1) cEl.textContent = 'Departing tomorrow';
+    else if (diff === 0) cEl.textContent = 'Departure day';
     else                 cEl.style.display = 'none';
   }
 
