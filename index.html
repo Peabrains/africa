@@ -57,7 +57,7 @@
 
     /* ── Screen ────────────────────────────────────────────────── */
     #screen-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;min-height:0;padding:0 0 calc(88px + env(safe-area-inset-bottom))}
-    #screen-content.map-active{padding:0 0 calc(88px + env(safe-area-inset-bottom));display:flex;flex-direction:column}
+    #screen-content.map-active{padding:0;display:flex;flex-direction:column}
     #map-container{flex:1;margin:var(--s2) var(--s3);border-radius:var(--r-lg);overflow:hidden;border:1.5px solid var(--border)}
     /* Class, not inline style, on purpose — MapScreen.render() sets its own
        root.style.cssText internally, which would silently wipe an inline
@@ -86,9 +86,16 @@
        text, reading as a stray rectangle. Sizing it to content
        means the highlight always hugs exactly what's inside it,
        regardless of label length or position in the bar. ── */
+    /* ── Bottom nav — no background box, ever. Active state is a
+       color change plus a small accent bar above the icon. This is
+       deliberately the simplest possible active-indicator: there is
+       no box whose width can mismatch its content, so the "rectangle"
+       bug this app kept hitting is structurally not possible here. ── */
     .nav-btn{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;padding:4px 2px;border:none;background:none;cursor:pointer;min-height:52px;font-family:var(--font)}
-    .nav-pill{display:inline-flex;flex-direction:column;align-items:center;gap:3px;padding:8px 9px;border-radius:14px;color:rgba(255,255,255,.55);font-size:8.5px;font-weight:600;line-height:1.15;text-align:center;transition:background .18s,color .18s}
-    .nav-btn.active .nav-pill{background:rgba(255,255,255,.16);color:#fff}
+    .nav-pill{display:inline-flex;flex-direction:column;align-items:center;gap:4px;padding-top:6px;position:relative;color:rgba(255,255,255,.5);font-size:8.5px;font-weight:600;line-height:1.15;text-align:center;transition:color .15s}
+    .nav-pill::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:0;height:2px;border-radius:2px;background:var(--accent);transition:width .15s}
+    .nav-btn.active .nav-pill{color:#fff}
+    .nav-btn.active .nav-pill::before{width:20px}
     .nav-btn .icon{width:18px;height:18px;flex-shrink:0;transition:color .15s}
     .nav-btn .nav-label{max-width:100%}
 
@@ -239,15 +246,17 @@
     .sos-country-chip{font-size:9px;font-weight:500;padding:2px 6px;border-radius:var(--r-pill);border:1px solid;white-space:nowrap;display:inline-block;margin-bottom:4px}
 
     /* Sub-tab bar (SOS tabs) */
-    /* ── Sub-tab bar — rounded segmented pill, one shared component
-       used by Itinerary, Kit, and Bucket List. Matches the rounded
-       card/stat-row language everywhere else instead of the old flat
-       underline-tab look, which read as a different, older design. ── */
-    .sub-tab-bar{display:flex;gap:4px;background:var(--surface-raised);border-radius:14px;padding:4px;margin:var(--s3) var(--s4);overflow-x:auto;scrollbar-width:none}
+    /* ── Sub-tab bar — plain underline, no box. Deliberately simple:
+       a filled/highlighted box needs its width sized to content or it
+       shows empty space around short labels (the recurring bug). An
+       underline has no such problem — it's just a color change plus
+       a thin bar, so every screen using this class gets it for free,
+       including short labels like "Map." One shared component, no
+       per-screen wrapper markup required. ── */
+    .sub-tab-bar{display:flex;border-bottom:1.5px solid var(--border);background:var(--surface);flex-shrink:0;overflow-x:auto;scrollbar-width:none;margin:0 0 var(--s2)}
     .sub-tab-bar::-webkit-scrollbar{display:none}
-    .sub-tab{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;padding:2px;border:none;background:none;cursor:pointer;font-family:var(--font)}
-    .sub-tab-pill{display:inline-flex;align-items:center;justify-content:center;padding:7px 10px;border-radius:11px;font-size:var(--text-sm);font-weight:600;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;transition:background .15s,color .15s}
-    .sub-tab--active .sub-tab-pill{background:var(--surface);color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+    .sub-tab{flex:1 1 0;min-width:0;text-align:center;padding:12px 6px;font-size:var(--text-sm);font-weight:500;color:var(--text-muted);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1.5px;cursor:pointer;font-family:var(--font);transition:color .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sub-tab--active{color:var(--accent);font-weight:700;border-bottom-color:var(--accent)}
 
     /* Map legend */
     .map-legend{display:flex;gap:var(--s3);padding:var(--s2) var(--s4);overflow-x:auto;scrollbar-width:none;flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border-subtle)}
