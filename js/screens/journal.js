@@ -305,12 +305,47 @@ const JournalScreen = (() => {
 
     printEl.innerHTML = html;
 
+    // Wait for every photo to actually finish loading (not just resolve
+    // its URL string) before printing — the previous flat 300ms timeout
+    // wasn't nearly long enough for Storage-hosted photos to fetch and
+    // decode, which is the real reason the output was coming out empty.
+    const imgs = Array.from(printEl.querySelectorAll('img'));
+    await Promise.all(imgs.map(img => new Promise(resolve => {
+      if (img.complete) return resolve();
+      img.addEventListener('load', resolve, { once: true });
+      img.addEventListener('error', resolve, { once: true }); // don't block forever on one bad photo
+    })));
+
+    // Real PDFs are inherently page-based — there's no true "infinite
+    // scroll" PDF format. The closest actual equivalent: size the PDF
+    // as one single page matching the journal's full content height,
+    // instead of standard A4 pagination. Opened in any PDF viewer, that
+    // reads as one continuous scroll with zero page breaks.
+    const heightMm = Math.ceil(printEl.scrollHeight * 25.4 / 96) + 20; // px → mm, plus a little breathing room
+    let sizeStyle = document.getElementById('j-print-page-size');
+    if (!sizeStyle) {
+      sizeStyle = document.createElement('style');
+      sizeStyle.id = 'j-print-page-size';
+      document.head.appendChild(sizeStyle);
+    }
+    sizeStyle.textContent = `@media print { @page { size: 210mm ${heightMm}mm; margin: 14mm 16mm; } }`;
+
     // Give the browser a moment to lay out the freshly-inserted images
     // before invoking print, rather than printing an empty/partial page.
+    // A short reflow delay (images are already fully loaded above) —
+    // then print, and clean up once the print dialog actually closes
+    // rather than guessing with a fixed delay, since window.print()'s
+    // blocking behavior isn't consistent across mobile browsers.
     setTimeout(() => {
+      const cleanup = () => {
+        printEl.remove();
+        sizeStyle.remove();
+        window.removeEventListener('afterprint', cleanup);
+      };
+      window.addEventListener('afterprint', cleanup);
       window.print();
-      printEl.remove();
-    }, 300);
+      setTimeout(cleanup, 15000); // safety net if 'afterprint' never fires on this browser
+    }, 80);
   }
 
   /* ── Open composer, either blank or pre-filled for editing ──── */
