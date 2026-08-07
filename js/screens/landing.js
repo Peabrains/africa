@@ -42,7 +42,7 @@ const LandingScreen = (() => {
   /* ── Wordmark + greeting + countries/flight summary rows ──── */
   function wordmarkRow() {
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:22px var(--s4) 4px';
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:calc(22px + env(safe-area-inset-top)) var(--s4) 4px';
     row.innerHTML = `
       <div style="display:flex;align-items:center;gap:10px">
         <div style="width:34px;height:34px;border-radius:10px;overflow:hidden;flex-shrink:0"><img src="icons/icon-192.png" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div>
