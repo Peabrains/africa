@@ -3,8 +3,8 @@
    Cache version bumped manually alongside APP_VERSION.
    BUILD: 202608070256
    ============================================================ */
-const CACHE   = 'africa-safari-platform-202608071520';
-const VERSION = '202608071520';
+const CACHE   = 'africa-safari-platform-202608071545';
+const VERSION = '202608071545';
 
 const PRECACHE = [
   './', './index.html', './css/tokens.css', './css/print.css',
