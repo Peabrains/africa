@@ -76,7 +76,7 @@ const JournalScreen = (() => {
           localKey: 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
           dataUrl,
           isHero: noVisiblePhotosYet,
-          focalPosition: 'center',
+          focalPosition: JSON.stringify({ x: 50, y: 50, zoom: 100 }),
         });
       }
       input.remove();
@@ -111,11 +111,57 @@ const JournalScreen = (() => {
     return formatDate(entry.created_at);
   }
 
+  // Lightweight markdown — **bold** and *italic* only, no toolbar,
+  // just a typed convention with a hint shown in the composer. Order
+  // matters: bold's ** pattern must be matched before italic's single
+  // *, or the italic regex would partially consume a bold marker first.
+  function renderMarkdownLite(text) {
+    if (!text) return '';
+    let out = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    out = out.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
+    out = out.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
+    return out;
+  }
+  // Same markers stripped to plain text — used for the canvas export,
+  // which draws plain characters rather than HTML, so bold/italic
+  // styling doesn't carry over there, but the raw ** / * markers are
+  // removed rather than showing up literally in the exported image.
+  function stripMarkdown(text) {
+    if (!text) return '';
+    return text.replace(/\*\*([^\*]+)\*\*/g, '$1').replace(/\*([^\*]+)\*/g, '$1');
+  }
+
+  // Numeric {x,y,zoom} pan/zoom focal point (current format) — legacy
+  // 3x3 keyword strings from before map to a matching x/y at zoom 100
+  // so old entries still render sensibly with no data migration needed.
+  function parseFocal(raw) {
+    if (!raw) return { x: 50, y: 50, zoom: 100 };
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.x === 'number') return { x: parsed.x, y: parsed.y, zoom: parsed.zoom || 100 };
+    } catch (e) { /* fall through to legacy keyword handling */ }
+    const LEGACY = {
+      'top left': [0,0], 'top center': [50,0], 'top right': [100,0],
+      'center left': [0,50], 'center': [50,50], 'center right': [100,50],
+      'bottom left': [0,100], 'bottom center': [50,100], 'bottom right': [100,100],
+    };
+    const [x, y] = LEGACY[raw] || [50, 50];
+    return { x, y, zoom: 100 };
+  }
+  // CSS for an <img> respecting a parsed focal point — object-position
+  // handles the pan, transform:scale handles the zoom, transform-origin
+  // keeps the zoom centered on the same point being panned to.
+  function focalStyle(focal) {
+    const f = focal || { x: 50, y: 50, zoom: 100 };
+    return `object-position:${f.x}% ${f.y}%;transform:scale(${(f.zoom||100)/100});transform-origin:${f.x}% ${f.y}%`;
+  }
+
   function makePhotoImg({ url, focalPosition, boxHeight, onOrientation }) {
     const img = document.createElement('img');
     img.loading = 'lazy';
     img.alt = '';
-    img.style.cssText = `width:100%;display:block;object-fit:cover;object-position:${focalPosition || 'center'};background:#EDE8DE;border-radius:inherit`;
+    const focal = parseFocal(focalPosition);
+    img.style.cssText = `width:100%;display:block;object-fit:cover;background:#EDE8DE;border-radius:inherit;${focalStyle(focal)}`;
     if (boxHeight) img.style.height = boxHeight + 'px';
     img.addEventListener('load', () => {
       if (onOrientation) onOrientation(img.naturalWidth >= img.naturalHeight ? 'landscape' : 'portrait', img);
@@ -236,7 +282,7 @@ const JournalScreen = (() => {
       bodyBlock.style.cssText = 'padding:26px 26px 8px';
       bodyBlock.innerHTML = `
         ${entry.pull_quote ? `<div style="font-family:Georgia,serif;font-size:20px;line-height:1.4;color:#1C1A18;margin-bottom:14px">"${entry.pull_quote}"</div>` : ''}
-        <div style="font-size:13px;line-height:1.75;color:#6B6357;white-space:pre-wrap">${(entry.narration||'').replace(/</g,'&lt;')}</div>
+        <div style="font-size:13px;line-height:1.75;color:#6B6357;white-space:pre-wrap">${renderMarkdownLite(entry.narration)}</div>
         <div id="inset-${entry.id}"></div>`;
       block.appendChild(bodyBlock);
       page.appendChild(block);
@@ -288,24 +334,6 @@ const JournalScreen = (() => {
      genuinely scrollable and continuous, since there's no such
      thing as a "page break" on a plain image the way there
      inherently is on a PDF. ── */
-
-  function parseFocal(raw) {
-    // Numeric {x,y,zoom} JSON (current format) — legacy 3x3 keyword
-    // strings map to a matching x/y at zoom 100 so old entries still
-    // render sensibly without needing a data migration.
-    if (!raw) return { x: 50, y: 50, zoom: 100 };
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed.x === 'number') return { x: parsed.x, y: parsed.y, zoom: parsed.zoom || 100 };
-    } catch (e) { /* fall through to legacy keyword handling */ }
-    const LEGACY = {
-      'top left': [0,0], 'top center': [50,0], 'top right': [100,0],
-      'center left': [0,50], 'center': [50,50], 'center right': [100,50],
-      'bottom left': [0,100], 'bottom center': [50,100], 'bottom right': [100,100],
-    };
-    const [x, y] = LEGACY[raw] || [50, 50];
-    return { x, y, zoom: 100 };
-  }
 
   function loadImageForCanvas(url) {
     return new Promise((resolve) => {
@@ -415,7 +443,7 @@ const JournalScreen = (() => {
       let bodyLines = [];
       if (entry.narration) {
         scratch.font = '400 18px Georgia, serif';
-        bodyLines = wrapLines(scratch, entry.narration, CW);
+        bodyLines = wrapLines(scratch, stripMarkdown(entry.narration), CW);
         y += bodyLines.length * 29 + 10;
       }
       let insetH = 0;
@@ -533,39 +561,90 @@ const JournalScreen = (() => {
   }
 
   /* ── Focal-point picker — 3x3 grid over a preview of the photo ── */
+  /* ── Photo positioning — drag to pan, slider to zoom, frame stays
+     the same fixed size throughout. Replaces the earlier 3x3-grid
+     version, which only offered 9 discrete anchor points. ── */
   function openFocalPicker(photo) {
     focalPickerPhoto = photo;
+    const focal = parseFocal(photo.focalPosition);
+    let x = focal.x, y = focal.y, zoom = focal.zoom;
+
+    const BOX = 300;
     const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:300;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px';
-    const positions = [
-      ['top left','top center','top right'],
-      ['center left','center','center right'],
-      ['bottom left','bottom center','bottom right'],
-    ];
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:300;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px';
     overlay.innerHTML = `
-      <div style="font-size:12px;color:rgba(255,255,255,.7)">Tap where the important part of the photo is</div>
-      <div style="position:relative;width:260px;height:260px;border-radius:8px;overflow:hidden">
-        <img src="${photo.dataUrl}" style="width:100%;height:100%;object-fit:cover;object-position:${photo.focalPosition||'center'}">
-        <div id="focal-grid" style="position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1fr"></div>
+      <div style="font-size:12px;color:rgba(255,255,255,.7)">Drag to reposition · slider to zoom</div>
+      <div id="focal-frame" style="position:relative;width:${BOX}px;height:${BOX}px;border-radius:8px;overflow:hidden;touch-action:none;cursor:grab">
+        <img id="focal-img" src="${photo.dataUrl}" draggable="false" style="width:100%;height:100%;object-fit:cover;object-position:${x}% ${y}%;transform:scale(${zoom/100});transform-origin:${x}% ${y}%;user-select:none;pointer-events:none">
       </div>
-      <button id="focal-close" style="padding:10px 22px;border-radius:100px;border:1px solid rgba(255,255,255,.3);background:none;color:#fff;font-size:12px;font-family:var(--font)">Done</button>`;
+      <div style="display:flex;align-items:center;gap:10px;width:${BOX}px">
+        <span style="color:rgba(255,255,255,.6);font-size:14px">−</span>
+        <input id="focal-zoom" type="range" min="100" max="250" value="${zoom}" style="flex:1">
+        <span style="color:rgba(255,255,255,.6);font-size:14px">+</span>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button id="focal-reset" style="padding:10px 18px;border-radius:100px;border:1px solid rgba(255,255,255,.3);background:none;color:rgba(255,255,255,.7);font-size:12px;font-family:var(--font)">Reset</button>
+        <button id="focal-done" style="padding:10px 22px;border-radius:100px;border:none;background:#C84B35;color:#fff;font-size:12px;font-weight:700;font-family:var(--font)">Done</button>
+      </div>`;
     document.body.appendChild(overlay);
 
-    const grid = overlay.querySelector('#focal-grid');
-    positions.flat().forEach(pos => {
-      const cell = document.createElement('div');
-      cell.style.cssText = `border:1px dashed rgba(255,255,255,.35);cursor:pointer;${pos===photo.focalPosition?'background:rgba(200,75,53,.35)':''}`;
-      cell.addEventListener('click', () => {
-        photo.focalPosition = pos;
-        overlay.querySelector('img').style.objectPosition = pos;
-        grid.querySelectorAll('div').forEach(c => c.style.background = '');
-        cell.style.background = 'rgba(200,75,53,.35)';
-      });
-      grid.appendChild(cell);
+    const frame = overlay.querySelector('#focal-frame');
+    const img = overlay.querySelector('#focal-img');
+    const zoomSlider = overlay.querySelector('#focal-zoom');
+
+    function apply() {
+      x = Math.min(100, Math.max(0, x));
+      y = Math.min(100, Math.max(0, y));
+      zoom = Math.min(250, Math.max(100, zoom));
+      img.style.objectPosition = `${x}% ${y}%`;
+      img.style.transform = `scale(${zoom/100})`;
+      img.style.transformOrigin = `${x}% ${y}%`;
+    }
+
+    // Drag-to-pan — dragging the photo itself, like sliding a physical
+    // print under a fixed viewing window: drag right reveals more of
+    // what's currently hidden on the left.
+    let dragging = false, startPx = 0, startPy = 0, startX = 0, startY = 0;
+    function pointerDown(e) {
+      dragging = true;
+      frame.style.cursor = 'grabbing';
+      const p = e.touches ? e.touches[0] : e;
+      startPx = p.clientX; startPy = p.clientY; startX = x; startY = y;
+    }
+    function pointerMove(e) {
+      if (!dragging) return;
+      const p = e.touches ? e.touches[0] : e;
+      const dx = p.clientX - startPx, dy = p.clientY - startPy;
+      x = startX - (dx / BOX) * 100;
+      y = startY - (dy / BOX) * 100;
+      apply();
+      e.preventDefault();
+    }
+    function pointerUp() { dragging = false; frame.style.cursor = 'grab'; }
+
+    frame.addEventListener('mousedown', pointerDown);
+    window.addEventListener('mousemove', pointerMove);
+    window.addEventListener('mouseup', pointerUp);
+    frame.addEventListener('touchstart', pointerDown, { passive: true });
+    frame.addEventListener('touchmove', pointerMove, { passive: false });
+    frame.addEventListener('touchend', pointerUp);
+
+    zoomSlider.addEventListener('input', () => { zoom = +zoomSlider.value; apply(); });
+
+    overlay.querySelector('#focal-reset').addEventListener('click', () => {
+      x = 50; y = 50; zoom = 100;
+      zoomSlider.value = 100;
+      apply();
     });
 
-    overlay.querySelector('#focal-close').addEventListener('click', () => {
+    function cleanup() {
+      window.removeEventListener('mousemove', pointerMove);
+      window.removeEventListener('mouseup', pointerUp);
       overlay.remove();
+    }
+    overlay.querySelector('#focal-done').addEventListener('click', () => {
+      photo.focalPosition = JSON.stringify({ x, y, zoom });
+      cleanup();
       renderCompose();
     });
   }
@@ -604,6 +683,7 @@ const JournalScreen = (() => {
       <div style="padding:18px 20px">
         <div style="font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#A39A8C;margin-bottom:10px">What happened?</div>
         <textarea id="j-narration" rows="6" placeholder="Write whatever you want to remember…" style="width:100%;font-family:Georgia,serif;font-size:15px;line-height:1.7;color:#1C1A18;border:1px solid #E4DECE;border-radius:8px;padding:12px;background:#fff">${composeNarration}</textarea>
+        <div style="font-size:9.5px;color:#A39A8C;margin-top:6px;line-height:1.5">Type <code style="background:#F1EDE5;padding:1px 4px;border-radius:3px;font-family:monospace">**text**</code> for <strong>bold</strong>, <code style="background:#F1EDE5;padding:1px 4px;border-radius:3px;font-family:monospace">*text*</code> for <em>italic</em></div>
         <div id="j-sentence-picker" style="margin-top:14px"></div>
       </div>
 
@@ -640,7 +720,7 @@ const JournalScreen = (() => {
     visiblePhotos.forEach(p => {
       const thumb = document.createElement('div');
       thumb.style.cssText = `position:relative;flex-shrink:0;width:104px;height:104px;border-radius:8px;overflow:hidden;cursor:pointer`;
-      thumb.innerHTML = `<img src="${p.dataUrl}" style="width:100%;height:100%;object-fit:cover;object-position:${p.focalPosition||'center'};pointer-events:none">`;
+      thumb.innerHTML = `<img src="${p.dataUrl}" style="width:100%;height:100%;object-fit:cover;pointer-events:none;${focalStyle(parseFocal(p.focalPosition))}">`;
       if (p.isHero) {
         thumb.innerHTML += `<div style="position:absolute;top:5px;left:5px;background:rgba(0,0,0,.55);color:#fff;font-size:8px;font-weight:700;letter-spacing:.04em;padding:2px 6px;border-radius:4px;text-transform:uppercase;pointer-events:none">Hero</div>`;
       }
@@ -747,7 +827,7 @@ const JournalScreen = (() => {
     // Existing photos — persist any focal-position change, and make sure
     // hero status is correct even if no new photo was added this session.
     for (const p of visiblePhotos.filter(p => p.id)) {
-      await Data.setJournalPhotoFocal(entryId, p.id, p.focalPosition || 'center');
+      await Data.setJournalPhotoFocal(entryId, p.id, p.focalPosition || JSON.stringify({ x: 50, y: 50, zoom: 100 }));
     }
     const existingHero = visiblePhotos.find(p => p.id && p.isHero);
     if (existingHero) await Data.setJournalHeroPhoto(entryId, existingHero.id);
