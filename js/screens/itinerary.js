@@ -593,7 +593,7 @@ const ItineraryScreen = (() => {
 
     // Itinerary tab — day timeline with country dividers
     const addDayBtn = document.createElement('button');
-    addDayBtn.className = 'btn btn-ghost';
+    addDayBtn.className = 'btn btn-primary';
     addDayBtn.style.cssText = 'width:calc(100% - 32px);margin:var(--s3) 16px;';
     addDayBtn.textContent = '+ Add day';
     addDayBtn.addEventListener('click', () => BottomSheet.openAddDay());
