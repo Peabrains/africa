@@ -4,12 +4,42 @@ const BottomSheet = (() => {
   let overlay, sheet, body;
   let startY, currentY;
 
-  // Trip-aware default timezone — extend this map as new trips are added,
-  // rather than the old binary JPY/else-EAT assumption which silently
-  // broke for any third trip currency (e.g. THB).
-  const CURRENCY_TZ = { JPY: 'JST', THB: 'ICT' };
+  // Trip-aware default timezone — real IANA names, not hand-maintained
+  // abbreviations. The browser's own Intl API knows the correct offset
+  // (DST included) for any of these, so adding a new trip to a new
+  // country never requires touching this file — just the zone name.
+  const CURRENCY_TZ_IANA = { JPY: 'Asia/Tokyo', THB: 'Asia/Bangkok' };
   function defaultTripTz() {
-    return CURRENCY_TZ[Data.getTripCurrency?.()] || 'EAT';
+    return CURRENCY_TZ_IANA[Data.getTripCurrency?.()] || 'Africa/Nairobi';
+  }
+
+  // Bridge for stops saved before this change, which stored short
+  // abbreviations (EAT/JST/MYT/UTC) instead of IANA names. Lets old
+  // data keep working without a database migration.
+  const LEGACY_TZ_ABBR = { EAT:'Africa/Nairobi', JST:'Asia/Tokyo', MYT:'Asia/Kuala_Lumpur', ICT:'Asia/Bangkok', UTC:'UTC' };
+  function resolveTz(tz) {
+    if (!tz) return defaultTripTz();
+    return LEGACY_TZ_ABBR[tz] || tz;
+  }
+
+  // Real-world UTC offset in minutes for an IANA zone at a given date —
+  // DST-aware via the browser's own timezone database. No offset table
+  // to maintain: correct today, correct if a future trip ever lands
+  // somewhere that observes daylight saving.
+  function getUtcOffsetMinutes(timeZone, date = new Date()) {
+    try {
+      const dtf = new Intl.DateTimeFormat('en-US', {
+        timeZone, hour12: false,
+        year:'numeric', month:'2-digit', day:'2-digit',
+        hour:'2-digit', minute:'2-digit', second:'2-digit',
+      });
+      const parts = dtf.formatToParts(date).reduce((acc,p) => { acc[p.type]=p.value; return acc; }, {});
+      const hour = parts.hour === '24' ? '0' : parts.hour;
+      const asUTC = Date.UTC(+parts.year, +parts.month-1, +parts.day, +hour, +parts.minute, +parts.second);
+      return Math.round((asUTC - date.getTime()) / 60000);
+    } catch (e) {
+      return 0; // unrecognized zone name — treat as UTC rather than crash
+    }
   }
 
   function build() {
@@ -28,6 +58,25 @@ const BottomSheet = (() => {
     sheet.appendChild(body);
     document.body.appendChild(overlay);
     document.body.appendChild(sheet);
+
+    // Shared timezone datalist, built once from the browser's real,
+    // complete IANA zone database — not a short hand-picked list that
+    // falls behind as new trips get added. Falls back to a small
+    // curated set only if the browser is old enough to lack
+    // Intl.supportedValuesOf (rare, but cheap to guard against).
+    if (!document.getElementById('tz-datalist')) {
+      const tzList = document.createElement('datalist');
+      tzList.id = 'tz-datalist';
+      const zones = (typeof Intl.supportedValuesOf === 'function')
+        ? Intl.supportedValuesOf('timeZone')
+        : ['UTC','Africa/Nairobi','Asia/Kuala_Lumpur','Asia/Tokyo','Asia/Bangkok','Asia/Qatar','Asia/Singapore','Asia/Hong_Kong'];
+      zones.forEach(z => {
+        const opt = document.createElement('option');
+        opt.value = z;
+        tzList.appendChild(opt);
+      });
+      document.body.appendChild(tzList);
+    }
 
     sheet.addEventListener('touchstart', e => {
       startY = e.touches[0].clientY; currentY = startY;
@@ -94,16 +143,25 @@ const BottomSheet = (() => {
   function textarea(label, id, value, placeholder='') {
     return `<div class="bs-edit-group"><label class="bs-edit-label" for="${id}">${label}</label><textarea id="${id}" class="bs-textarea" rows="2" placeholder="${placeholder}">${value||''}</textarea></div>`;
   }
+  // Short display form of an IANA zone (e.g. "Asia/Tokyo" → "JST" or
+  // "GMT+9") — the full IANA name is what's stored and calculated with,
+  // but far too long to show inline next to a time.
+  function tzAbbr(timeZone) {
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'short' }).formatToParts(new Date());
+      return parts.find(p => p.type === 'timeZoneName')?.value || timeZone;
+    } catch (e) {
+      return timeZone;
+    }
+  }
   function timeWithTz(timeId, tzId, timeVal, tzVal) {
     const tVal = /^\d{2}:\d{2}$/.test(timeVal||'') ? timeVal : '';
-    const defaultTz = tzVal || defaultTripTz();
-    const sel = ['EAT','JST','MYT','UTC'].map(z =>
-      `<option value="${z}" ${defaultTz===z?'selected':''}>${z}</option>`).join('');
+    const defaultTz = resolveTz(tzVal);
     return `<div class="bs-edit-group">
       <label class="bs-edit-label" for="${timeId}">Time</label>
       <div class="bs-time-row">
         <input id="${timeId}" class="bs-input" type="time" value="${tVal}">
-        <select id="${tzId}" class="bs-input bs-tz-sel">${sel}</select>
+        <input id="${tzId}" class="bs-input bs-tz-sel" type="text" list="tz-datalist" value="${defaultTz}" placeholder="e.g. Asia/Tokyo">
       </div></div>`;
   }
   function select(label, id, value, options) {
@@ -146,6 +204,10 @@ const BottomSheet = (() => {
       ${field(isPlane?'Departure airport':'Origin','e-origin',td.origin||'','text',isPlane?'e.g. NBO':'e.g. Shin-Osaka')}
       ${field(isPlane?'Arrival airport':'Destination','e-destination',td.destination||'','text',isPlane?'e.g. JRO':'e.g. Kii-Tanabe')}
       ${field('Arrive time','e-arrive',/^\d{2}:\d{2}$/.test(td.arriveTime||'')?td.arriveTime:'','time')}
+      <div class="bs-edit-group">
+        <label class="bs-edit-label" for="e-arrivetz">Arrival timezone</label>
+        <input id="e-arrivetz" class="bs-input" type="text" list="tz-datalist" value="${resolveTz(td.arriveTimeZone)}" placeholder="e.g. Asia/Tokyo">
+      </div>
       <div class="bs-edit-group" style="display:flex;align-items:center;gap:var(--s3)">
         <label class="bs-edit-label" style="margin-bottom:0">Duration</label>
         <span id="e-duration-display" style="font-size:var(--text-sm);font-weight:500;color:var(--accent)">—</span>
@@ -172,6 +234,10 @@ const BottomSheet = (() => {
       ${field(isPlane?'Departure airport':'Origin (boarding station)','a-origin',td.origin||'','text',isPlane?'e.g. NBO':'e.g. Shin-Osaka')}
       ${field(isPlane?'Arrival airport':'Destination (alighting)','a-destination',td.destination||'','text',isPlane?'e.g. JRO':'e.g. Kii-Tanabe')}
       ${field('Arrive time','a-arrive',td.arriveTime||'','time')}
+      <div class="bs-edit-group">
+        <label class="bs-edit-label" for="a-arrivetz">Arrival timezone</label>
+        <input id="a-arrivetz" class="bs-input" type="text" list="tz-datalist" value="${resolveTz(td.arriveTimeZone)}" placeholder="e.g. Asia/Tokyo">
+      </div>
       <div class="bs-edit-group" style="display:flex;align-items:center;gap:var(--s3)">
         <label class="bs-edit-label" style="margin-bottom:0">Duration</label>
         <span id="a-duration-display" style="font-size:var(--text-sm);font-weight:500;color:var(--accent)">—</span>
@@ -200,7 +266,7 @@ const BottomSheet = (() => {
         <p class="bs-activity">${stop.activity||''}</p>
         ${transportBlock}
         <div class="bs-rows">
-          ${detailRow(Icons.clock, stop.time ? `${stop.time}${stop.timeZone?' '+stop.timeZone:''}` : '')}
+          ${detailRow(Icons.clock, stop.time ? `${stop.time}${stop.timeZone?' '+tzAbbr(resolveTz(stop.timeZone)):''}` : '')}
           ${detailRow(Icons.card, stop.booking?.ref ? 'Ref: '+stop.booking.ref : '')}
           ${detailRow(Icons.yen, stop.booking?.cost ? Data.getTripCurrency()+' '+stop.booking.cost.toLocaleString() : '')}
           ${detailRow(Icons.info, stop.notes, 'style="color:var(--accent)"')}
@@ -341,28 +407,40 @@ const BottomSheet = (() => {
   }
 
   /* ─── Duration auto-calculator ──────────────────────────── */
-  function calcDuration(depart, arrive) {
+  // Converts each leg's local time to a common reference using that
+  // leg's own real timezone offset (via getUtcOffsetMinutes), instead
+  // of assuming departure and arrival share one zone.
+  function calcDuration(depart, arrive, departTz, arriveTz) {
     if (!depart || !arrive) return '';
     const toM = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
-    let d = toM(depart), a = toM(arrive);
-    if (a <= d) a += 1440; // overnight
+    const now = new Date();
+    const dOff = getUtcOffsetMinutes(resolveTz(departTz), now);
+    const aOff = getUtcOffsetMinutes(resolveTz(arriveTz || departTz), now);
+    let d = toM(depart) - dOff;
+    let a = toM(arrive) - aOff;
+    if (a <= d) a += 1440; // still crosses midnight once both are on a common reference
     const diff = a - d;
     const h = Math.floor(diff/60), m = diff%60;
     return h && m ? h+'h '+m+'min' : h ? h+'h' : m+'min';
   }
 
-  function wireAutoduration(departId, arriveId, displayId, hiddenId) {
+  function wireAutoduration(departId, arriveId, displayId, hiddenId, departTzId, arriveTzId) {
     const update = () => {
-      const d = body.querySelector('#'+departId)?.value;
-      const a = body.querySelector('#'+arriveId)?.value;
-      const calc = calcDuration(d, a);
+      const d   = body.querySelector('#'+departId)?.value;
+      const a   = body.querySelector('#'+arriveId)?.value;
+      const dTz = departTzId ? body.querySelector('#'+departTzId)?.value : defaultTripTz();
+      const aTz = arriveTzId ? body.querySelector('#'+arriveTzId)?.value : dTz;
+      const calc = calcDuration(d, a, dTz, aTz);
       const disp = body.querySelector('#'+displayId);
       const hid  = body.querySelector('#'+hiddenId);
       if (disp) disp.textContent = calc || '—';
       if (hid)  hid.value = calc;
     };
-    body.querySelector('#'+departId)?.addEventListener('change', update);
-    body.querySelector('#'+arriveId)?.addEventListener('change', update);
+    [departId, arriveId, departTzId, arriveTzId].filter(Boolean).forEach(id => {
+      const el = body.querySelector('#'+id);
+      el?.addEventListener('change', update);
+      el?.addEventListener('input', update);
+    });
     update();
   }
 
@@ -421,6 +499,7 @@ const BottomSheet = (() => {
         origin:          body.querySelector('#e-origin')?.value,
         destination:     body.querySelector('#e-destination')?.value,
         arriveTime:      body.querySelector('#e-arrive')?.value,
+        arriveTimeZone:  body.querySelector('#e-arrivetz')?.value,
         duration:        body.querySelector('#e-duration')?.value,
         trainNumber:     body.querySelector('#e-trainno')?.value,
         airline:         body.querySelector('#e-airline')?.value,
@@ -434,12 +513,12 @@ const BottomSheet = (() => {
       trainBlock.style.display = show ? 'block' : 'none';
       if (show) {
         trainBlock.innerHTML = editTrainDetailHTML(type, preserved, stop.flightNo);
-        wireAutoduration('e-time', 'e-arrive', 'e-duration-display', 'e-duration');
+        wireAutoduration('e-time', 'e-arrive', 'e-duration-display', 'e-duration', 'e-tz', 'e-arrivetz');
         wireTimeInput('e-arrive');
       }
     }
     editTType?.addEventListener('change', rerenderTrainBlock);
-    wireAutoduration('e-time', 'e-arrive', 'e-duration-display', 'e-duration');
+    wireAutoduration('e-time', 'e-arrive', 'e-duration-display', 'e-duration', 'e-tz', 'e-arrivetz');
     wireTimeInput('e-time');
     wireTimeInput('e-arrive');
     body.querySelector('#e-deadline-clear')?.addEventListener('click', () => {
@@ -477,6 +556,7 @@ const BottomSheet = (() => {
           origin:         g('e-origin'),
           destination:    g('e-destination'),
           arriveTime:     body.querySelector('#e-arrive')?.value || '',
+          arriveTimeZone: body.querySelector('#e-arrivetz')?.value || defaultTripTz(),
           trainNumber:    numberField,
           duration:       body.querySelector('#e-duration')?.value || stop.trainDetail?.duration || '',
         } : stop.trainDetail,
@@ -560,6 +640,7 @@ const BottomSheet = (() => {
         origin:          body.querySelector('#a-origin')?.value,
         destination:     body.querySelector('#a-destination')?.value,
         arriveTime:      body.querySelector('#a-arrive')?.value,
+        arriveTimeZone:  body.querySelector('#a-arrivetz')?.value,
         duration:        body.querySelector('#a-duration')?.value,
         trainNumber:     body.querySelector('#a-trainno')?.value,
         airline:         body.querySelector('#a-airline')?.value,
@@ -574,7 +655,7 @@ const BottomSheet = (() => {
         trainBlock.style.display = show ? 'block' : 'none';
       }
       if (show) {
-        wireAutoduration('a-time', 'a-arrive', 'a-duration-display', 'a-duration');
+        wireAutoduration('a-time', 'a-arrive', 'a-duration-display', 'a-duration', 'a-tz', 'a-arrivetz');
         wireTimeInput('a-arrive');
       }
     }
@@ -594,6 +675,7 @@ const BottomSheet = (() => {
         origin:      g('a-origin'),
         destination: g('a-destination'),
         arriveTime:  body.querySelector('#a-arrive')?.value || '',
+        arriveTimeZone: body.querySelector('#a-arrivetz')?.value || defaultTripTz(),
         trainNumber: numberField,
         duration:    body.querySelector('#a-duration')?.value || '',
       } : null;
