@@ -17,6 +17,8 @@ const Icons = {
   map:         (c) => Icons._svg(`<polygon points="3,5 9,3 15,5 21,3 21,19 15,21 9,19 3,21" ${S}/><path d="M9 3v16M15 5v16" ${S}/>`, c),
   bookmark:    (c) => Icons._svg(`<path d="M5 3h14a1 1 0 0 1 1 1v17l-8-4-8 4V4a1 1 0 0 1 1-1z" ${S}/>`, c),
   shield:      (c) => Icons._svg(`<path d="M12 3 3 7v5c0 5 4 8.5 9 10 5-1.5 9-5 9-10V7z" ${S}/>`, c),
+  home:        (c) => Icons._svg(`<path d="M3 11l9-8 9 8" ${S}/><path d="M5 10v10h14V10" ${S}/>`, c),
+  checklist:   (c) => Icons._svg(`<path d="M9 6h11M9 12h11M9 18h11" ${S}/><path d="M4 6l1.2 1.2L7.5 4.7" ${S}/><path d="M4 12l1.2 1.2L7.5 10.7" ${S}/><path d="M4 18l1.2 1.2L7.5 16.7" ${S}/>`, c),
 
   /* Transport */
   plane:       (c) => Icons._svg(`<path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z" ${S}/>`, c),
