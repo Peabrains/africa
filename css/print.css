@@ -41,4 +41,22 @@
   .print-emergency .print-value { color: #991B1B; font-size: 13pt; font-weight: 700; }
 
   .print-footer { margin-top: 20pt; font-size: 9pt; color: #9C9690; border-top: 0.5pt solid #D8D4CC; padding-top: 6pt; }
+
+  /* Journal PDF export — same isolate-and-print technique as SOS above,
+     targeting its own content id so both can coexist in the DOM without
+     conflicting (only one is ever actually present at print time). */
+  #journal-print-content,
+  #journal-print-content * { visibility: visible !important; }
+  #journal-print-content {
+    position: fixed; top: 0; left: 0; width: 100%;
+    font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+    color: #1C1A18; background: #FFF;
+  }
+  .print-entry { page-break-inside: avoid; margin-bottom: 20pt; }
+  .print-entry-head { font-size: 9pt; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #9C9690; margin-bottom: 6pt; }
+  .print-quote { font-family: Georgia, serif; font-size: 15pt; margin-bottom: 8pt; }
+  .print-body { font-size: 10.5pt; line-height: 1.6; color: #3a3630; margin-top: 8pt; }
+  .print-photo-hero { width: 100%; max-height: 260pt; object-fit: cover; border-radius: 3pt; }
+  .print-photo-row { display: flex; gap: 6pt; margin-top: 8pt; flex-wrap: wrap; }
+  .print-photo-row .print-photo { width: 31%; height: 90pt; object-fit: cover; border-radius: 3pt; }
 }
