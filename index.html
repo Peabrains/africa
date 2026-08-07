@@ -80,7 +80,7 @@
        (not just the active one), stacked vertically. Equal-width
        columns so nothing balloons in size when it becomes active —
        only the background highlight changes. ── */
-    #app-nav{position:fixed;left:50%;bottom:calc(6px + env(safe-area-inset-bottom));transform:translateX(-50%);width:calc(100% - 32px);max-width:calc(480px - 32px);display:flex;align-items:stretch;gap:2px;background:#2E2620;border-radius:999px;padding:6px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.28)}
+    #app-nav{position:fixed;left:50%;bottom:calc(4px + env(safe-area-inset-bottom));transform:translateX(-50%);width:calc(100% - 32px);max-width:calc(480px - 32px);display:flex;align-items:stretch;gap:2px;background:#FFFFFF;border:1px solid var(--border-subtle);border-radius:999px;padding:6px;z-index:100;box-shadow:0 6px 18px rgba(28,26,20,.16)}
     /* ── Bottom nav — the tap target (.nav-btn) stays a fixed
        equal-width column for consistent spacing and touch area.
        The VISIBLE highlight (.nav-pill) is a separate inline
@@ -96,9 +96,9 @@
        no box whose width can mismatch its content, so the "rectangle"
        bug this app kept hitting is structurally not possible here. ── */
     .nav-btn{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;padding:4px 2px;border:none;background:none;cursor:pointer;min-height:52px;font-family:var(--font)}
-    .nav-pill{display:inline-flex;flex-direction:column;align-items:center;gap:4px;padding-top:6px;position:relative;color:rgba(255,255,255,.5);font-size:8.5px;font-weight:600;line-height:1.15;text-align:center;transition:color .15s}
+    .nav-pill{display:inline-flex;flex-direction:column;align-items:center;gap:4px;padding-top:6px;position:relative;color:var(--text-muted);font-size:8.5px;font-weight:600;line-height:1.15;text-align:center;transition:color .15s}
     .nav-pill::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:0;height:2px;border-radius:2px;background:var(--accent);transition:width .15s}
-    .nav-btn.active .nav-pill{color:#fff}
+    .nav-btn.active .nav-pill{color:var(--text-primary)}
     .nav-btn.active .nav-pill::before{width:20px}
     .nav-btn .icon{width:18px;height:18px;flex-shrink:0;transition:color .15s}
     .nav-btn .nav-label{max-width:100%}
