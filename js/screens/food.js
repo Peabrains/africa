@@ -3,6 +3,21 @@
 const FoodScreen = (() => {
   let root;
   let activeFilter = 'all'; // all | star | caught | uncaught
+  let activeTab = 'main'; // main | bucket — sub-tab bar shared with Bucket List
+
+  /* ── Sub-tab bar — Food vs Bucket List, same slot ────────── */
+  function subTabBar() {
+    const bar = document.createElement('div');
+    bar.className = 'sub-tab-bar';
+    [['main', '🍜 Food'], ['bucket', '📝 Bucket List']].forEach(([id, label]) => {
+      const btn = document.createElement('button');
+      btn.className = `sub-tab ${activeTab === id ? 'sub-tab--active' : ''}`;
+      btn.textContent = label;
+      btn.addEventListener('click', () => { activeTab = id; render(); });
+      bar.appendChild(btn);
+    });
+    return bar;
+  }
 
   const TIER_COLOR = {
     common:    'var(--seg-kenya)',
@@ -300,14 +315,23 @@ const FoodScreen = (() => {
   function render() {
     if (!root) return;
     root.innerHTML = '';
+    root.appendChild(subTabBar());
+
+    if (activeTab === 'bucket') {
+      const body = document.createElement('div');
+      root.appendChild(body);
+      BucketListScreen.init(body);
+      return;
+    }
+
     root.appendChild(renderHeader());
     root.appendChild(renderFilters());
     root.appendChild(renderGrid());
   }
 
   return {
-    init(el) { root = el; render(); },
-    destroy() { root = null; },
+    init(el) { root = el; activeTab = 'main'; render(); },
+    destroy() { if (activeTab === 'bucket') BucketListScreen.destroy(); root = null; },
     refresh() { render(); },
   };
 })();
