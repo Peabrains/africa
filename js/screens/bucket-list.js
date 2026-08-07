@@ -328,9 +328,9 @@ const BucketListScreen = (() => {
 
   /* ── Trip-specific curated collection, embedded as a sub-tab ── */
   const COLLECTION_BY_TRIP = {
-    '83891de6-44ee-4ec2-bb95-6726cbd8c370': { screen: () => window.DexScreen,    label: 'Dex',    icon: '🦁' },
-    '91a41e0d-f247-4d89-ba15-02f0994a16c8': { screen: () => window.StampsScreen, label: 'Stamps', icon: '⛩️' },
-    '2b3c82f2-040f-4f2a-9d01-579129d1203b': { screen: () => window.FoodScreen,   label: 'Food',   icon: '🍜' },
+    '83891de6-44ee-4ec2-bb95-6726cbd8c370': { screen: () => window.DexScreen,    label: 'Dex',    icon: 'paw' },
+    '91a41e0d-f247-4d89-ba15-02f0994a16c8': { screen: () => window.StampsScreen, label: 'Stamps', icon: 'stamp' },
+    '2b3c82f2-040f-4f2a-9d01-579129d1203b': { screen: () => window.FoodScreen,   label: 'Food',   icon: 'bowl' },
   };
   function currentCollection() {
     const tripId = Data.getCurrentTrip?.()?.id;
@@ -341,12 +341,12 @@ const BucketListScreen = (() => {
     const collection = currentCollection();
     const bar = document.createElement('div');
     bar.className = 'sub-tab-bar';
-    const tabs = [['bucket', '📝 Bucket List']];
-    if (collection) tabs.push(['collection', `${collection.icon} ${collection.label}`]);
-    tabs.forEach(([id, label]) => {
+    const tabs = [['bucket', 'checklist', 'Bucket List']];
+    if (collection) tabs.push(['collection', collection.icon, collection.label]);
+    tabs.forEach(([id, iconName, label]) => {
       const btn = document.createElement('button');
       btn.className = `sub-tab ${activeTab === id ? 'sub-tab--active' : ''}`;
-      btn.textContent = label;
+      btn.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px">${Icons[iconName]('icon-sm')}<span>${label}</span></span>`;
       btn.addEventListener('click', () => { activeTab = id; render(); });
       bar.appendChild(btn);
     });
