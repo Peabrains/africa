@@ -50,16 +50,21 @@
     .conflict-btns{display:flex;gap:var(--s2);flex-shrink:0}
 
     /* ── Screen ────────────────────────────────────────────────── */
-    #screen-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;min-height:0;padding:var(--s3) 0 calc(64px + env(safe-area-inset-bottom))}
-    #screen-content.map-active{padding:0 0 calc(64px + env(safe-area-inset-bottom));display:flex;flex-direction:column}
+    #screen-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;min-height:0;padding:var(--s3) 0 calc(104px + env(safe-area-inset-bottom))}
+    #screen-content.map-active{padding:0 0 calc(104px + env(safe-area-inset-bottom));display:flex;flex-direction:column}
     #map-container{flex:1;margin:var(--s2) var(--s3);border-radius:var(--r-lg);overflow:hidden;border:1.5px solid var(--border)}
 
     /* ── Bottom nav ────────────────────────────────────────────── */
-    #app-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surface);border-top:1.5px solid var(--border);display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:100}
-    .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px 6px;border:none;background:none;color:var(--text-muted);font-size:var(--text-xs);font-weight:400;cursor:pointer;min-height:var(--nav-h);position:relative;transition:color .15s;font-family:var(--font)}
-    .nav-btn .icon{transition:color .15s}
-    .nav-btn.active{color:var(--accent);font-weight:500}
-    .nav-btn.active::before{content:'';position:absolute;top:0;left:20%;right:20%;height:2px;background:var(--accent);border-radius:0 0 var(--r-sm) var(--r-sm)}
+    /* ── Bottom nav — floating pill (Polarsteps-style). Always has
+       intentional margin on every side, so any leftover safe-area
+       inset just becomes more background instead of an unexplained
+       gap. Icon-only except the active tab, which reveals its label. ── */
+    #app-nav{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);width:auto;max-width:calc(480px - 32px);display:flex;align-items:center;gap:2px;background:var(--text-primary);border-radius:var(--r-pill);padding:6px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.28)}
+    .nav-btn{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 14px;border:none;background:none;border-radius:var(--r-pill);color:rgba(255,255,255,.55);font-size:11px;font-weight:600;cursor:pointer;min-height:44px;min-width:44px;position:relative;transition:background .18s,color .18s,padding .18s;font-family:var(--font);white-space:nowrap}
+    .nav-btn .icon{width:19px;height:19px;flex-shrink:0;transition:color .15s}
+    .nav-btn .nav-label{display:none}
+    .nav-btn.active{background:rgba(255,255,255,.16);color:#fff;padding:12px 16px}
+    .nav-btn.active .nav-label{display:inline}
 
     /* ── Timeline accordion ────────────────────────────────────── */
     .tl-day-header--tap{cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;gap:var(--s2);padding:12px var(--s3) 8px}
@@ -414,7 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
   document.querySelectorAll('.nav-btn').forEach((btn, i) => {
     const {icon, label} = navCfg[i];
-    btn.innerHTML = `${Icons[icon]('icon-lg')}<span>${label}</span>`;
+    btn.innerHTML = `${Icons[icon]('icon-lg')}<span class="nav-label">${label}</span>`;
   });
   document.getElementById('sync-btn').innerHTML = Icons.refresh('icon-sm');
 
