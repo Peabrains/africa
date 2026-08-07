@@ -1315,14 +1315,14 @@ const Data = (() => {
 
   /* Adds one photo to an entry. Pass isHero:true to mark it as the
      hero image — any previous hero on the same entry is demoted. */
-  async function addJournalPhoto(entryId, fileDataUrl, { isHero = false, sortOrder = 0 } = {}) {
+  async function addJournalPhoto(entryId, fileDataUrl, { isHero = false, sortOrder = 0, focalPosition = 'center' } = {}) {
     const entry = getJournalEntry(entryId);
     if (!entry) return;
 
     const localId = 'jp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
     await DB.saveJournalPhoto(localId, fileDataUrl);
 
-    let photo = { id: localId, entry_id: entryId, storage_path: null, is_hero: isHero, sort_order: sortOrder };
+    let photo = { id: localId, entry_id: entryId, storage_path: null, is_hero: isHero, sort_order: sortOrder, focal_position: focalPosition };
     entry.journal_photos = entry.journal_photos || [];
     if (isHero) entry.journal_photos.forEach(p => { p.is_hero = false; });
     entry.journal_photos.push(photo);
@@ -1338,7 +1338,7 @@ const Data = (() => {
             await SB.from('journal_photos').update({ is_hero: false }).eq('entry_id', entryId);
           }
           const { data, error } = await SB.from('journal_photos')
-            .insert({ trip_id: CURRENT_TRIP.id, entry_id: entryId, storage_path: storagePath, is_hero: isHero, sort_order: sortOrder })
+            .insert({ trip_id: CURRENT_TRIP.id, entry_id: entryId, storage_path: storagePath, is_hero: isHero, sort_order: sortOrder, focal_position: focalPosition })
             .select().single();
           if (!error && data) {
             const idx = entry.journal_photos.findIndex(p => p.id === localId);
@@ -1360,6 +1360,19 @@ const Data = (() => {
     if (navigator.onLine) {
       await SB.from('journal_photos').update({ is_hero: false }).eq('entry_id', entryId);
       await SB.from('journal_photos').update({ is_hero: true }).eq('id', photoId);
+    }
+  }
+
+  // focalPosition is a CSS object-position keyword pair, e.g. 'top left',
+  // 'center', 'bottom right' — a 3x3 grid of choices, not free-form
+  // coordinates, so there's nothing to validate or clamp.
+  async function setJournalPhotoFocal(entryId, photoId, focalPosition) {
+    const entry = getJournalEntry(entryId);
+    const photo = entry?.journal_photos?.find(p => p.id === photoId);
+    if (photo) photo.focal_position = focalPosition;
+    await DB.setMeta(CACHE_KEYS.journal, JOURNAL_ENTRIES);
+    if (navigator.onLine) {
+      await SB.from('journal_photos').update({ focal_position: focalPosition }).eq('id', photoId);
     }
   }
 
@@ -1916,7 +1929,7 @@ const Data = (() => {
     addBucketItem, deleteBucketItem, toggleBucketDone, addBucketPhoto, removeBucketPhoto, getBucketPhoto,
     // Journal
     getJournalEntries, getJournalEntry, addJournalEntry, updateJournalEntry, deleteJournalEntry,
-    addJournalPhoto, setJournalHeroPhoto, removeJournalPhoto, getJournalPhotoUrl,
+    addJournalPhoto, setJournalHeroPhoto, removeJournalPhoto, getJournalPhotoUrl, setJournalPhotoFocal,
     // Stories + Glossary
     hasStory, getStory, getGlossary,
     // Links
