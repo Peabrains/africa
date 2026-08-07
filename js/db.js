@@ -6,7 +6,7 @@
    Stores: stops | expenses | packing | meta | queue
    ============================================================ */
 const DB = (() => {
-  const NAME = 'africa-safari', VERSION = 3;
+  const NAME = 'africa-safari', VERSION = 4;
   let db;
 
   function open() {
@@ -23,6 +23,7 @@ const DB = (() => {
         if (!d.objectStoreNames.contains('meta'))      d.createObjectStore('meta',      { keyPath:'key' });
         if (!d.objectStoreNames.contains('dexPhotos')) d.createObjectStore('dexPhotos', { keyPath:'id' });
         if (!d.objectStoreNames.contains('bucketPhotos')) d.createObjectStore('bucketPhotos', { keyPath:'id' });
+        if (!d.objectStoreNames.contains('journalPhotos')) d.createObjectStore('journalPhotos', { keyPath:'id' });
       };
       req.onsuccess = e => { db = e.target.result; res(db); };
       req.onerror   = e => rej(e.target.error);
@@ -153,6 +154,16 @@ const DB = (() => {
     })),
     deleteBucketPhoto: (photoId) => del('bucketPhotos', photoId),
     clearBucketPhotos: () => clear('bucketPhotos'),
+
+    /* Journal — multiple photos per entry, cached by their own photo id */
+    saveJournalPhoto: (photoId, dataUrl) => put('journalPhotos', { id: photoId, dataUrl, savedAt: Date.now() }),
+    loadJournalPhoto: (photoId) => open().then(() => new Promise((res, rej) => {
+      const req = tx('journalPhotos').get(photoId);
+      req.onsuccess = () => res(req.result?.dataUrl || null);
+      req.onerror   = () => rej(req.error);
+    })),
+    deleteJournalPhoto: (photoId) => del('journalPhotos', photoId),
+    clearJournalPhotos: () => clear('journalPhotos'),
 
     /* Meta */
     getMeta,
