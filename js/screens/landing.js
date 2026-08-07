@@ -45,7 +45,7 @@ const LandingScreen = (() => {
     row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:22px var(--s4) 4px';
     row.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px">
-        <div style="width:26px;height:26px;border-radius:8px;background:var(--text-primary);display:flex;align-items:center;justify-content:center;color:var(--bg)">${Icons.plane('icon-sm')}</div>
+        <div style="width:26px;height:26px;border-radius:8px;overflow:hidden;flex-shrink:0"><img src="icons/icon-192.png" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div>
         <span style="font-size:13px;font-weight:700;letter-spacing:.02em;color:var(--text-primary)">TRIP COMPANION</span>
         <span style="font-size:9px;font-weight:600;color:var(--text-muted);font-family:monospace;background:var(--surface-raised);border-radius:5px;padding:2px 5px">${Config.APP_VERSION || ''}</span>
       </div>
