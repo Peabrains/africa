@@ -245,15 +245,15 @@ const App = (() => {
         if (tripId === JAPAN_TRIP_ID) {
           thirdBtn.style.display = '';
           thirdBtn.dataset.screen = 'stamps';
-          thirdBtn.innerHTML = `${Icons.star('icon-lg')}<span>Stamps</span>`;
+          thirdBtn.innerHTML = `${Icons.star('icon-lg')}<span class="nav-label">Stamps</span>`;
         } else if (tripId === AFRICA_TRIP_ID) {
           thirdBtn.style.display = '';
           thirdBtn.dataset.screen = 'dex';
-          thirdBtn.innerHTML = `${Icons.star('icon-lg')}<span>Dex</span>`;
+          thirdBtn.innerHTML = `${Icons.star('icon-lg')}<span class="nav-label">Dex</span>`;
         } else if (tripId === THAILAND_TRIP_ID) {
           thirdBtn.style.display = '';
           thirdBtn.dataset.screen = 'food';
-          thirdBtn.innerHTML = `${Icons.star('icon-lg')}<span>Food</span>`;
+          thirdBtn.innerHTML = `${Icons.star('icon-lg')}<span class="nav-label">Food</span>`;
         } else {
           thirdBtn.style.display = 'none';
           thirdBtn.dataset.screen = '';
