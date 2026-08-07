@@ -31,16 +31,19 @@
 
     /* ── Header — simplified, "wordmark-style": plane badge + trip
        name, no hamburger, no version text (that lives on Home now).
-       Hidden entirely on Home (see App.switchTo). ── */
-    #app-header{flex-shrink:0;background:var(--surface);border-bottom:1.5px solid var(--border);padding:env(safe-area-inset-top) 0 0}
-    .header-inner{display:flex;align-items:center;justify-content:space-between;padding:14px var(--s4) 14px;gap:var(--s3)}
-    .header-plane-badge{width:26px;height:26px;border-radius:8px;background:var(--text-primary);display:flex;align-items:center;justify-content:center;color:var(--bg);flex-shrink:0}
-    .header-title{font-size:17px;font-weight:700;color:var(--text-primary);letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .header-meta-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:3px}
+       Hidden entirely on Home (see App.switchTo). Background matches
+       --bg (not --surface) so it reads as one continuous surface with
+       Home's wordmark row instead of a visibly different white bar. ── */
+    #app-header{flex-shrink:0;background:var(--bg);border-bottom:1.5px solid var(--border);padding:env(safe-area-inset-top) 0 0}
+    .header-inner{display:flex;align-items:flex-start;justify-content:space-between;padding:14px var(--s4) 14px;gap:var(--s3)}
+    .header-plane-badge{width:26px;height:26px;border-radius:8px;flex-shrink:0;overflow:hidden}
+    .header-plane-badge img{width:100%;height:100%;object-fit:cover;display:block}
+    .header-title-row{display:flex;align-items:flex-start;gap:8px}
+    .header-title{font-size:17px;font-weight:700;color:var(--text-primary);letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:26px}
+    .header-meta-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:5px}
     .header-sub{font-size:11px;color:var(--text-muted)}
     .header-countdown{font-size:10px;font-weight:600;background:var(--accent-subtle);color:var(--accent);border:1px solid var(--border);border-radius:var(--r-pill);padding:2px 8px;display:inline-block}
     .header-right{display:flex;align-items:center;gap:var(--s2);flex-shrink:0}
-    #urgent-count{display:none;align-items:center;justify-content:center;background:var(--danger-text);color:#fff;border-radius:var(--r-pill);font-size:10px;font-weight:500;min-width:18px;height:18px;padding:0 5px}
     #sync-btn{display:flex;align-items:center;justify-content:center;background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--r-sm);width:32px;height:32px;color:var(--text-secondary);cursor:pointer}
     #sync-btn:hover{background:var(--accent-subtle);color:var(--accent)}
 
@@ -53,7 +56,7 @@
     .conflict-btns{display:flex;gap:var(--s2);flex-shrink:0}
 
     /* ── Screen ────────────────────────────────────────────────── */
-    #screen-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;min-height:0;padding:var(--s3) 0 calc(140px + env(safe-area-inset-bottom))}
+    #screen-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;min-height:0;padding:0 0 calc(140px + env(safe-area-inset-bottom))}
     #screen-content.map-active{padding:0 0 calc(140px + env(safe-area-inset-bottom));display:flex;flex-direction:column}
     #map-container{flex:1;margin:var(--s2) var(--s3);border-radius:var(--r-lg);overflow:hidden;border:1.5px solid var(--border)}
 
@@ -62,12 +65,15 @@
        intentional margin on every side, so any leftover safe-area
        inset just becomes more background instead of an unexplained
        gap. Icon-only except the active tab, which reveals its label. ── */
-    #app-nav{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);width:auto;max-width:calc(480px - 32px);display:flex;align-items:center;gap:2px;background:var(--text-primary);border-radius:var(--r-pill);padding:6px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.28)}
-    .nav-btn{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 14px;border:none;background:none;border-radius:var(--r-pill);color:rgba(255,255,255,.55);font-size:11px;font-weight:600;cursor:pointer;min-height:44px;min-width:44px;position:relative;transition:background .18s,color .18s,padding .18s;font-family:var(--font);white-space:nowrap}
-    .nav-btn .icon{width:19px;height:19px;flex-shrink:0;transition:color .15s}
-    .nav-btn .nav-label{display:none}
-    .nav-btn.active{background:rgba(255,255,255,.16);color:#fff;padding:12px 16px}
-    .nav-btn.active .nav-label{display:inline}
+    /* ── Bottom nav — floating pill, every item shows icon + label
+       (not just the active one), stacked vertically. Equal-width
+       columns so nothing balloons in size when it becomes active —
+       only the background highlight changes. ── */
+    #app-nav{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);width:calc(100% - 32px);max-width:calc(480px - 32px);display:flex;align-items:stretch;gap:2px;background:var(--text-primary);border-radius:20px;padding:6px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.28)}
+    .nav-btn{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:9px 2px;border:none;background:none;border-radius:14px;color:rgba(255,255,255,.55);font-size:8.5px;font-weight:600;line-height:1.15;text-align:center;cursor:pointer;min-height:52px;position:relative;transition:background .18s,color .18s;font-family:var(--font)}
+    .nav-btn .icon{width:18px;height:18px;flex-shrink:0;transition:color .15s}
+    .nav-btn .nav-label{max-width:100%}
+    .nav-btn.active{background:rgba(255,255,255,.16);color:#fff}
 
     /* ── Timeline accordion ────────────────────────────────────── */
     .tl-day-header--tap{cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;gap:var(--s2);padding:12px var(--s3) 8px}
@@ -357,18 +363,17 @@
 <div id="app">
   <header id="app-header">
     <div class="header-inner">
-      <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0" id="header-plane-icon-slot">
-        <div class="header-plane-badge" id="header-plane-badge"></div>
-        <div style="min-width:0">
+      <div style="flex:1;min-width:0">
+        <div class="header-title-row">
+          <div class="header-plane-badge" id="header-plane-badge"></div>
           <p class="header-title" id="header-trip-name"><span id="header-trip-name-text">Trip</span></p>
-          <div class="header-meta-row">
-            <span class="header-countdown" id="countdown"></span>
-            <span class="header-sub"></span>
-          </div>
+        </div>
+        <div class="header-meta-row">
+          <span class="header-sub"></span>
+          <span class="header-countdown" id="countdown"></span>
         </div>
       </div>
       <div class="header-right">
-        <span id="urgent-count"></span>
         <span id="sync-badge" class="badge badge-open">Offline</span>
         <button id="sync-btn" aria-label="Sync"></button>
       </div>
@@ -428,7 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('sync-btn').innerHTML = Icons.refresh('icon-sm');
   const planeBadge = document.getElementById('header-plane-badge');
-  if (planeBadge) planeBadge.innerHTML = Icons.plane('icon-sm');
+  if (planeBadge) planeBadge.innerHTML = '<img src="icons/icon-192.png" alt="">';
 
   // Gate the app behind a PIN before initialising
   Auth.gate().then(() => App.init());
