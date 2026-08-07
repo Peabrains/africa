@@ -45,8 +45,13 @@
   --seg-kenya:     #2A7A4B; /* savannah green — Kenya */
   --seg-uganda:    #7B4EA0; /* forest purple — Uganda */
 
-  /* Flight price watch — 2nd chart series (outbound leg uses --accent) */
+  /* Flight price watch — fixed colors, deliberately NOT trip-themed,
+     since this is your own personal recurring route (KUL⇄KIX), not
+     tied to whichever trip happens to be active. */
+  --flight-line-1: #C67C2E; /* warm amber — outbound leg */
   --flight-line-2: #3E7C89; /* muted teal — return leg */
+  --flight-accent: #C67C2E;
+  --flight-accent-subtle: #F5E8D8;
 
   --font:    'Plus Jakarta Sans', sans-serif;
   --text-xs: 10px; --text-sm: 12px; --text-base: 14px;
@@ -76,7 +81,10 @@
     --seg-tanzania:   #E86040;
     --seg-kenya:      #4AAA6B;
     --seg-uganda:     #9B6EC0;
+    --flight-line-1:  #D99A5E;
     --flight-line-2:  #5FA8B5;
+    --flight-accent:  #D99A5E;
+    --flight-accent-subtle: #3A2C1A;
   }
 }
 
