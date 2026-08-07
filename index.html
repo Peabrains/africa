@@ -385,7 +385,19 @@
     .bs-edit-label{display:block;font-size:var(--text-xs);font-weight:500;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
     .bs-input{width:100%;background:var(--surface-raised);border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 10px;font-size:var(--text-sm);font-family:var(--font);color:var(--text-primary);min-height:40px;box-sizing:border-box}
     .bs-time-row{display:flex;gap:6px;align-items:center}
+    /* The .bs-input base class sets width:100%, which is exactly the
+       problem here: native type="time" pickers on iOS have a large
+       intrinsic size that resists shrinking, so both children fighting
+       over the same 100% left almost nothing for the timezone field.
+       Give the time input a fixed, compact width instead, so the
+       timezone field's flex:1 has real remaining space to grow into. */
+    .bs-time-row input[type="time"]{flex:0 0 auto!important;width:124px!important}
     .bs-tz-sel{flex:1!important;min-width:0!important}
+    .bs-tz-suggestions{display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-md);max-height:220px;overflow-y:auto;z-index:20;box-shadow:0 6px 18px rgba(28,26,20,.18)}
+    .bs-tz-suggestion{padding:10px 12px;font-size:var(--text-sm);color:var(--text-primary);cursor:pointer;border-bottom:1px solid var(--border-subtle)}
+    .bs-tz-suggestion:last-child{border-bottom:none}
+    .bs-tz-suggestion:active{background:var(--accent-subtle)}
+    .bs-tz-suggestion--empty{color:var(--text-muted);cursor:default}
     .bs-input:focus{outline:none;border-color:var(--accent);background:var(--surface)}
     .bs-textarea{width:100%;background:var(--surface-raised);border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 10px;font-size:var(--text-sm);font-family:var(--font);color:var(--text-primary);resize:vertical;box-sizing:border-box}
     .bs-textarea:focus{outline:none;border-color:var(--accent)}
