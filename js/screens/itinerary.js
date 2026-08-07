@@ -437,7 +437,7 @@ const ItineraryScreen = (() => {
   function subTabBar() {
     const bar = document.createElement('div');
     bar.className = 'sub-tab-bar';
-    [['itinerary','Itinerary'],['map','Map'],['included',"What's included"]].forEach(([id, label]) => {
+    [['itinerary','Itinerary'],['map','Map'],['journal','Journal'],['included',"What's included"]].forEach(([id, label]) => {
       const btn = document.createElement('button');
       btn.className = `sub-tab ${activeTab === id ? 'sub-tab--active' : ''}`;
       btn.textContent = label;
@@ -579,6 +579,13 @@ const ItineraryScreen = (() => {
       return;
     }
 
+    if (activeTab === 'journal') {
+      const body = document.createElement('div');
+      root.appendChild(body);
+      JournalScreen.init(body);
+      return;
+    }
+
     if (activeTab === 'included') {
       root.appendChild(renderIncExc());
       return;
@@ -656,7 +663,11 @@ const ItineraryScreen = (() => {
 
   return {
     init(el) { root = el; render(); },
-    destroy() { if (activeTab === 'map') MapScreen.destroy(); root = null; },
+    destroy() {
+      if (activeTab === 'map') MapScreen.destroy();
+      if (activeTab === 'journal') JournalScreen.destroy();
+      root = null;
+    },
     refresh() { render(); },
   };
 })();
