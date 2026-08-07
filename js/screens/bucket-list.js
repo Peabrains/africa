@@ -1,12 +1,12 @@
 'use strict';
 
 /* ============================================================
-   BUCKET LIST — user-added checklist. Shares the tab slot with
-   whichever curated screen (Dex/Stamps/Food) matches the active
-   trip — see the sub-tab bar those screens now render at the
-   top. This screen itself is identical on every trip; only the
-   items differ, and those are typed in by the traveler, not
-   seeded in code.
+   BUCKET LIST — the primary, stable tab across every trip. Owns
+   this nav slot; the trip-specific curated collection (Dex for
+   Africa, Stamps for Japan, Food for Thailand) lives as a
+   sub-tab inside it, not the other way around — Bucket List is
+   the one thing that's genuinely identical everywhere, so it's
+   the constant label.
 
    "done" and "has a photo" are deliberately independent — see
    Data.toggleBucketDone / addBucketPhoto / removeBucketPhoto.
@@ -16,6 +16,7 @@
 
 const BucketListScreen = (() => {
   let root;
+  let activeTab = 'bucket'; // 'bucket' | 'collection'
   let addFormOpen = false;
   let pendingCategory = '';
 
@@ -325,18 +326,58 @@ const BucketListScreen = (() => {
     overlay.querySelector('#bk-pv-close').addEventListener('click', () => overlay.remove());
   }
 
+  /* ── Trip-specific curated collection, embedded as a sub-tab ── */
+  const COLLECTION_BY_TRIP = {
+    '83891de6-44ee-4ec2-bb95-6726cbd8c370': { screen: () => window.DexScreen,    label: 'Dex',    icon: '🦁' },
+    '91a41e0d-f247-4d89-ba15-02f0994a16c8': { screen: () => window.StampsScreen, label: 'Stamps', icon: '⛩️' },
+    '2b3c82f2-040f-4f2a-9d01-579129d1203b': { screen: () => window.FoodScreen,   label: 'Food',   icon: '🍜' },
+  };
+  function currentCollection() {
+    const tripId = Data.getCurrentTrip?.()?.id;
+    return COLLECTION_BY_TRIP[tripId] || null;
+  }
+
+  function subTabBar() {
+    const collection = currentCollection();
+    const bar = document.createElement('div');
+    bar.className = 'sub-tab-bar';
+    const tabs = [['bucket', '📝 Bucket List']];
+    if (collection) tabs.push(['collection', `${collection.icon} ${collection.label}`]);
+    tabs.forEach(([id, label]) => {
+      const btn = document.createElement('button');
+      btn.className = `sub-tab ${activeTab === id ? 'sub-tab--active' : ''}`;
+      btn.textContent = label;
+      btn.addEventListener('click', () => { activeTab = id; render(); });
+      bar.appendChild(btn);
+    });
+    return bar;
+  }
+
   /* ── Main render ──────────────────────────────────────────── */
   function render() {
     if (!root) return;
     root.innerHTML = '';
+    root.appendChild(subTabBar());
+
+    if (activeTab === 'collection') {
+      const collection = currentCollection();
+      const body = document.createElement('div');
+      root.appendChild(body);
+      if (collection) collection.screen().init(body);
+      return;
+    }
+
     root.appendChild(renderHeader());
     root.appendChild(renderList());
     root.appendChild(renderAddForm());
   }
 
   return {
-    init(el) { root = el; addFormOpen = false; render(); },
-    destroy() { root = null; },
+    init(el) { root = el; activeTab = 'bucket'; addFormOpen = false; render(); },
+    destroy() {
+      if (activeTab === 'collection') { const c = currentCollection(); c?.screen()?.destroy?.(); }
+      root = null;
+    },
     refresh() { render(); },
   };
 })();
