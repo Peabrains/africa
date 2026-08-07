@@ -99,7 +99,7 @@ const JournalScreen = (() => {
   // Fixed collage templates chosen by count — not a naive equal-width
   // row, since a row that assumes every photo is landscape mangles
   // anything portrait down to a thin sliver.
-  function renderCollage(container, urls) {
+  async function renderCollage(container, urls) {
     container.innerHTML = '';
     container.style.cssText = 'margin-top:18px';
     const n = urls.length;
@@ -107,8 +107,10 @@ const JournalScreen = (() => {
 
     if (n === 1) {
       container.style.cssText += ';display:block';
+      const orientation = await getOrientation(urls[0]);
+      const h = orientation === 'portrait' ? 280 : 150;
       const d = document.createElement('div');
-      d.style.cssText = `width:100%;height:180px;border-radius:3px;background-size:cover;background-position:center;background-image:url(${urls[0]})`;
+      d.style.cssText = `width:100%;height:${h}px;border-radius:3px;background-size:cover;background-position:center;background-image:url(${urls[0]})`;
       container.appendChild(d);
       return;
     }
