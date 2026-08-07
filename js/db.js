@@ -6,7 +6,7 @@
    Stores: stops | expenses | packing | meta | queue
    ============================================================ */
 const DB = (() => {
-  const NAME = 'africa-safari', VERSION = 2;
+  const NAME = 'africa-safari', VERSION = 3;
   let db;
 
   function open() {
@@ -22,6 +22,7 @@ const DB = (() => {
         if (!d.objectStoreNames.contains('queue'))     d.createObjectStore('queue',     { keyPath:'id', autoIncrement:true });
         if (!d.objectStoreNames.contains('meta'))      d.createObjectStore('meta',      { keyPath:'key' });
         if (!d.objectStoreNames.contains('dexPhotos')) d.createObjectStore('dexPhotos', { keyPath:'id' });
+        if (!d.objectStoreNames.contains('bucketPhotos')) d.createObjectStore('bucketPhotos', { keyPath:'id' });
       };
       req.onsuccess = e => { db = e.target.result; res(db); };
       req.onerror   = e => rej(e.target.error);
@@ -140,6 +141,18 @@ const DB = (() => {
     })),
     deleteDexPhoto: (photoId) => del('dexPhotos', photoId),
     clearDexPhotos: () => clear('dexPhotos'),
+
+    /* Bucket List — items + one photo per item */
+    loadBucket: () => getMeta('bucketItems').then(v => v || []),
+    saveBucket: (items) => setMeta('bucketItems', items),
+    saveBucketPhoto: (photoId, dataUrl) => put('bucketPhotos', { id: photoId, dataUrl, savedAt: Date.now() }),
+    loadBucketPhoto: (photoId) => open().then(() => new Promise((res, rej) => {
+      const req = tx('bucketPhotos').get(photoId);
+      req.onsuccess = () => res(req.result?.dataUrl || null);
+      req.onerror   = () => rej(req.error);
+    })),
+    deleteBucketPhoto: (photoId) => del('bucketPhotos', photoId),
+    clearBucketPhotos: () => clear('bucketPhotos'),
 
     /* Meta */
     getMeta,
