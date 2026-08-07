@@ -95,6 +95,22 @@ const JournalScreen = (() => {
     return day ? (day.label || day.title || day.date) : null;
   }
 
+  // "09 Apr 2027" — the real calendar date of the tagged day if there is
+  // one, otherwise the date the entry was actually written.
+  function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr.length <= 10 ? dateStr + 'T00:00:00' : dateStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  function dateLabelFor(entry) {
+    if (entry.day_id) {
+      const day = (Data.getDays?.() || []).find(d => d.id === entry.day_id);
+      if (day?.date) return formatDate(day.date);
+    }
+    return formatDate(entry.created_at);
+  }
+
   function makePhotoImg({ url, focalPosition, boxHeight, onOrientation }) {
     const img = document.createElement('img');
     img.loading = 'lazy';
@@ -187,7 +203,7 @@ const JournalScreen = (() => {
         <div style="font-size:11px;color:#A39A8C;margin-top:8px">${(trip?.countries||[]).join(' · ')}</div>
       </div>
       <div style="text-align:center;padding-bottom:26px">
-        <button id="j-export-btn" style="border:1px solid #E4DECE;background:#fff;color:#6B6357;font-size:11px;font-weight:600;padding:8px 16px;border-radius:100px;cursor:pointer;font-family:var(--font)">Export as PDF</button>
+        <button id="j-export-btn" style="border:1px solid #E4DECE;background:#fff;color:#6B6357;font-size:11px;font-weight:600;padding:8px 16px;border-radius:100px;cursor:pointer;font-family:var(--font)">Export as Image</button>
       </div>`;
 
     const entries = Data.getJournalEntries();
@@ -203,16 +219,15 @@ const JournalScreen = (() => {
     for (const entry of entries) {
       const block = document.createElement('div');
       block.style.cssText = 'margin-bottom:8px;position:relative';
-      const dayLabel = dayLabelFor(entry.day_id);
-      const dateStr = new Date(entry.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
 
       const heroWrap = document.createElement('div');
       heroWrap.style.cssText = 'width:100%;height:170px;background-color:#EDE8DE;position:relative;overflow:hidden';
 
-      block.innerHTML = `<div style="height:1px;background:#1C1A18;opacity:.08;margin:0 26px 30px"></div>`;
+      block.innerHTML = `
+        <div style="height:1px;background:#1C1A18;opacity:.08;margin:0 26px 18px"></div>
+        <div style="text-align:center;font-size:11px;font-weight:700;letter-spacing:.06em;color:#6B6357;margin-bottom:18px">${dateLabelFor(entry)}</div>`;
       block.appendChild(heroWrap);
       heroWrap.innerHTML = `
-        <div style="position:absolute;bottom:14px;left:26px;right:26px;color:#fff;font-size:10px;letter-spacing:.03em;text-shadow:0 1px 6px rgba(0,0,0,.4);z-index:2">${dayLabel ? dayLabel : dateStr}</div>
         <button class="j-edit-btn" data-entry="${entry.id}" style="position:absolute;top:14px;right:20px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.4);border:none;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
         </button>`;
@@ -256,7 +271,7 @@ const JournalScreen = (() => {
     root.appendChild(page);
 
     page.querySelector('#j-new-btn')?.addEventListener('click', () => openComposer(null));
-    page.querySelector('#j-export-btn')?.addEventListener('click', exportPdf);
+    page.querySelector('#j-export-btn')?.addEventListener('click', exportJournalImage);
     page.querySelectorAll('.j-edit-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -265,87 +280,226 @@ const JournalScreen = (() => {
     });
   }
 
-  /* ── PDF export — same "isolate a hidden div, window.print()" technique
-     print.css already had CSS staged for (SOS), just never wired to any
-     JS anywhere in the app. This is a fresh build following that same
-     idea, not a reuse of something that was actually working already. ── */
-  async function exportPdf() {
-    Toast.show('Preparing PDF…', 'info');
+  /* ── Export as one long JPG — more reliable than fighting the
+     browser's native print-to-PDF pipeline, which behaved
+     inconsistently (especially on mobile). Everything is drawn
+     manually onto a canvas at a fixed width, with height computed
+     from the actual content, then saved as a single tall image —
+     genuinely scrollable and continuous, since there's no such
+     thing as a "page break" on a plain image the way there
+     inherently is on a PDF. ── */
+
+  function parseFocal(raw) {
+    // Numeric {x,y,zoom} JSON (current format) — legacy 3x3 keyword
+    // strings map to a matching x/y at zoom 100 so old entries still
+    // render sensibly without needing a data migration.
+    if (!raw) return { x: 50, y: 50, zoom: 100 };
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.x === 'number') return { x: parsed.x, y: parsed.y, zoom: parsed.zoom || 100 };
+    } catch (e) { /* fall through to legacy keyword handling */ }
+    const LEGACY = {
+      'top left': [0,0], 'top center': [50,0], 'top right': [100,0],
+      'center left': [0,50], 'center': [50,50], 'center right': [100,50],
+      'bottom left': [0,100], 'bottom center': [50,100], 'bottom right': [100,100],
+    };
+    const [x, y] = LEGACY[raw] || [50, 50];
+    return { x, y, zoom: 100 };
+  }
+
+  function loadImageForCanvas(url) {
+    return new Promise((resolve) => {
+      if (!url) return resolve(null);
+      const img = new Image();
+      img.crossOrigin = 'anonymous'; // needed so the canvas isn't "tainted" by a cross-origin (Supabase Storage) image
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  }
+
+  // Draws an image into a fixed w×h box, cropped to fill it exactly
+  // (same "cover" behavior as the CSS elsewhere), respecting the
+  // photo's own saved pan/zoom focal point rather than always
+  // cropping dead-center.
+  function drawCover(ctx, img, x, y, w, h, focal) {
+    const f = focal || { x: 50, y: 50, zoom: 100 };
+    const zoom = Math.max(1, (f.zoom || 100) / 100);
+    const boxRatio = w / h;
+    const imgRatio = img.width / img.height;
+    let sw, sh;
+    if (imgRatio > boxRatio) { sh = img.height / zoom; sw = sh * boxRatio; }
+    else { sw = img.width / zoom; sh = sw / boxRatio; }
+    const maxSx = img.width - sw, maxSy = img.height - sh;
+    const sx = Math.min(Math.max(0, (img.width - sw) * (f.x / 100)), Math.max(0, maxSx));
+    const sy = Math.min(Math.max(0, (img.height - sh) * (f.y / 100)), Math.max(0, maxSy));
+    ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+  }
+
+  function wrapLines(ctx, text, maxWidth) {
+    const out = [];
+    text.split('\n').forEach(paragraph => {
+      if (!paragraph) { out.push(''); return; }
+      const words = paragraph.split(/\s+/);
+      let line = '';
+      words.forEach(word => {
+        const test = line ? line + ' ' + word : word;
+        if (ctx.measureText(test).width > maxWidth && line) {
+          out.push(line);
+          line = word;
+        } else {
+          line = test;
+        }
+      });
+      if (line) out.push(line);
+    });
+    return out;
+  }
+
+  async function exportJournalImage() {
+    Toast.show('Preparing image…', 'info');
     const trip = Data.getCurrentTrip?.();
     const entries = Data.getJournalEntries();
+    if (!entries.length) { Toast.show('Nothing to export yet', 'warning'); return; }
 
-    let existing = document.getElementById('journal-print-content');
-    if (existing) existing.remove();
-    const printEl = document.createElement('div');
-    printEl.id = 'journal-print-content';
-    document.body.appendChild(printEl);
+    const W = 900, PAD = 56, CW = W - PAD * 2;
 
-    let html = `
-      <div class="print-header">
-        <div class="print-title">${trip?.name || 'Trip Journal'}</div>
-        <div class="print-sub">${(trip?.countries||[]).join(' · ')}</div>
-      </div>`;
-
+    // Preload every photo as a fully-decoded Image object up front —
+    // canvas drawing itself is synchronous, so nothing can be loading
+    // partway through.
+    const entryData = [];
     for (const entry of entries) {
-      const dayLabel = dayLabelFor(entry.day_id);
-      const dateStr = new Date(entry.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
       const hero = (entry.journal_photos || []).find(p => p.is_hero) || (entry.journal_photos || [])[0];
       const others = (entry.journal_photos || []).filter(p => !p.is_hero);
       const heroUrl = hero ? await Data.getJournalPhotoUrl(hero) : null;
-      const otherUrls = (await Promise.all(others.map(p => Data.getJournalPhotoUrl(p)))).filter(Boolean);
-
-      html += `<div class="print-entry">
-        <div class="print-entry-head">${dayLabel || dateStr}</div>
-        ${entry.pull_quote ? `<div class="print-quote">"${entry.pull_quote}"</div>` : ''}
-        ${heroUrl ? `<img class="print-photo print-photo-hero" src="${heroUrl}">` : ''}
-        ${entry.narration ? `<div class="print-body">${entry.narration.replace(/</g,'&lt;')}</div>` : ''}
-        <div class="print-photo-row">${otherUrls.map(u => `<img class="print-photo" src="${u}">`).join('')}</div>
-      </div>`;
+      const heroImg = await loadImageForCanvas(heroUrl);
+      const otherImgs = [];
+      for (const p of others) {
+        const u = await Data.getJournalPhotoUrl(p);
+        const im = await loadImageForCanvas(u);
+        if (im) otherImgs.push({ img: im, focal: parseFocal(p.focal_position) });
+      }
+      entryData.push({ entry, heroImg, heroFocal: hero ? parseFocal(hero.focal_position) : null, otherImgs });
     }
 
-    printEl.innerHTML = html;
+    // Measure pass — figure out the total height needed before creating
+    // the real canvas, using a scratch context purely for text metrics.
+    const scratch = document.createElement('canvas').getContext('2d');
+    let y = 0;
+    y += 70; // top margin
+    scratch.font = '700 11px "Plus Jakarta Sans", sans-serif';
+    y += 20; // kicker
+    scratch.font = '400 40px Georgia, serif';
+    y += 50; // trip title
+    scratch.font = '400 14px "Plus Jakarta Sans", sans-serif';
+    y += 30; // countries subline
+    y += 40; // gap before first entry
 
-    // Wait for every photo to actually finish loading (not just resolve
-    // its URL string) before printing — the previous flat 300ms timeout
-    // wasn't nearly long enough for Storage-hosted photos to fetch and
-    // decode, which is the real reason the output was coming out empty.
-    const imgs = Array.from(printEl.querySelectorAll('img'));
-    await Promise.all(imgs.map(img => new Promise(resolve => {
-      if (img.complete) return resolve();
-      img.addEventListener('load', resolve, { once: true });
-      img.addEventListener('error', resolve, { once: true }); // don't block forever on one bad photo
-    })));
-
-    // Real PDFs are inherently page-based — there's no true "infinite
-    // scroll" PDF format. The closest actual equivalent: size the PDF
-    // as one single page matching the journal's full content height,
-    // instead of standard A4 pagination. Opened in any PDF viewer, that
-    // reads as one continuous scroll with zero page breaks.
-    const heightMm = Math.ceil(printEl.scrollHeight * 25.4 / 96) + 20; // px → mm, plus a little breathing room
-    let sizeStyle = document.getElementById('j-print-page-size');
-    if (!sizeStyle) {
-      sizeStyle = document.createElement('style');
-      sizeStyle.id = 'j-print-page-size';
-      document.head.appendChild(sizeStyle);
+    const blocks = []; // { type, ...layout info, yStart }
+    for (const { entry, heroImg, heroFocal, otherImgs } of entryData) {
+      const startY = y;
+      y += 1 + 22; // divider + gap
+      y += 22; // date label
+      let heroH = 0;
+      if (heroImg) {
+        const portrait = heroImg.naturalHeight > heroImg.naturalWidth;
+        heroH = portrait ? 620 : 380;
+        y += heroH + 26;
+      }
+      let quoteLines = [];
+      if (entry.pull_quote) {
+        scratch.font = '400 26px Georgia, serif';
+        quoteLines = wrapLines(scratch, `"${entry.pull_quote}"`, CW);
+        y += quoteLines.length * 36 + 20;
+      }
+      let bodyLines = [];
+      if (entry.narration) {
+        scratch.font = '400 18px Georgia, serif';
+        bodyLines = wrapLines(scratch, entry.narration, CW);
+        y += bodyLines.length * 29 + 10;
+      }
+      let insetH = 0;
+      if (otherImgs.length) {
+        insetH = 200;
+        y += insetH + 10;
+      }
+      y += 30; // bottom gap
+      blocks.push({ entry, heroImg, heroFocal, heroH, quoteLines, bodyLines, otherImgs, insetH, startY });
     }
-    sizeStyle.textContent = `@media print { @page { size: 210mm ${heightMm}mm; margin: 14mm 16mm; } }`;
+    y += 50; // bottom margin
 
-    // Give the browser a moment to lay out the freshly-inserted images
-    // before invoking print, rather than printing an empty/partial page.
-    // A short reflow delay (images are already fully loaded above) —
-    // then print, and clean up once the print dialog actually closes
-    // rather than guessing with a fixed delay, since window.print()'s
-    // blocking behavior isn't consistent across mobile browsers.
-    setTimeout(() => {
-      const cleanup = () => {
-        printEl.remove();
-        sizeStyle.remove();
-        window.removeEventListener('afterprint', cleanup);
-      };
-      window.addEventListener('afterprint', cleanup);
-      window.print();
-      setTimeout(cleanup, 15000); // safety net if 'afterprint' never fires on this browser
-    }, 80);
+    // Real canvas, sized exactly to what was just measured.
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = Math.ceil(y);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#FAF8F4';
+    ctx.fillRect(0, 0, W, canvas.height);
+    ctx.textBaseline = 'alphabetic';
+
+    let cy = 70;
+    ctx.fillStyle = '#A39A8C';
+    ctx.font = '700 11px "Plus Jakarta Sans", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('TRIP JOURNAL', W / 2, cy);
+    cy += 40;
+    ctx.fillStyle = '#1C1A18';
+    ctx.font = '400 40px Georgia, serif';
+    ctx.fillText(trip?.name || '', W / 2, cy);
+    cy += 30;
+    ctx.fillStyle = '#A39A8C';
+    ctx.font = '400 14px "Plus Jakarta Sans", sans-serif';
+    ctx.fillText((trip?.countries || []).join(' · '), W / 2, cy);
+
+    for (const b of blocks) {
+      let by = b.startY;
+      ctx.strokeStyle = 'rgba(28,26,24,.08)';
+      ctx.beginPath(); ctx.moveTo(PAD, by); ctx.lineTo(W - PAD, by); ctx.stroke();
+      by += 22 + 16;
+      ctx.fillStyle = '#6B6357';
+      ctx.font = '700 12px "Plus Jakarta Sans", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(dateLabelFor(b.entry), W / 2, by);
+      by += 8;
+
+      if (b.heroImg) {
+        drawCover(ctx, b.heroImg, PAD, by, CW, b.heroH, b.heroFocal);
+        by += b.heroH + 26;
+      }
+
+      ctx.textAlign = 'left';
+      if (b.quoteLines.length) {
+        ctx.fillStyle = '#1C1A18';
+        ctx.font = '400 26px Georgia, serif';
+        b.quoteLines.forEach(line => { by += 36; ctx.fillText(line, PAD, by); });
+        by += 20;
+      }
+      if (b.bodyLines.length) {
+        ctx.fillStyle = '#6B6357';
+        ctx.font = '400 18px Georgia, serif';
+        b.bodyLines.forEach(line => { by += 29; ctx.fillText(line, PAD, by); });
+        by += 10;
+      }
+      if (b.otherImgs.length) {
+        const gap = 10;
+        const cellW = (CW - gap * (b.otherImgs.length - 1)) / b.otherImgs.length;
+        b.otherImgs.forEach((o, i) => {
+          drawCover(ctx, o.img, PAD + i * (cellW + gap), by, cellW, b.insetH, o.focal);
+        });
+      }
+    }
+
+    canvas.toBlob((blob) => {
+      if (!blob) { Toast.show('Export failed — could not render the image', 'danger'); return; }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${(trip?.name || 'journal').replace(/[^a-z0-9]+/gi, '-')}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      Toast.show('Journal exported', 'success');
+    }, 'image/jpeg', 0.88);
   }
 
   /* ── Open composer, either blank or pre-filled for editing ──── */
