@@ -936,24 +936,18 @@ const SOSScreen = (() => {
     root.appendChild(tabBar());
 
     const sos = Data.getSOS();
-    const scrollWrap = document.createElement('div');
-    scrollWrap.style.cssText = 'overflow-y:auto;flex:1;padding-bottom:var(--s6)';
-
     switch (activeTab) {
-      case 'help':     scrollWrap.appendChild(renderHelp(sos));     break;
-      case 'phrases':  scrollWrap.appendChild(renderPhrasesTab());  break;
-      case 'stay':     scrollWrap.appendChild(renderStay(sos));     break;
-      case 'entry':    scrollWrap.appendChild(renderEntry(sos));    break;
-      case 'guides':   scrollWrap.appendChild(renderGuides());      break;
+      case 'help':     root.appendChild(renderHelp(sos));     break;
+      case 'phrases':  root.appendChild(renderPhrasesTab());  break;
+      case 'stay':     root.appendChild(renderStay(sos));     break;
+      case 'entry':    root.appendChild(renderEntry(sos));    break;
+      case 'guides':   root.appendChild(renderGuides());      break;
     }
-
-    root.appendChild(scrollWrap);
   }
 
   return {
     init(el) {
       root = el;
-      root.style.cssText = 'display:flex;flex-direction:column;height:100%';
       render();
     },
     destroy() { root = null; },
