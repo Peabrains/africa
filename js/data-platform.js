@@ -1295,7 +1295,7 @@ const Data = (() => {
     Object.assign(entry, {
       day_id: patch.day_id !== undefined ? patch.day_id : entry.day_id,
       narration: patch.narration !== undefined ? patch.narration : entry.narration,
-      pull_quote: patch.pullQuote !== undefined ? patch.pull_quote : entry.pull_quote,
+      pull_quote: patch.pull_quote !== undefined ? patch.pull_quote : entry.pull_quote,
     });
     await DB.setMeta(CACHE_KEYS.journal, JOURNAL_ENTRIES);
     if (navigator.onLine) await SB.from('journal_entries').update(patch).eq('id', id);
