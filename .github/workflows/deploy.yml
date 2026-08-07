@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [main, platform]
+    branches: [main, platform, design-lab]
   workflow_dispatch:
 
 permissions:
@@ -30,10 +30,17 @@ jobs:
           ref: platform
           path: site/platform
 
+      - name: Checkout design-lab into subfolder (experimental UI, isolated from platform)
+        uses: actions/checkout@v4
+        with:
+          ref: design-lab
+          path: site/lab
+
       - name: Clean git folders
         run: |
           rm -rf site/.git
           rm -rf site/platform/.git
+          rm -rf site/lab/.git
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
