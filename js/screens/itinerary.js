@@ -420,10 +420,10 @@ const ItineraryScreen = (() => {
 
   function subTabBar() {
     const bar = document.createElement('div');
-    bar.style.cssText = 'display:flex;border-bottom:1.5px solid var(--border);background:var(--surface);flex-shrink:0;padding:0 var(--s2);overflow-x:auto;scrollbar-width:none';
+    bar.className = 'sub-tab-bar';
     [['itinerary','Itinerary'],['map','Map'],['included',"What's included"]].forEach(([id, label]) => {
       const btn = document.createElement('button');
-      btn.style.cssText = `flex-shrink:0;padding:10px var(--s3);font-size:var(--text-sm);font-weight:${activeTab===id?'500':'400'};color:${activeTab===id?'var(--accent)':'var(--text-muted)'};background:none;border:none;border-bottom:${activeTab===id?'2px solid var(--accent)':'2px solid transparent'};margin-bottom:-1.5px;cursor:pointer;font-family:var(--font);transition:color .15s`;
+      btn.className = `sub-tab ${activeTab === id ? 'sub-tab--active' : ''}`;
       btn.textContent = label;
       btn.addEventListener('click', () => { activeTab = id; render(); });
       bar.appendChild(btn);
