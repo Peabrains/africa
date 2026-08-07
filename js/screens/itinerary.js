@@ -557,7 +557,7 @@ const ItineraryScreen = (() => {
     if (activeTab === 'map') {
       root.classList.add('map-active');
       const body = document.createElement('div');
-      body.style.cssText = 'flex:1;min-height:0';
+      body.className = 'map-embed-wrap';
       root.appendChild(body);
       MapScreen.init(body);
       return;
