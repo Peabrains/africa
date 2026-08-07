@@ -70,10 +70,20 @@
        columns so nothing balloons in size when it becomes active —
        only the background highlight changes. ── */
     #app-nav{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);width:calc(100% - 32px);max-width:calc(480px - 32px);display:flex;align-items:stretch;gap:2px;background:var(--text-primary);border-radius:999px;padding:6px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.28)}
-    .nav-btn{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:9px 2px;border:none;background:none;border-radius:14px;color:rgba(255,255,255,.55);font-size:8.5px;font-weight:600;line-height:1.15;text-align:center;cursor:pointer;min-height:52px;position:relative;transition:background .18s,color .18s;font-family:var(--font)}
+    /* ── Bottom nav — the tap target (.nav-btn) stays a fixed
+       equal-width column for consistent spacing and touch area.
+       The VISIBLE highlight (.nav-pill) is a separate inline
+       element sized to its own content only — this is deliberate:
+       sizing the highlight to the column made short labels (Kit,
+       Map) show a highlight box mostly empty space around the
+       text, reading as a stray rectangle. Sizing it to content
+       means the highlight always hugs exactly what's inside it,
+       regardless of label length or position in the bar. ── */
+    .nav-btn{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;padding:4px 2px;border:none;background:none;cursor:pointer;min-height:52px;font-family:var(--font)}
+    .nav-pill{display:inline-flex;flex-direction:column;align-items:center;gap:3px;padding:8px 9px;border-radius:14px;color:rgba(255,255,255,.55);font-size:8.5px;font-weight:600;line-height:1.15;text-align:center;transition:background .18s,color .18s}
+    .nav-btn.active .nav-pill{background:rgba(255,255,255,.16);color:#fff}
     .nav-btn .icon{width:18px;height:18px;flex-shrink:0;transition:color .15s}
     .nav-btn .nav-label{max-width:100%}
-    .nav-btn.active{background:rgba(255,255,255,.16);color:#fff}
 
     /* ── Timeline accordion ────────────────────────────────────── */
     .tl-day-header--tap{cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;gap:var(--s2);padding:12px var(--s3) 8px}
@@ -228,8 +238,9 @@
        underline-tab look, which read as a different, older design. ── */
     .sub-tab-bar{display:flex;gap:4px;background:var(--surface-raised);border-radius:14px;padding:4px;margin:var(--s3) var(--s4);overflow-x:auto;scrollbar-width:none}
     .sub-tab-bar::-webkit-scrollbar{display:none}
-    .sub-tab{flex:1 1 0;min-width:0;text-align:center;padding:9px 8px;font-size:var(--text-sm);font-weight:600;color:var(--text-muted);background:none;border:none;border-radius:11px;cursor:pointer;font-family:var(--font);transition:background .15s,color .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .sub-tab--active{background:var(--surface);color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+    .sub-tab{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;padding:2px;border:none;background:none;cursor:pointer;font-family:var(--font)}
+    .sub-tab-pill{display:inline-flex;align-items:center;justify-content:center;padding:7px 10px;border-radius:11px;font-size:var(--text-sm);font-weight:600;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;transition:background .15s,color .15s}
+    .sub-tab--active .sub-tab-pill{background:var(--surface);color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.08)}
 
     /* Map legend */
     .map-legend{display:flex;gap:var(--s3);padding:var(--s2) var(--s4);overflow-x:auto;scrollbar-width:none;flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border-subtle)}
@@ -433,7 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
   document.querySelectorAll('.nav-btn').forEach((btn, i) => {
     const {icon, label} = navCfg[i];
-    btn.innerHTML = `${Icons[icon]('icon-lg')}<span class="nav-label">${label}</span>`;
+    btn.innerHTML = `<span class="nav-pill">${Icons[icon]('icon-lg')}<span class="nav-label">${label}</span></span>`;
   });
   document.getElementById('sync-btn').innerHTML = Icons.refresh('icon-sm');
   const planeBadge = document.getElementById('header-plane-badge');
