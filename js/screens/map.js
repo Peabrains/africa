@@ -3,6 +3,21 @@
 const MapScreen = (() => {
   let root, map, markersLayer;
 
+  // Short display form of a stored timezone value — see itinerary.js
+  // for the identical helper; duplicated here since it's a tiny, fully
+  // self-contained function and doesn't warrant a shared module.
+  const LEGACY_TZ_ABBR = { EAT:'Africa/Nairobi', JST:'Asia/Tokyo', MYT:'Asia/Kuala_Lumpur', ICT:'Asia/Bangkok', UTC:'UTC' };
+  function tzAbbr(tz) {
+    if (!tz) return '';
+    const iana = LEGACY_TZ_ABBR[tz] || tz;
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', { timeZone: iana, timeZoneName: 'short' }).formatToParts(new Date());
+      return parts.find(p => p.type === 'timeZoneName')?.value || tz;
+    } catch (e) {
+      return tz;
+    }
+  }
+
   /* Auto-generate a consistent color per locality name — same approach
      as itinerary.js, so map and itinerary always agree on colors without
      either needing a maintained per-trip list. */
@@ -81,7 +96,7 @@ const MapScreen = (() => {
           BottomSheet.openStop(stop, day);
         });
         marker.bindTooltip(
-          `<strong>${stop.name}</strong><br><small>${stop.time || ''} ${stop.timeZone || ''}</small>`,
+          `<strong>${stop.name}</strong><br><small>${stop.time || ''} ${tzAbbr(stop.timeZone)}</small>`,
           { direction:'top', offset:[0,-36], opacity:0.95 }
         );
       });
