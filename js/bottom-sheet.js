@@ -154,6 +154,73 @@ const BottomSheet = (() => {
       return timeZone;
     }
   }
+  // Full real timezone list, built once and cached — same source as
+  // before, just no longer offered as a free-text datalist (which let
+  // invalid values like "Asia/hanoi" get typed and silently saved).
+  let _tzZonesCache = null;
+  function getAllZones() {
+    if (_tzZonesCache) return _tzZonesCache;
+    _tzZonesCache = (typeof Intl.supportedValuesOf === 'function')
+      ? Intl.supportedValuesOf('timeZone')
+      : ['UTC','Africa/Nairobi','Asia/Kuala_Lumpur','Asia/Tokyo','Asia/Bangkok','Asia/Qatar','Asia/Singapore','Asia/Hong_Kong','Asia/Ho_Chi_Minh'];
+    return _tzZonesCache;
+  }
+
+  /* ── Timezone combobox — searchable, but only a real zone from the
+     list can ever end up as the saved value. Typing filters a dropdown
+     of matches; tapping one selects it. If the field is left with text
+     that isn't an exact, valid zone name, it snaps back to the last
+     valid value on blur instead of silently saving something wrong. ── */
+  function wireTzCombobox(inputId) {
+    const input = body.querySelector('#'+inputId);
+    if (!input || input.dataset.tzWired) return;
+    input.dataset.tzWired = '1';
+
+    const listEl = document.createElement('div');
+    listEl.className = 'bs-tz-suggestions';
+    input.insertAdjacentElement('afterend', listEl);
+
+    let lastValid = input.value;
+    const zones = getAllZones();
+
+    function renderSuggestions() {
+      const q = input.value.trim().toLowerCase();
+      if (!q) { listEl.style.display = 'none'; return; }
+      const matches = zones.filter(z => z.toLowerCase().includes(q)).slice(0, 8);
+      if (!matches.length) {
+        listEl.innerHTML = '<div class="bs-tz-suggestion bs-tz-suggestion--empty">No matching timezone</div>';
+      } else {
+        listEl.innerHTML = matches.map(z =>
+          `<div class="bs-tz-suggestion" data-zone="${z}">${z.replace(/_/g,' ')}</div>`).join('');
+      }
+      listEl.style.display = 'block';
+    }
+
+    input.addEventListener('input', renderSuggestions);
+    input.addEventListener('focus', renderSuggestions);
+
+    listEl.addEventListener('mousedown', (e) => {
+      const item = e.target.closest('.bs-tz-suggestion[data-zone]');
+      if (!item) return;
+      input.value = item.dataset.zone;
+      lastValid = item.dataset.zone;
+      listEl.style.display = 'none';
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    input.addEventListener('blur', () => {
+      setTimeout(() => {
+        listEl.style.display = 'none';
+        if (!zones.includes(input.value)) {
+          input.value = lastValid; // reject anything that isn't a real, exact zone name
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        } else {
+          lastValid = input.value;
+        }
+      }, 150); // let a suggestion's mousedown register before blur fires
+    });
+  }
+
   function timeWithTz(timeId, tzId, timeVal, tzVal) {
     const tVal = /^\d{2}:\d{2}$/.test(timeVal||'') ? timeVal : '';
     const defaultTz = resolveTz(tzVal);
@@ -161,7 +228,9 @@ const BottomSheet = (() => {
       <label class="bs-edit-label" for="${timeId}">Time</label>
       <div class="bs-time-row">
         <input id="${timeId}" class="bs-input" type="time" value="${tVal}">
-        <input id="${tzId}" class="bs-input bs-tz-sel" type="text" list="tz-datalist" value="${defaultTz}" placeholder="e.g. Asia/Tokyo">
+        <div style="position:relative;flex:1;min-width:0">
+          <input id="${tzId}" class="bs-input bs-tz-sel" type="text" autocomplete="off" value="${defaultTz}" placeholder="Search city or region…">
+        </div>
       </div></div>`;
   }
   function select(label, id, value, options) {
@@ -204,9 +273,9 @@ const BottomSheet = (() => {
       ${field(isPlane?'Departure airport':'Origin','e-origin',td.origin||'','text',isPlane?'e.g. NBO':'e.g. Shin-Osaka')}
       ${field(isPlane?'Arrival airport':'Destination','e-destination',td.destination||'','text',isPlane?'e.g. JRO':'e.g. Kii-Tanabe')}
       ${field('Arrive time','e-arrive',/^\d{2}:\d{2}$/.test(td.arriveTime||'')?td.arriveTime:'','time')}
-      <div class="bs-edit-group">
+      <div class="bs-edit-group" style="position:relative">
         <label class="bs-edit-label" for="e-arrivetz">Arrival timezone</label>
-        <input id="e-arrivetz" class="bs-input" type="text" list="tz-datalist" value="${resolveTz(td.arriveTimeZone)}" placeholder="e.g. Asia/Tokyo">
+        <input id="e-arrivetz" class="bs-input bs-tz-sel" type="text" autocomplete="off" value="${resolveTz(td.arriveTimeZone)}" placeholder="Search city or region…">
       </div>
       <div class="bs-edit-group" style="display:flex;align-items:center;gap:var(--s3)">
         <label class="bs-edit-label" style="margin-bottom:0">Duration</label>
@@ -234,9 +303,9 @@ const BottomSheet = (() => {
       ${field(isPlane?'Departure airport':'Origin (boarding station)','a-origin',td.origin||'','text',isPlane?'e.g. NBO':'e.g. Shin-Osaka')}
       ${field(isPlane?'Arrival airport':'Destination (alighting)','a-destination',td.destination||'','text',isPlane?'e.g. JRO':'e.g. Kii-Tanabe')}
       ${field('Arrive time','a-arrive',td.arriveTime||'','time')}
-      <div class="bs-edit-group">
+      <div class="bs-edit-group" style="position:relative">
         <label class="bs-edit-label" for="a-arrivetz">Arrival timezone</label>
-        <input id="a-arrivetz" class="bs-input" type="text" list="tz-datalist" value="${resolveTz(td.arriveTimeZone)}" placeholder="e.g. Asia/Tokyo">
+        <input id="a-arrivetz" class="bs-input bs-tz-sel" type="text" autocomplete="off" value="${resolveTz(td.arriveTimeZone)}" placeholder="Search city or region…">
       </div>
       <div class="bs-edit-group" style="display:flex;align-items:center;gap:var(--s3)">
         <label class="bs-edit-label" style="margin-bottom:0">Duration</label>
@@ -515,12 +584,15 @@ const BottomSheet = (() => {
         trainBlock.innerHTML = editTrainDetailHTML(type, preserved, stop.flightNo);
         wireAutoduration('e-time', 'e-arrive', 'e-duration-display', 'e-duration', 'e-tz', 'e-arrivetz');
         wireTimeInput('e-arrive');
+        wireTzCombobox('e-arrivetz');
       }
     }
     editTType?.addEventListener('change', rerenderTrainBlock);
     wireAutoduration('e-time', 'e-arrive', 'e-duration-display', 'e-duration', 'e-tz', 'e-arrivetz');
     wireTimeInput('e-time');
     wireTimeInput('e-arrive');
+    wireTzCombobox('e-tz');
+    wireTzCombobox('e-arrivetz');
     body.querySelector('#e-deadline-clear')?.addEventListener('click', () => {
       const input = body.querySelector('#e-deadline');
       if (input) input.value = '';
@@ -657,11 +729,13 @@ const BottomSheet = (() => {
       if (show) {
         wireAutoduration('a-time', 'a-arrive', 'a-duration-display', 'a-duration', 'a-tz', 'a-arrivetz');
         wireTimeInput('a-arrive');
+        wireTzCombobox('a-arrivetz');
       }
     }
     tTypeSelect?.addEventListener('change', updateTrainBlock);
     updateTrainBlock(); // build correct initial content (hidden, since default type is 'walk')
     wireTimeInput('a-time');
+    wireTzCombobox('a-tz');
 
     body.querySelector('#bs-add-btn')?.addEventListener('click', async () => {
       const name = g('a-name');
