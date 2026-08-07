@@ -326,7 +326,7 @@ const LandingScreen = (() => {
         <text x="${padXL - 6}" y="${topY + 3}" font-size="8" fill="var(--text-muted)" text-anchor="end">${Math.round(max).toLocaleString()}</text>
         <text x="${padXL - 6}" y="${botY + 3}" font-size="8" fill="var(--text-muted)" text-anchor="end">${Math.round(min).toLocaleString()}</text>
         ${ticks}
-        ${lineFor(seriesA, 'var(--accent)')}
+        ${lineFor(seriesA, 'var(--flight-line-1)')}
         ${lineFor(seriesB, 'var(--flight-line-2)')}
         <text x="${firstX}" y="134" font-size="8" fill="var(--text-muted)" text-anchor="start">${fmtDate(dates[0])}</text>
         <text x="${lastX}" y="134" font-size="8" fill="var(--text-muted)" text-anchor="end">${fmtDate(dates[dates.length-1])}</text>
@@ -368,12 +368,12 @@ const LandingScreen = (() => {
     }
 
     const toggle = document.createElement('div');
-    toggle.style.cssText = 'display:flex;background:var(--accent-subtle);border-radius:var(--r-pill);padding:3px;margin:var(--s2) 0 var(--s3)';
+    toggle.style.cssText = 'display:flex;background:var(--flight-accent-subtle);border-radius:var(--r-pill);padding:3px;margin:var(--s2) 0 var(--s3)';
     ['Economy','Business'].forEach(cab => {
       const btn = document.createElement('button');
       btn.textContent = cab;
       const isActive = activeCabin === cab;
-      btn.style.cssText = `flex:1;text-align:center;padding:6px 0;font-size:var(--text-xs);font-weight:500;border:none;border-radius:var(--r-pill);cursor:pointer;font-family:var(--font);background:${isActive?'var(--surface)':'none'};color:${isActive?'var(--accent)':'var(--text-secondary)'};${isActive?'box-shadow:0 1px 2px rgba(0,0,0,.08)':''}`;
+      btn.style.cssText = `flex:1;text-align:center;padding:6px 0;font-size:var(--text-xs);font-weight:500;border:none;border-radius:var(--r-pill);cursor:pointer;font-family:var(--font);background:${isActive?'var(--surface)':'none'};color:${isActive?'var(--flight-accent)':'var(--text-secondary)'};${isActive?'box-shadow:0 1px 2px rgba(0,0,0,.08)':''}`;
       btn.addEventListener('click', () => { activeCabin = cab; renderFlightPriceBody(el); });
       toggle.appendChild(btn);
     });
@@ -398,7 +398,7 @@ const LandingScreen = (() => {
     const isLowestNow = latest.total === minTotal;
 
     const totalCard = document.createElement('div');
-    totalCard.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:var(--s3);background:var(--accent-subtle);border-radius:var(--r-md);padding:10px 12px;margin-bottom:var(--s3)';
+    totalCard.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:var(--s3);background:var(--flight-accent-subtle);border-radius:var(--r-md);padding:10px 12px;margin-bottom:var(--s3)';
     totalCard.innerHTML = `
       <div>
         <p style="font-size:var(--text-xs);color:var(--text-secondary)">Total round-trip · ${cabin}</p>
@@ -416,7 +416,7 @@ const LandingScreen = (() => {
     const legend = document.createElement('div');
     legend.style.cssText = 'display:flex;gap:var(--s4);margin-bottom:var(--s2)';
     legend.innerHTML = `
-      <div style="display:flex;align-items:center;gap:5px;font-size:var(--text-xs);color:var(--text-secondary)"><span style="width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block"></span>MH52 out <span style="font-weight:600;color:var(--text-primary)">${lastMh52?.toLocaleString() ?? '—'}</span></div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:var(--text-xs);color:var(--text-secondary)"><span style="width:8px;height:8px;border-radius:50%;background:var(--flight-line-1);display:inline-block"></span>MH52 out <span style="font-weight:600;color:var(--text-primary)">${lastMh52?.toLocaleString() ?? '—'}</span></div>
       <div style="display:flex;align-items:center;gap:5px;font-size:var(--text-xs);color:var(--text-secondary)"><span style="width:8px;height:8px;border-radius:50%;background:var(--flight-line-2);display:inline-block"></span>MH53 back <span style="font-weight:600;color:var(--text-primary)">${lastMh53?.toLocaleString() ?? '—'}</span></div>`;
     el.appendChild(legend);
 
@@ -596,7 +596,7 @@ const LandingScreen = (() => {
 
     if (activeTab === 'world') {
       const backRow = document.createElement('div');
-      backRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding:18px var(--s4) 4px;cursor:pointer';
+      backRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding:calc(18px + env(safe-area-inset-top)) var(--s4) 4px;cursor:pointer';
       backRow.innerHTML = `<span style="color:var(--text-secondary)">←</span><span style="font-size:13px;font-weight:600;color:var(--text-primary)">Back to trips</span>`;
       backRow.addEventListener('click', () => { activeTab = 'trips'; render(); });
       root.appendChild(backRow);
