@@ -1400,6 +1400,23 @@ const Data = (() => {
     return null;
   }
 
+  // Resolves a set of user ids to display names via the profiles table
+  // — used for the journal byline and the export's author filter, since
+  // journal_entries only stores created_by (a bare user id) itself.
+  let _profileCache = {};
+  async function getProfilesByIds(ids) {
+    const unique = [...new Set(ids)].filter(Boolean);
+    const missing = unique.filter(id => !_profileCache[id]);
+    if (missing.length && navigator.onLine) {
+      const { data } = await SB.from('profiles').select('id, full_name, email').in('id', missing);
+      (data || []).forEach(p => { _profileCache[p.id] = p.full_name || p.email || 'Traveler'; });
+      missing.forEach(id => { if (!_profileCache[id]) _profileCache[id] = 'Traveler'; });
+    }
+    const out = {};
+    unique.forEach(id => { out[id] = _profileCache[id] || 'Traveler'; });
+    return out;
+  }
+
   /* ── FOOD API (Thailand dish tracker) ───────────────────────
      Same shape as Dex — a static catalog of dishes to look out for,
      tracked against a Supabase table, with optional photos per catch. */
@@ -1929,7 +1946,7 @@ const Data = (() => {
     addBucketItem, deleteBucketItem, toggleBucketDone, addBucketPhoto, removeBucketPhoto, getBucketPhoto,
     // Journal
     getJournalEntries, getJournalEntry, addJournalEntry, updateJournalEntry, deleteJournalEntry,
-    addJournalPhoto, setJournalHeroPhoto, removeJournalPhoto, getJournalPhotoUrl, setJournalPhotoFocal,
+    addJournalPhoto, setJournalHeroPhoto, removeJournalPhoto, getJournalPhotoUrl, setJournalPhotoFocal, getProfilesByIds,
     // Stories + Glossary
     hasStory, getStory, getGlossary,
     // Links
