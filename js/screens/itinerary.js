@@ -393,7 +393,7 @@ const ItineraryScreen = (() => {
     const header = document.createElement('div');
     header.style.cssText = 'padding:var(--s4) var(--s4) var(--s2);border-bottom:1.5px solid var(--border)';
     header.innerHTML = `
-      <p style="font-size:var(--text-lg);font-weight:500;color:var(--text-primary)">What's included</p>
+      <p style="font-size:var(--text-lg);font-weight:500;color:var(--text-primary)">Info</p>
       <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">Wildsenses Holidays · East Africa Safari & Mountain Gorilla</p>`;
     wrap.appendChild(header);
 
@@ -431,13 +431,13 @@ const ItineraryScreen = (() => {
     return wrap;
   }
 
-  /* ── Sub-tab bar (Itinerary / What's included) ──────────────── */
+  /* ── Sub-tab bar (Itinerary / Info) ──────────────── */
   let activeTab = 'itinerary';
 
   function subTabBar() {
     const bar = document.createElement('div');
     bar.className = 'sub-tab-bar';
-    [['itinerary','Itinerary'],['map','Map'],['journal','Journal'],['included',"What's included"]].forEach(([id, label]) => {
+    [['itinerary','Itinerary'],['map','Map'],['journal','Journal'],['included','Info']].forEach(([id, label]) => {
       const btn = document.createElement('button');
       btn.className = `sub-tab ${activeTab === id ? 'sub-tab--active' : ''}`;
       btn.textContent = label;
