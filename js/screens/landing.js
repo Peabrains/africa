@@ -1,21 +1,23 @@
 'use strict';
 
 /* ============================================================
-   LANDING SCREEN — the new home. Two tabs:
-   - Trips: trip cards + "+ New Trip"
-   - World Map: shaded map + searchable, continent-grouped flag grid
-   Replaces the old TripSwitcher bottom sheet and the standalone
-   Countries screen (folded in here as the World Map tab).
+   LANDING SCREEN — the app's true front door (loads on cold
+   start). Layout: wordmark → "Hello, {name}" → countries stat
+   → flight watch stat → "Where to?" trip cards. World Map and
+   Flight Watch are collapsed, labeled, tap-to-expand rows —
+   never full-width tabs competing with picking a trip.
    ============================================================ */
 
 const LandingScreen = (() => {
   let root = null;
-  let activeTab = 'trips';
+  let activeTab = 'trips'; // 'trips' (home) | 'world' (full map view, entered via the countries row)
+  let flightExpanded = false;
   let activeCabin = 'Economy';
   let worldGeoJson = null;
   let visitedSet = new Set();
   let leafletMap = null;
   let searchQuery = '';
+  let greetName = '';
 
   function flagEmoji(iso2) {
     if (!iso2 || iso2.length !== 2) return '🏳️';
@@ -31,23 +33,95 @@ const LandingScreen = (() => {
     return worldGeoJson;
   }
 
-  function tabBar() {
-    const bar = document.createElement('div');
-    bar.style.cssText = 'display:flex;gap:4px;background:var(--accent-subtle);border-radius:12px;padding:4px;margin:0 var(--s4) var(--s4)';
-    [['trips', 'Trips'], ['world', 'World Map']].forEach(([id, label]) => {
-      const btn = document.createElement('button');
-      btn.textContent = label;
-      const active = activeTab === id;
-      btn.style.cssText = `flex:1;text-align:center;padding:9px 0;border-radius:9px;font-size:var(--text-sm);font-weight:600;border:none;cursor:pointer;font-family:var(--font);background:${active ? 'var(--surface)' : 'transparent'};color:${active ? 'var(--accent)' : 'var(--text-muted)'};box-shadow:${active ? '0 1px 3px rgba(0,0,0,.08)' : 'none'}`;
-      btn.addEventListener('click', () => { activeTab = id; render(); });
-      bar.appendChild(btn);
-    });
-    return bar;
+  function daysUntil(dateStr) {
+    if (!dateStr) return null;
+    const ms = new Date(dateStr + 'T00:00:00') - new Date(new Date().toDateString());
+    return Math.round(ms / 86400000);
+  }
+
+  /* ── Wordmark + greeting + countries/flight summary rows ──── */
+  function wordmarkRow() {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:22px var(--s4) 4px';
+    row.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:26px;height:26px;border-radius:8px;background:var(--text-primary);display:flex;align-items:center;justify-content:center;color:var(--bg)">${Icons.badgeCheck('icon-sm')}</div>
+        <span style="font-size:13px;font-weight:700;letter-spacing:.02em;color:var(--text-primary)">TRIP COMPANION</span>
+      </div>
+      <button id="landing-settings-btn" style="width:32px;height:32px;border-radius:10px;background:var(--surface-raised);border:none;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);cursor:pointer">${Icons.settings('icon-sm')}</button>`;
+    row.querySelector('#landing-settings-btn').addEventListener('click', () => Toast.show('Settings — coming soon', 'info'));
+    return row;
+  }
+
+  function greetRow() {
+    const el = document.createElement('div');
+    el.style.cssText = 'padding:14px var(--s4) 18px';
+    el.innerHTML = `<p style="font-size:26px;font-weight:700;color:var(--text-primary);letter-spacing:-.01em">Hello${greetName ? ', ' + greetName : ''}</p>`;
+    return el;
+  }
+
+  function statRow({ icon, title, sub, onClick }) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;margin:0 var(--s4) 10px;padding:12px 14px;background:var(--surface);border-radius:14px;border:1px solid var(--border-subtle);cursor:pointer';
+    row.innerHTML = `
+      <span style="color:var(--text-secondary);flex-shrink:0;display:flex">${icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;color:var(--text-primary)">${title}</div>
+        ${sub ? `<div style="font-size:10px;color:var(--text-muted);margin-top:1px">${sub}</div>` : ''}
+      </div>
+      <span style="color:var(--text-muted);font-size:13px;flex-shrink:0">→</span>`;
+    row.addEventListener('click', onClick);
+    return row;
+  }
+
+  async function countriesStatRow(container) {
+    await loadGeoJson();
+    visitedSet = new Set(await Data.getVisitedCountries());
+    const totalCodes = new Set(worldGeoJson.features.map(f => f.properties.iso2).filter(Boolean));
+    const visitedCount = [...visitedSet].filter(c => totalCodes.has(c)).length;
+    const continents = new Set(
+      worldGeoJson.features
+        .filter(f => visitedSet.has(f.properties.iso2))
+        .map(f => f.properties.continent)
+        .filter(Boolean)
+    );
+    container.appendChild(statRow({
+      icon: Icons.globe('icon-sm'),
+      title: `${visitedCount} countries visited · ${continents.size} continents`,
+      onClick: () => { activeTab = 'world'; render(); },
+    }));
+  }
+
+  function flightStatRow(container) {
+    FlightPrice.prefetch(() => render()); // no-op if already fetched this session
+    const fp = FlightPrice.getCached();
+    const tot = fp ? FlightPrice.totals(activeCabin) : [];
+    const latest = tot[tot.length - 1];
+    const sub = (fp && latest)
+      ? `${latest.total.toLocaleString()} ${fp.currency} latest · updated ${new Date(latest.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+      : 'Checking latest fares…';
+    container.appendChild(statRow({
+      icon: Icons.plane('icon-sm'),
+      title: 'KUL ⇄ KIX flight watch',
+      sub,
+      onClick: () => { flightExpanded = !flightExpanded; render(); },
+    }));
+    if (flightExpanded) {
+      const card = document.createElement('div');
+      card.style.cssText = 'margin:0 var(--s4) 14px;padding:14px;background:var(--surface);border-radius:14px;border:1px solid var(--border-subtle)';
+      container.appendChild(card);
+      renderFlightPriceBody(card);
+    }
   }
 
   function renderTripsTab(container) {
     const trips = Data.getTrips();
     const current = Data.getCurrentTrip();
+
+    const heading = document.createElement('div');
+    heading.style.cssText = 'padding:20px var(--s4) 10px';
+    heading.innerHTML = `<p style="font-size:21px;font-weight:700;color:var(--text-primary)">Where to?</p><p style="font-size:12px;color:var(--text-muted);margin-top:4px">${trips.length} trip${trips.length===1?'':'s'} planned</p>`;
+    container.appendChild(heading);
 
     if (!trips.length) {
       const empty = document.createElement('p');
@@ -58,19 +132,34 @@ const LandingScreen = (() => {
 
     trips.forEach(t => {
       const isPast = t.status === 'completed' || (t.end_date && new Date(t.end_date) < new Date());
+      const isOngoing = !isPast && t.start_date && new Date(t.start_date) <= new Date();
+      const dLeft = daysUntil(t.start_date);
+
       const card = document.createElement('div');
-      card.style.cssText = 'background:var(--surface);border-radius:16px;padding:14px;display:flex;align-items:center;gap:12px;margin:0 var(--s4) 12px;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;position:relative';
-      const statusLabel = isPast ? 'Past' : (t.status === 'ongoing' ? 'Ongoing' : 'Upcoming');
-      const statusColor = isPast ? 'var(--text-muted)' : '#3A7A3A';
-      const statusBg = isPast ? 'var(--accent-subtle)' : '#E8F3E8';
+      card.style.cssText = 'background:var(--surface);border-radius:20px;padding:16px;display:flex;align-items:center;gap:14px;margin:0 var(--s4) 12px;border:1px solid var(--border-subtle);box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;position:relative';
+
+      const dateRange = [t.start_date, t.end_date].filter(Boolean)
+        .map(d => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }))
+        .join(' – ');
+
+      let countdownHtml;
+      if (isPast) {
+        countdownHtml = `<div style="text-align:center;flex-shrink:0"><div style="font-size:16px">✓</div><div style="font-size:8px;font-weight:700;color:var(--text-muted);text-transform:uppercase">Done</div></div>`;
+      } else if (isOngoing) {
+        countdownHtml = `<div style="text-align:center;flex-shrink:0"><div style="font-size:11px;font-weight:800;color:var(--text-primary)">Now</div><div style="font-size:8px;font-weight:700;color:var(--text-muted);text-transform:uppercase">Ongoing</div></div>`;
+      } else {
+        countdownHtml = `<div style="text-align:center;flex-shrink:0"><div style="font-size:20px;font-weight:800;color:var(--text-primary);line-height:1">${dLeft}</div><div style="font-size:8px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-top:2px">days to go</div></div>`;
+      }
+
       card.innerHTML = `
-        <div style="font-size:30px">${t.cover_emoji || '🧭'}</div>
+        <div style="width:48px;height:48px;border-radius:50%;flex-shrink:0;background:var(--surface-raised);border:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:center;font-size:23px">${t.cover_emoji || '🧭'}</div>
         <div style="flex:1;min-width:0">
-          <p style="font-size:var(--text-md);font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}${current?.id === t.id ? ' <span style=\'color:var(--accent);font-size:11px;font-weight:500\'>· current</span>' : ''}</p>
-          <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">${(t.countries || []).join(' · ')}${t.start_date ? ' · ' + t.start_date : ''}</p>
+          <p style="font-size:16px;font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}${current?.id === t.id ? ' <span style=\'color:var(--accent);font-size:10px;font-weight:600\'>· current</span>' : ''}</p>
+          <p style="font-size:11px;color:var(--text-secondary);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(t.countries || []).join(' · ')}</p>
+          ${dateRange ? `<p style="font-size:10.5px;color:var(--text-muted);margin-top:2px">${dateRange}</p>` : ''}
         </div>
-        <span style="font-size:10px;font-weight:600;padding:3px 8px;border-radius:8px;background:${statusBg};color:${statusColor};flex-shrink:0">${statusLabel}</span>
-        <button class="trip-del-btn" style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;padding:0 0 0 4px;flex-shrink:0">×</button>`;
+        ${countdownHtml}
+        <button class="trip-del-btn" style="position:absolute;top:10px;right:10px;background:none;border:none;color:var(--text-muted);font-size:16px;cursor:pointer;padding:2px 4px;line-height:1">×</button>`;
       card.addEventListener('click', async (e) => {
         if (e.target.classList.contains('trip-del-btn')) return;
         if (current?.id === t.id) { App.switchTo('itinerary'); return; }
@@ -78,6 +167,7 @@ const LandingScreen = (() => {
         await Data.switchTrip(t.id);
         App.switchTo('itinerary');
       });
+
 
       let delArmed = false, delTimer = null;
       const delBtn = card.querySelector('.trip-del-btn');
@@ -108,12 +198,10 @@ const LandingScreen = (() => {
     });
 
     const newBtn = document.createElement('div');
-    newBtn.style.cssText = 'margin:4px var(--s4) var(--s5);padding:14px;text-align:center;border:1.5px dashed var(--accent);border-radius:14px;color:var(--accent);font-size:var(--text-sm);font-weight:600;cursor:pointer';
+    newBtn.style.cssText = 'margin:4px var(--s4) var(--s6);padding:14px;text-align:center;border:1.5px dashed var(--text-muted);border-radius:14px;color:var(--text-secondary);font-size:var(--text-sm);font-weight:700;cursor:pointer';
     newBtn.textContent = '+ New Trip';
     newBtn.addEventListener('click', () => renderNewTripForm(container));
     container.appendChild(newBtn);
-
-    renderFlightWatchSection(container);
   }
 
   function renderNewTripForm(container) {
@@ -362,22 +450,6 @@ const LandingScreen = (() => {
     }
   }
 
-  function renderFlightWatchSection(container) {
-    const heading = document.createElement('p');
-    heading.style.cssText = 'font-size:var(--text-xs);font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin:var(--s2) var(--s4) var(--s2)';
-    heading.textContent = 'Flight Watch';
-    container.appendChild(heading);
-
-    const card = document.createElement('div');
-    card.style.cssText = 'background:var(--surface);border-radius:16px;padding:14px;margin:0 var(--s4) var(--s6);box-shadow:0 1px 4px rgba(0,0,0,.05)';
-    card.innerHTML = `<p style="font-size:var(--text-md);font-weight:600;color:var(--text-primary)">📈 MH52/53 — KUL ⇄ KIX</p>`;
-    const bodyEl = document.createElement('div');
-    card.appendChild(bodyEl);
-    container.appendChild(card);
-
-    FlightPrice.prefetch(() => render());
-    renderFlightPriceBody(bodyEl);
-  }
 
   function countryStyle(feature) {
     const code = feature.properties.iso2;
@@ -514,22 +586,38 @@ const LandingScreen = (() => {
     if (!root) return;
     root.innerHTML = '';
 
-    const header = document.createElement('div');
-    header.style.cssText = 'padding:var(--s4) var(--s4) var(--s3)';
-    header.innerHTML = `<p style="font-size:24px;font-weight:600;color:var(--text-primary)">My Trips</p>`;
-    root.appendChild(header);
-    root.appendChild(tabBar());
+    if (activeTab === 'world') {
+      const backRow = document.createElement('div');
+      backRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding:18px var(--s4) 4px;cursor:pointer';
+      backRow.innerHTML = `<span style="color:var(--text-secondary)">←</span><span style="font-size:13px;font-weight:600;color:var(--text-primary)">Back to trips</span>`;
+      backRow.addEventListener('click', () => { activeTab = 'trips'; render(); });
+      root.appendChild(backRow);
 
-    const content = document.createElement('div');
-    root.appendChild(content);
-
-    if (activeTab === 'trips') {
-      renderTripsTab(content);
-    } else {
+      const content = document.createElement('div');
+      root.appendChild(content);
       await loadGeoJson();
       visitedSet = new Set(await Data.getVisitedCountries());
       renderWorldTab(content);
+      return;
     }
+
+    root.appendChild(wordmarkRow());
+    root.appendChild(greetRow());
+
+    if (!greetName) {
+      Auth.getUser().then(u => {
+        const full = u?.user_metadata?.full_name || '';
+        const first = full.split(' ')[0];
+        if (first && first !== greetName) { greetName = first; render(); }
+      }).catch(() => {});
+    }
+
+    await countriesStatRow(root);
+    flightStatRow(root);
+
+    const content = document.createElement('div');
+    root.appendChild(content);
+    renderTripsTab(content);
   }
 
   function init(rootEl) {
