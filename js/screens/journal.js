@@ -262,6 +262,13 @@ const JournalScreen = (() => {
       page.appendChild(empty);
     }
 
+    // Byline — only shown once there's genuinely more than one
+    // contributor on this trip's journal, so a solo traveler never
+    // sees a redundant "written by you" on every entry.
+    const distinctAuthors = [...new Set(entries.map(e => e.created_by).filter(Boolean))];
+    const showByline = distinctAuthors.length > 1;
+    const authorNames = showByline ? await Data.getProfilesByIds(distinctAuthors) : {};
+
     for (const entry of entries) {
       const block = document.createElement('div');
       block.style.cssText = 'margin-bottom:8px;position:relative';
@@ -269,9 +276,11 @@ const JournalScreen = (() => {
       const heroWrap = document.createElement('div');
       heroWrap.style.cssText = 'width:100%;height:170px;background-color:#EDE8DE;position:relative;overflow:hidden';
 
+      const byline = showByline && entry.created_by ? `<div style="text-align:center;font-size:10px;color:#A39A8C;margin-top:-12px;margin-bottom:18px">— ${authorNames[entry.created_by] || 'Traveler'}</div>` : '';
       block.innerHTML = `
         <div style="height:1px;background:#1C1A18;opacity:.08;margin:0 26px 18px"></div>
-        <div style="text-align:center;font-size:11px;font-weight:700;letter-spacing:.06em;color:#6B6357;margin-bottom:18px">${dateLabelFor(entry)}</div>`;
+        <div style="text-align:center;font-size:11px;font-weight:700;letter-spacing:.06em;color:#6B6357;margin-bottom:${showByline ? '4px' : '18px'}">${dateLabelFor(entry)}</div>
+        ${byline}`;
       block.appendChild(heroWrap);
       heroWrap.innerHTML = `
         <button class="j-edit-btn" data-entry="${entry.id}" style="position:absolute;top:14px;right:20px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.4);border:none;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2">
@@ -317,7 +326,7 @@ const JournalScreen = (() => {
     root.appendChild(page);
 
     page.querySelector('#j-new-btn')?.addEventListener('click', () => openComposer(null));
-    page.querySelector('#j-export-btn')?.addEventListener('click', exportJournalImage);
+    page.querySelector('#j-export-btn')?.addEventListener('click', openExportOptions);
     page.querySelectorAll('.j-edit-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -385,13 +394,13 @@ const JournalScreen = (() => {
   }
 
   // One point per day-locality (not per stop) — averages that day's
-  // stops' coordinates as a representative position, scoped to only
-  // the days actually referenced by entries in this export, so the
-  // illustration stays proportional to what's actually in the journal
-  // rather than duplicating the full Itinerary tab's every stop.
-  function getJournalDayPoints(entries) {
-    const dayIds = [...new Set(entries.map(e => e.day_id).filter(Boolean))];
-    if (!dayIds.length) return [];
+  // stops' coordinates as a representative position. Takes an explicit
+  // list of day ids chosen in the export options step, rather than
+  // auto-deriving from which entries happen to be tagged — so an
+  // untagged journal doesn't mean an empty map, the traveler just
+  // picks whichever days they want illustrated directly.
+  function getDayPointsForIds(dayIds) {
+    if (!dayIds || !dayIds.length) return [];
     const days = (Data.getDays?.() || [])
       .filter(d => dayIds.includes(d.id))
       .sort((a, b) => (a.day_index ?? 0) - (b.day_index ?? 0));
@@ -429,10 +438,119 @@ const JournalScreen = (() => {
     return v || '#C84B35';
   }
 
-  async function exportJournalImage() {
+  /* ── Export options — choose whether the route map appears at all,
+     which specific days it plots (independent of which entries are
+     day-tagged, so an untagged journal is never just empty), and
+     whose entries to include if there's more than one contributor. ── */
+  async function openExportOptions() {
+    const entries = Data.getJournalEntries();
+    if (!entries.length) { Toast.show('Nothing to export yet', 'warning'); return; }
+
+    const distinctAuthors = [...new Set(entries.map(e => e.created_by).filter(Boolean))];
+    const showAuthorFilter = distinctAuthors.length > 1;
+    const authorNames = showAuthorFilter ? await Data.getProfilesByIds(distinctAuthors) : {};
+
+    const days = Data.getDays?.() || [];
+    const taggedDayIds = new Set(entries.map(e => e.day_id).filter(Boolean));
+
+    let includeMap = true;
+    let authorId = 'all';
+    const selectedDayIds = new Set(days.filter(d => taggedDayIds.has(d.id)).map(d => d.id));
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.4);display:flex;align-items:flex-end';
+    const sheet = document.createElement('div');
+    sheet.style.cssText = 'background:#FAF8F4;width:100%;max-height:82vh;border-radius:20px 20px 0 0;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom)';
+    overlay.appendChild(sheet);
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+    function renderSheet() {
+      sheet.innerHTML = `
+        <div style="display:flex;justify-content:center;padding:8px 0 0"><div style="width:36px;height:4px;background:#E4DECE;border-radius:2px"></div></div>
+        <div style="padding:20px">
+          <p style="font-size:16px;font-weight:700;color:#1C1A18;margin-bottom:18px">Export options</p>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #E4DECE">
+            <span style="font-size:13px;font-weight:600;color:#1C1A18">Include route map</span>
+            <button id="opt-map-toggle" style="width:44px;height:26px;border-radius:100px;border:none;background:${includeMap ? 'var(--accent)' : '#E4DECE'};position:relative;cursor:pointer">
+              <span style="position:absolute;top:3px;left:${includeMap ? '21px' : '3px'};width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s"></span>
+            </button>
+          </div>
+
+          ${includeMap ? `
+          <div style="padding-top:14px">
+            <p style="font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#A39A8C;margin-bottom:10px">Days to show on the map</p>
+            <div id="opt-day-list" style="display:flex;flex-direction:column;gap:2px;max-height:260px;overflow-y:auto"></div>
+          </div>` : ''}
+
+          ${showAuthorFilter ? `
+          <div style="padding-top:18px">
+            <p style="font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#A39A8C;margin-bottom:10px">Whose entries</p>
+            <div id="opt-author-pills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          </div>` : ''}
+
+          <button id="opt-export-btn" style="width:100%;margin-top:26px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:700;padding:14px;border-radius:100px;cursor:pointer;font-family:var(--font)">Export as Image</button>
+          <button id="opt-cancel-btn" style="width:100%;margin-top:8px;border:none;background:none;color:#A39A8C;font-size:12px;padding:10px;cursor:pointer;font-family:var(--font)">Cancel</button>
+        </div>`;
+
+      sheet.querySelector('#opt-map-toggle').addEventListener('click', () => { includeMap = !includeMap; renderSheet(); });
+
+      if (includeMap) {
+        const listEl = sheet.querySelector('#opt-day-list');
+        if (!days.length) {
+          listEl.innerHTML = `<div style="font-size:12px;color:#A39A8C;padding:8px 0">No days set up in this trip's itinerary yet.</div>`;
+        }
+        days.forEach(d => {
+          const row = document.createElement('label');
+          row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 4px;cursor:pointer';
+          const checked = selectedDayIds.has(d.id);
+          row.innerHTML = `
+            <input type="checkbox" ${checked ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--accent)">
+            <span style="font-size:13px;color:#1C1A18">${d.locality || d.label || d.date}</span>
+            ${taggedDayIds.has(d.id) ? '<span style="font-size:9px;color:var(--accent);margin-left:auto">has entry</span>' : ''}`;
+          row.querySelector('input').addEventListener('change', (e) => {
+            if (e.target.checked) selectedDayIds.add(d.id); else selectedDayIds.delete(d.id);
+          });
+          listEl.appendChild(row);
+        });
+      }
+
+      if (showAuthorFilter) {
+        const pillWrap = sheet.querySelector('#opt-author-pills');
+        const allPill = document.createElement('div');
+        allPill.textContent = 'Everyone';
+        allPill.style.cssText = `padding:7px 14px;border-radius:100px;font-size:12px;font-weight:600;cursor:pointer;background:${authorId==='all'?'var(--accent)':'#F1EDE5'};color:${authorId==='all'?'#fff':'#6B6357'}`;
+        allPill.addEventListener('click', () => { authorId = 'all'; renderSheet(); });
+        pillWrap.appendChild(allPill);
+        distinctAuthors.forEach(id => {
+          const pill = document.createElement('div');
+          pill.textContent = authorNames[id] || 'Traveler';
+          const active = authorId === id;
+          pill.style.cssText = `padding:7px 14px;border-radius:100px;font-size:12px;font-weight:600;cursor:pointer;background:${active?'var(--accent)':'#F1EDE5'};color:${active?'#fff':'#6B6357'}`;
+          pill.addEventListener('click', () => { authorId = id; renderSheet(); });
+          pillWrap.appendChild(pill);
+        });
+      }
+
+      sheet.querySelector('#opt-cancel-btn').addEventListener('click', () => overlay.remove());
+      sheet.querySelector('#opt-export-btn').addEventListener('click', () => {
+        overlay.remove();
+        exportJournalImage({ includeMap, selectedDayIds: [...selectedDayIds], authorId });
+      });
+    }
+
+    renderSheet();
+  }
+
+  async function exportJournalImage(options) {
+    const opts = options || { includeMap: true, selectedDayIds: [], authorId: 'all' };
     Toast.show('Preparing image…', 'info');
     const trip = Data.getCurrentTrip?.();
-    const entries = Data.getJournalEntries();
+    let entries = Data.getJournalEntries();
+    if (opts.authorId && opts.authorId !== 'all') {
+      entries = entries.filter(e => e.created_by === opts.authorId);
+    }
     if (!entries.length) { Toast.show('Nothing to export yet', 'warning'); return; }
 
     const W = 900, PAD = 56, CW = W - PAD * 2;
@@ -465,7 +583,7 @@ const JournalScreen = (() => {
     y += 30; // after trip title
     y += 40; // after countries subline
 
-    const dayPoints = getJournalDayPoints(entries);
+    const dayPoints = opts.includeMap ? getDayPointsForIds(opts.selectedDayIds) : [];
     const routeProjected = projectPoints(dayPoints, CW, 190);
     const ROUTE_H = 190;
     if (routeProjected.length) {
