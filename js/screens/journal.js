@@ -87,7 +87,7 @@ const JournalScreen = (() => {
 
   /* ── READ VIEW ────────────────────────────────────────────── */
 
-  const HERO_H = { landscape: 200, portrait: 340 };
+  const HERO_H = { landscape: 170, portrait: 260 };
 
   function dayLabelFor(dayId) {
     if (!dayId) return null;
@@ -207,7 +207,7 @@ const JournalScreen = (() => {
       const dateStr = new Date(entry.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
 
       const heroWrap = document.createElement('div');
-      heroWrap.style.cssText = 'width:100%;height:200px;background-color:#EDE8DE;position:relative;overflow:hidden';
+      heroWrap.style.cssText = 'width:100%;height:170px;background-color:#EDE8DE;position:relative;overflow:hidden';
 
       block.innerHTML = `<div style="height:1px;background:#1C1A18;opacity:.08;margin:0 26px 30px"></div>`;
       block.appendChild(heroWrap);
@@ -231,7 +231,7 @@ const JournalScreen = (() => {
         Data.getJournalPhotoUrl(hero).then((url) => {
           if (!url) return;
           const img = makePhotoImg({
-            url, focalPosition: hero.focal_position, boxHeight: 200,
+            url, focalPosition: hero.focal_position, boxHeight: 170,
             onOrientation: (orientation) => { heroWrap.style.height = HERO_H[orientation] + 'px'; img.style.height = HERO_H[orientation] + 'px'; },
           });
           img.style.position = 'absolute'; img.style.inset = '0'; img.style.zIndex = '1'; img.style.height = '100%';
@@ -450,13 +450,13 @@ const JournalScreen = (() => {
     const photoRow = wrap.querySelector('#j-photo-row');
     visiblePhotos.forEach(p => {
       const thumb = document.createElement('div');
-      thumb.style.cssText = `position:relative;flex-shrink:0;width:76px;height:76px;border-radius:6px;overflow:hidden;cursor:pointer`;
-      thumb.innerHTML = `<img src="${p.dataUrl}" style="width:100%;height:100%;object-fit:cover;object-position:${p.focalPosition||'center'}">`;
+      thumb.style.cssText = `position:relative;flex-shrink:0;width:104px;height:104px;border-radius:8px;overflow:hidden;cursor:pointer`;
+      thumb.innerHTML = `<img src="${p.dataUrl}" style="width:100%;height:100%;object-fit:cover;object-position:${p.focalPosition||'center'};pointer-events:none">`;
       if (p.isHero) {
-        thumb.innerHTML += `<div style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,.55);color:#fff;font-size:8px;font-weight:700;letter-spacing:.04em;padding:2px 6px;border-radius:4px;text-transform:uppercase">Hero</div>`;
+        thumb.innerHTML += `<div style="position:absolute;top:5px;left:5px;background:rgba(0,0,0,.55);color:#fff;font-size:8px;font-weight:700;letter-spacing:.04em;padding:2px 6px;border-radius:4px;text-transform:uppercase;pointer-events:none">Hero</div>`;
       }
-      thumb.innerHTML += `<div class="j-photo-focal" style="position:absolute;bottom:4px;left:4px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center">⤢</div>`;
-      thumb.innerHTML += `<div class="j-photo-remove" style="position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center">×</div>`;
+      thumb.innerHTML += `<button class="j-photo-focal" type="button" style="position:absolute;bottom:5px;left:5px;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:15px;display:flex;align-items:center;justify-content:center;padding:0">⤢</button>`;
+      thumb.innerHTML += `<button class="j-photo-remove" type="button" style="position:absolute;top:5px;right:5px;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;padding:0">×</button>`;
       thumb.addEventListener('click', (e) => {
         if (e.target.closest('.j-photo-remove')) {
           p.removed = true;
@@ -479,7 +479,7 @@ const JournalScreen = (() => {
     });
     const addBtn = document.createElement('div');
     addBtn.textContent = '+';
-    addBtn.style.cssText = 'flex-shrink:0;width:76px;height:76px;border-radius:6px;border:1.5px dashed #E4DECE;display:flex;align-items:center;justify-content:center;color:#A39A8C;font-size:22px;cursor:pointer';
+    addBtn.style.cssText = 'flex-shrink:0;width:104px;height:104px;border-radius:8px;border:1.5px dashed #E4DECE;display:flex;align-items:center;justify-content:center;color:#A39A8C;font-size:26px;cursor:pointer';
     addBtn.addEventListener('click', pickPhotos);
     photoRow.appendChild(addBtn);
 
