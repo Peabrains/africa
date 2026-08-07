@@ -22,6 +22,7 @@ const Data = (() => {
   let DEX_PHOTO_META = {};    // keyed by photo id -> { storage_path }, for photos synced from other devices
   let FOOD_CATCHES    = {};   // keyed by dish_id (Thailand food tracker)
   let FOOD_PHOTO_META = {};
+  let BUCKET_ITEMS    = [];   // user-added checklist items, shared shell across every trip
   let CUSTOM_LINKS  = [];
   let GLOSSARY_TERMS = {};    // keyed by term (lowercase)
   let TRAVELERS     = ['Traveler'];
@@ -101,6 +102,7 @@ const Data = (() => {
           { data: links },
           { data: glossary },
           { data: foodCatches },
+          { data: bucketItems },
         ] = await Promise.all([
           SB.from('itinerary_days').select('*').eq('trip_id', tripId).order('day_index'),
           SB.from('stops').select('*').eq('trip_id', tripId).order('sort_order'),
@@ -112,6 +114,7 @@ const Data = (() => {
           SB.from('custom_links').select('*').eq('trip_id', tripId).order('created_at'),
           SB.from('glossary_terms').select('*').eq('trip_id', tripId),
           SB.from('food_catches').select('*, food_photos(*)').eq('trip_id', tripId),
+          SB.from('bucket_items').select('*').eq('trip_id', tripId).order('created_at'),
         ]);
 
         DAYS       = days || [];
@@ -167,6 +170,9 @@ const Data = (() => {
         GLOSSARY_TERMS = {};
         (glossary || []).forEach(g => { GLOSSARY_TERMS[g.term.toLowerCase()] = g; });
 
+        // Bucket List — plain array, ordered by creation (own screen, not a lookup map)
+        BUCKET_ITEMS = bucketItems || [];
+
         // Cache everything for offline
         await Promise.all([
           DB.setMeta(CACHE_KEYS.days,      DAYS),
@@ -178,6 +184,7 @@ const Data = (() => {
           DB.setMeta(CACHE_KEYS.food,      FOOD_CATCHES),
           DB.setMeta(CACHE_KEYS.links,     CUSTOM_LINKS),
           DB.setMeta(CACHE_KEYS.glossary,  GLOSSARY_TERMS),
+          DB.saveBucket(BUCKET_ITEMS),
         ]);
 
         console.log('[Data] Loaded from Supabase:', DAYS.length, 'days,', STOPS.length, 'stops');
@@ -204,6 +211,7 @@ const Data = (() => {
     FOOD_CATCHES = await DB.getMeta(CACHE_KEYS.food)     || {};
     CUSTOM_LINKS = await DB.getMeta(CACHE_KEYS.links)    || [];
     GLOSSARY_TERMS = await DB.getMeta(CACHE_KEYS.glossary) || {};
+    BUCKET_ITEMS = await DB.loadBucket() || [];
     console.log('[Data] Loaded from cache:', DAYS.length, 'days');
   }
 
@@ -1112,6 +1120,140 @@ const Data = (() => {
     return null;
   }
 
+  /* ── BUCKET LIST API ─────────────────────────────────────────
+     User-added checklist, shared shell across every trip. Unlike
+     Dex/Stamps/Food this isn't a curated catalog — items are typed
+     in by the traveler, so state is just a plain array, not a
+     lookup keyed by a fixed id. "done" and "has a photo" are
+     deliberately independent — untick never touches the photo,
+     and removing a photo never touches the tick. Only one photo
+     per item (not an array like Dex/Food/Stamps allow), since a
+     checklist item only needs one piece of proof. */
+
+  function getBucketItems() { return BUCKET_ITEMS; }
+  function getBucketItem(id) { return BUCKET_ITEMS.find(i => i.id === id); }
+
+  function getBucketCategories() {
+    const seen = new Set();
+    BUCKET_ITEMS.forEach(i => { if (i.category) seen.add(i.category); });
+    return Array.from(seen);
+  }
+
+  function getBucketProgress() {
+    const done = BUCKET_ITEMS.filter(i => i.done);
+    return { total: BUCKET_ITEMS.length, done: done.length };
+  }
+
+  async function addBucketItem({ title, location = '', category = '', url = '' } = {}) {
+    const entry = {
+      trip_id:  CURRENT_TRIP.id,
+      title, location, category, url,
+      done: false,
+    };
+
+    // Optimistic local id — replaced with the real one once Supabase confirms.
+    let item = { ...entry, id: 'bk_' + Date.now(), created_at: new Date().toISOString() };
+    BUCKET_ITEMS.push(item);
+
+    if (navigator.onLine) {
+      const user = (await SB.auth.getUser()).data.user;
+      const { data, error } = await SB.from('bucket_items')
+        .insert({ ...entry, created_by: user?.id })
+        .select().single();
+      if (!error && data) {
+        const idx = BUCKET_ITEMS.findIndex(i => i.id === item.id);
+        if (idx >= 0) BUCKET_ITEMS[idx] = data;
+        item = data;
+      }
+    }
+    await DB.saveBucket(BUCKET_ITEMS);
+    return item;
+  }
+
+  async function deleteBucketItem(id) {
+    const item = getBucketItem(id);
+    BUCKET_ITEMS = BUCKET_ITEMS.filter(i => i.id !== id);
+    await DB.saveBucket(BUCKET_ITEMS);
+
+    if (navigator.onLine) {
+      await SB.from('bucket_items').delete().eq('id', id);
+    }
+    // Clean up any attached photo — local cache and Storage.
+    if (item?.photo_storage_path) {
+      await DB.deleteBucketPhoto(id);
+      if (navigator.onLine) {
+        await SB.storage.from('bucket-photos').remove([item.photo_storage_path]);
+      }
+    }
+  }
+
+  async function toggleBucketDone(id) {
+    const item = getBucketItem(id);
+    if (!item) return;
+    item.done = !item.done;
+    await DB.saveBucket(BUCKET_ITEMS);
+    if (navigator.onLine) {
+      await SB.from('bucket_items').update({ done: item.done }).eq('id', id);
+    }
+    return item.done;
+  }
+
+  async function addBucketPhoto(id, fileDataUrl) {
+    const item = getBucketItem(id);
+    if (!item) return;
+
+    // Save locally first — always works offline, fast-path for this device.
+    await DB.saveBucketPhoto(id, fileDataUrl);
+
+    // Sync to Supabase Storage so other devices can see it too.
+    // Photo arrives here already compressed (see bucket-list.js compressImage()).
+    if (navigator.onLine && CURRENT_TRIP) {
+      try {
+        const blob = await (await fetch(fileDataUrl)).blob();
+        const storagePath = `${CURRENT_TRIP.id}/${id}.jpg`;
+        const { error: upErr } = await SB.storage.from('bucket-photos')
+          .upload(storagePath, blob, { contentType: 'image/jpeg', upsert: true });
+        if (!upErr) {
+          item.photo_storage_path = storagePath;
+          await SB.from('bucket_items').update({ photo_storage_path: storagePath }).eq('id', id);
+        } else {
+          console.error('[Data] bucket photo upload error:', upErr);
+        }
+      } catch (e) {
+        console.error('[Data] bucket photo sync error:', e);
+      }
+    }
+    await DB.saveBucket(BUCKET_ITEMS);
+  }
+
+  async function removeBucketPhoto(id) {
+    const item = getBucketItem(id);
+    if (!item) return;
+    const storagePath = item.photo_storage_path;
+    item.photo_storage_path = null;
+    await DB.deleteBucketPhoto(id);
+    await DB.saveBucket(BUCKET_ITEMS);
+
+    if (navigator.onLine) {
+      await SB.from('bucket_items').update({ photo_storage_path: null }).eq('id', id);
+      if (storagePath) await SB.storage.from('bucket-photos').remove([storagePath]);
+    }
+  }
+
+  async function getBucketPhoto(id) {
+    // Fast path: this device has it locally (either taken here, or already synced down)
+    const local = await DB.loadBucketPhoto(id);
+    if (local) return local;
+
+    // Fallback: synced from another device — fetch via a signed URL from Storage
+    const item = getBucketItem(id);
+    if (item?.photo_storage_path && navigator.onLine) {
+      const { data, error } = await SB.storage.from('bucket-photos').createSignedUrl(item.photo_storage_path, 3600);
+      if (!error && data?.signedUrl) return data.signedUrl;
+    }
+    return null;
+  }
+
   /* ── FOOD API (Thailand dish tracker) ───────────────────────
      Same shape as Dex — a static catalog of dishes to look out for,
      tracked against a Supabase table, with optional photos per catch. */
@@ -1636,6 +1778,9 @@ const Data = (() => {
     markDishCaught, unmarkDishCaught, addFoodPhoto, removeFoodPhoto, getFoodPhoto,
     getStampStops, getStampState, isStampCollected, getStampProgress,
     markStampCollected, unmarkStampCollected, addStampPhoto, removeStampPhoto, getStampPhoto,
+    // Bucket List
+    getBucketItems, getBucketItem, getBucketCategories, getBucketProgress,
+    addBucketItem, deleteBucketItem, toggleBucketDone, addBucketPhoto, removeBucketPhoto, getBucketPhoto,
     // Stories + Glossary
     hasStory, getStory, getGlossary,
     // Links
