@@ -424,7 +424,7 @@ const ItineraryScreen = (() => {
     [['itinerary','Itinerary'],['map','Map'],['included',"What's included"]].forEach(([id, label]) => {
       const btn = document.createElement('button');
       btn.className = `sub-tab ${activeTab === id ? 'sub-tab--active' : ''}`;
-      btn.innerHTML = `<span class="sub-tab-pill">${label}</span>`;
+      btn.textContent = label;
       btn.addEventListener('click', () => { activeTab = id; render(); });
       bar.appendChild(btn);
     });
