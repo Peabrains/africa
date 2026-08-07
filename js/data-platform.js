@@ -23,6 +23,7 @@ const Data = (() => {
   let FOOD_CATCHES    = {};   // keyed by dish_id (Thailand food tracker)
   let FOOD_PHOTO_META = {};
   let BUCKET_ITEMS    = [];   // user-added checklist items, shared shell across every trip
+  let JOURNAL_ENTRIES = [];   // magazine-style trip journal — narration + photos, optionally day-tagged
   let CUSTOM_LINKS  = [];
   let GLOSSARY_TERMS = {};    // keyed by term (lowercase)
   let TRAVELERS     = ['Traveler'];
@@ -40,6 +41,7 @@ const Data = (() => {
     food:     'sb_food',
     glossary: 'sb_glossary',
     links:    'sb_links',
+    journal:  'sb_journal',
   };
 
   /* ── Load all trips for the current user ─────────────────── */
@@ -103,6 +105,7 @@ const Data = (() => {
           { data: glossary },
           { data: foodCatches },
           { data: bucketItems },
+          { data: journalEntries },
         ] = await Promise.all([
           SB.from('itinerary_days').select('*').eq('trip_id', tripId).order('day_index'),
           SB.from('stops').select('*').eq('trip_id', tripId).order('sort_order'),
@@ -115,6 +118,7 @@ const Data = (() => {
           SB.from('glossary_terms').select('*').eq('trip_id', tripId),
           SB.from('food_catches').select('*, food_photos(*)').eq('trip_id', tripId),
           SB.from('bucket_items').select('*').eq('trip_id', tripId).order('created_at'),
+          SB.from('journal_entries').select('*, journal_photos(*)').eq('trip_id', tripId).order('created_at'),
         ]);
 
         DAYS       = days || [];
@@ -172,6 +176,7 @@ const Data = (() => {
 
         // Bucket List — plain array, ordered by creation (own screen, not a lookup map)
         BUCKET_ITEMS = bucketItems || [];
+        JOURNAL_ENTRIES = journalEntries || [];
 
         // Cache everything for offline
         await Promise.all([
@@ -185,6 +190,7 @@ const Data = (() => {
           DB.setMeta(CACHE_KEYS.links,     CUSTOM_LINKS),
           DB.setMeta(CACHE_KEYS.glossary,  GLOSSARY_TERMS),
           DB.saveBucket(BUCKET_ITEMS),
+          DB.setMeta(CACHE_KEYS.journal, JOURNAL_ENTRIES),
         ]);
 
         console.log('[Data] Loaded from Supabase:', DAYS.length, 'days,', STOPS.length, 'stops');
@@ -212,6 +218,7 @@ const Data = (() => {
     CUSTOM_LINKS = await DB.getMeta(CACHE_KEYS.links)    || [];
     GLOSSARY_TERMS = await DB.getMeta(CACHE_KEYS.glossary) || {};
     BUCKET_ITEMS = await DB.loadBucket() || [];
+    JOURNAL_ENTRIES = await DB.getMeta(CACHE_KEYS.journal) || [];
     console.log('[Data] Loaded from cache:', DAYS.length, 'days');
   }
 
@@ -1254,6 +1261,132 @@ const Data = (() => {
     return null;
   }
 
+  /* ── JOURNAL API ──────────────────────────────────────────────
+     Magazine-style trip journal. Entries are written any time, with
+     an optional day tag, multiple photos (one marked as hero), and
+     a pull_quote — a sentence picked out of the narration to show
+     large on the page. Mirrors the dex_catches/dex_photos parent
+     + child pattern already used for other multi-photo features. */
+
+  function getJournalEntries() {
+    return JOURNAL_ENTRIES.slice().sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+  }
+  function getJournalEntry(id) { return JOURNAL_ENTRIES.find(e => e.id === id); }
+
+  async function addJournalEntry({ dayId = null, narration = '', pullQuote = '' } = {}) {
+    const user = (await SB.auth.getUser()).data.user;
+    const { data, error } = await SB.from('journal_entries')
+      .insert({ trip_id: CURRENT_TRIP.id, day_id: dayId, narration, pull_quote: pullQuote, created_by: user?.id })
+      .select().single();
+    if (error) throw error;
+    const entry = { ...data, journal_photos: [] };
+    JOURNAL_ENTRIES.push(entry);
+    await DB.setMeta(CACHE_KEYS.journal, JOURNAL_ENTRIES);
+    return entry;
+  }
+
+  async function updateJournalEntry(id, { dayId, narration, pullQuote } = {}) {
+    const entry = getJournalEntry(id);
+    if (!entry) return;
+    const patch = {};
+    if (dayId !== undefined)     patch.day_id = dayId;
+    if (narration !== undefined) patch.narration = narration;
+    if (pullQuote !== undefined) patch.pull_quote = pullQuote;
+    Object.assign(entry, {
+      day_id: patch.day_id !== undefined ? patch.day_id : entry.day_id,
+      narration: patch.narration !== undefined ? patch.narration : entry.narration,
+      pull_quote: patch.pullQuote !== undefined ? patch.pull_quote : entry.pull_quote,
+    });
+    await DB.setMeta(CACHE_KEYS.journal, JOURNAL_ENTRIES);
+    if (navigator.onLine) await SB.from('journal_entries').update(patch).eq('id', id);
+  }
+
+  async function deleteJournalEntry(id) {
+    const entry = getJournalEntry(id);
+    JOURNAL_ENTRIES = JOURNAL_ENTRIES.filter(e => e.id !== id);
+    await DB.setMeta(CACHE_KEYS.journal, JOURNAL_ENTRIES);
+    if (navigator.onLine) await SB.from('journal_entries').delete().eq('id', id);
+    // Clean up local photo cache + Storage for every photo this entry had.
+    for (const p of (entry?.journal_photos || [])) {
+      await DB.deleteJournalPhoto(p.id);
+      if (navigator.onLine && p.storage_path) await SB.storage.from('journal-photos').remove([p.storage_path]);
+    }
+  }
+
+  /* Adds one photo to an entry. Pass isHero:true to mark it as the
+     hero image — any previous hero on the same entry is demoted. */
+  async function addJournalPhoto(entryId, fileDataUrl, { isHero = false, sortOrder = 0 } = {}) {
+    const entry = getJournalEntry(entryId);
+    if (!entry) return;
+
+    const localId = 'jp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    await DB.saveJournalPhoto(localId, fileDataUrl);
+
+    let photo = { id: localId, entry_id: entryId, storage_path: null, is_hero: isHero, sort_order: sortOrder };
+    entry.journal_photos = entry.journal_photos || [];
+    if (isHero) entry.journal_photos.forEach(p => { p.is_hero = false; });
+    entry.journal_photos.push(photo);
+
+    if (navigator.onLine && CURRENT_TRIP) {
+      try {
+        const blob = await (await fetch(fileDataUrl)).blob();
+        const storagePath = `${CURRENT_TRIP.id}/${localId}.jpg`;
+        const { error: upErr } = await SB.storage.from('journal-photos')
+          .upload(storagePath, blob, { contentType: 'image/jpeg', upsert: true });
+        if (!upErr) {
+          if (isHero) {
+            await SB.from('journal_photos').update({ is_hero: false }).eq('entry_id', entryId);
+          }
+          const { data, error } = await SB.from('journal_photos')
+            .insert({ trip_id: CURRENT_TRIP.id, entry_id: entryId, storage_path: storagePath, is_hero: isHero, sort_order: sortOrder })
+            .select().single();
+          if (!error && data) {
+            const idx = entry.journal_photos.findIndex(p => p.id === localId);
+            if (idx >= 0) entry.journal_photos[idx] = data;
+            photo = data;
+          }
+        }
+      } catch (e) { console.error('[Data] journal photo upload error:', e); }
+    }
+    await DB.setMeta(CACHE_KEYS.journal, JOURNAL_ENTRIES);
+    return photo;
+  }
+
+  async function setJournalHeroPhoto(entryId, photoId) {
+    const entry = getJournalEntry(entryId);
+    if (!entry) return;
+    (entry.journal_photos || []).forEach(p => { p.is_hero = (p.id === photoId); });
+    await DB.setMeta(CACHE_KEYS.journal, JOURNAL_ENTRIES);
+    if (navigator.onLine) {
+      await SB.from('journal_photos').update({ is_hero: false }).eq('entry_id', entryId);
+      await SB.from('journal_photos').update({ is_hero: true }).eq('id', photoId);
+    }
+  }
+
+  async function removeJournalPhoto(entryId, photoId) {
+    const entry = getJournalEntry(entryId);
+    if (!entry) return;
+    const photo = (entry.journal_photos || []).find(p => p.id === photoId);
+    entry.journal_photos = (entry.journal_photos || []).filter(p => p.id !== photoId);
+    await DB.deleteJournalPhoto(photoId);
+    await DB.setMeta(CACHE_KEYS.journal, JOURNAL_ENTRIES);
+    if (navigator.onLine) {
+      await SB.from('journal_photos').delete().eq('id', photoId);
+      if (photo?.storage_path) await SB.storage.from('journal-photos').remove([photo.storage_path]);
+    }
+  }
+
+  async function getJournalPhotoUrl(photo) {
+    if (!photo) return null;
+    const local = await DB.loadJournalPhoto(photo.id).catch(() => null);
+    if (local) return local;
+    if (photo.storage_path && navigator.onLine) {
+      const { data, error } = await SB.storage.from('journal-photos').createSignedUrl(photo.storage_path, 3600);
+      if (!error && data?.signedUrl) return data.signedUrl;
+    }
+    return null;
+  }
+
   /* ── FOOD API (Thailand dish tracker) ───────────────────────
      Same shape as Dex — a static catalog of dishes to look out for,
      tracked against a Supabase table, with optional photos per catch. */
@@ -1781,6 +1914,9 @@ const Data = (() => {
     // Bucket List
     getBucketItems, getBucketItem, getBucketCategories, getBucketProgress,
     addBucketItem, deleteBucketItem, toggleBucketDone, addBucketPhoto, removeBucketPhoto, getBucketPhoto,
+    // Journal
+    getJournalEntries, getJournalEntry, addJournalEntry, updateJournalEntry, deleteJournalEntry,
+    addJournalPhoto, setJournalHeroPhoto, removeJournalPhoto, getJournalPhotoUrl,
     // Stories + Glossary
     hasStory, getStory, getGlossary,
     // Links
