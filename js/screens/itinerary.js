@@ -6,6 +6,22 @@ const ItineraryScreen = (() => {
   const daysExpanded = {};
   let _toggling = false;
 
+  // Short display form of a stored timezone value. Handles both real
+  // IANA names (current format) and the short abbreviations older
+  // stops may still have saved (EAT/JST/MYT/UTC/ICT), so both display
+  // sensibly without needing a database migration.
+  const LEGACY_TZ_ABBR = { EAT:'Africa/Nairobi', JST:'Asia/Tokyo', MYT:'Asia/Kuala_Lumpur', ICT:'Asia/Bangkok', UTC:'UTC' };
+  function tzAbbr(tz) {
+    if (!tz) return '';
+    const iana = LEGACY_TZ_ABBR[tz] || tz;
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', { timeZone: iana, timeZoneName: 'short' }).formatToParts(new Date());
+      return parts.find(p => p.type === 'timeZoneName')?.value || tz;
+    } catch (e) {
+      return tz;
+    }
+  }
+
   /* ── Segment → country label + colour ───────────────────────── */
   /* Auto-generate a consistent color per locality name — same locality
      always gets the same color, any new locality just works, no manual
@@ -354,7 +370,7 @@ const ItineraryScreen = (() => {
     row.innerHTML = `
       <div class="tl-time">
         <span class="tl-time-val">${stop.time || '—'}</span>
-        <span class="tl-time-tz">${stop.timeZone || ''}</span>
+        <span class="tl-time-tz">${tzAbbr(stop.timeZone)}</span>
       </div>
       <div class="tl-connector">
         <div class="tl-icon-circle" style="border-color:${segColorVal};color:${segColorVal}">
