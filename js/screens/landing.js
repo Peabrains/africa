@@ -45,11 +45,12 @@ const LandingScreen = (() => {
     row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:22px var(--s4) 4px';
     row.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px">
-        <div style="width:26px;height:26px;border-radius:8px;background:var(--text-primary);display:flex;align-items:center;justify-content:center;color:var(--bg)">${Icons.badgeCheck('icon-sm')}</div>
+        <div style="width:26px;height:26px;border-radius:8px;background:var(--text-primary);display:flex;align-items:center;justify-content:center;color:var(--bg)">${Icons.plane('icon-sm')}</div>
         <span style="font-size:13px;font-weight:700;letter-spacing:.02em;color:var(--text-primary)">TRIP COMPANION</span>
+        <span style="font-size:9px;font-weight:600;color:var(--text-muted);font-family:monospace;background:var(--surface-raised);border-radius:5px;padding:2px 5px">${Config.APP_VERSION || ''}</span>
       </div>
       <button id="landing-settings-btn" style="width:32px;height:32px;border-radius:10px;background:var(--surface-raised);border:none;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);cursor:pointer">${Icons.settings('icon-sm')}</button>`;
-    row.querySelector('#landing-settings-btn').addEventListener('click', () => Toast.show('Settings — coming soon', 'info'));
+    row.querySelector('#landing-settings-btn').addEventListener('click', () => AccountScreen.open(() => render()));
     return row;
   }
 
@@ -95,11 +96,18 @@ const LandingScreen = (() => {
   function flightStatRow(container) {
     FlightPrice.prefetch(() => render()); // no-op if already fetched this session
     const fp = FlightPrice.getCached();
-    const tot = fp ? FlightPrice.totals(activeCabin) : [];
-    const latest = tot[tot.length - 1];
-    const sub = (fp && latest)
-      ? `${latest.total.toLocaleString()} ${fp.currency} latest · updated ${new Date(latest.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
-      : 'Checking latest fares…';
+    const totEcon = fp ? FlightPrice.totals('Economy') : [];
+    const totBiz  = fp ? FlightPrice.totals('Business') : [];
+    const latestEcon = totEcon[totEcon.length - 1];
+    const latestBiz  = totBiz[totBiz.length - 1];
+    const updated = latestEcon || latestBiz;
+    let sub = 'Checking latest fares…';
+    if (fp && updated) {
+      const parts = [];
+      if (latestEcon) parts.push(`Econ ${latestEcon.total.toLocaleString()}`);
+      if (latestBiz)  parts.push(`Biz ${latestBiz.total.toLocaleString()}`);
+      sub = `${parts.join(' · ')} ${fp.currency} · updated ${new Date(updated.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+    }
     container.appendChild(statRow({
       icon: Icons.plane('icon-sm'),
       title: 'KUL ⇄ KIX flight watch',
