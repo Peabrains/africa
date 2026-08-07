@@ -578,7 +578,7 @@ const JournalScreen = (() => {
     // This has to mirror the real draw pass's cy progression exactly,
     // line for line, or the header and the first entry drift apart.
     const scratch = document.createElement('canvas').getContext('2d');
-    let y = 70; // top margin, matches draw pass's initial cy
+    let y = 130; // top margin, matches draw pass's initial cy
     y += 40; // after kicker
     y += 30; // after trip title
     y += 40; // after countries subline
@@ -633,7 +633,7 @@ const JournalScreen = (() => {
     ctx.fillRect(0, 0, W, canvas.height);
     ctx.textBaseline = 'alphabetic';
 
-    let cy = 70;
+    let cy = 130;
     ctx.fillStyle = '#A39A8C';
     ctx.font = '700 11px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'center';
