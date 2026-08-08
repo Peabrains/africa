@@ -415,22 +415,108 @@ const JournalScreen = (() => {
     return points;
   }
 
-  // Plain linear scaling of the real lat/lng into drawing-area pixels —
-  // no map projection library needed at this scale (one trip within one
-  // region). Latitude increases northward but canvas Y increases
-  // downward, so that axis has to be flipped or north would end up
-  // at the bottom.
+  // Per-axis, rank-preserving compression instead of plain linear min/max.
+  // Plain linear scaling meant one far-flung day point stretched the whole
+  // canvas and squashed every other point into a corner. Here, x and y are
+  // each compressed independently: real gaps up to CLUSTER_KM keep close to
+  // true relative scale, gaps beyond that are compressed (not eliminated —
+  // still a bit longer than cluster gaps, just not linearly proportional).
+  // Because each axis is compressed in strict sorted order, every pairwise
+  // north/south and east/west relationship between ALL points stays correct
+  // — not just between consecutive days on the route. What's sacrificed is
+  // exact compass bearing between distant points (their angle can drift a
+  // bit); for a single-region trip laid out mostly N-S or E-W that's not
+  // visible, but it's worth knowing if a future trip has a tight diagonal
+  // cluster.
+  const CLUSTER_KM = 60;      // legs shorter than this stay near true scale
+  const LONG_LEG_MULT = 2.5;  // legs this many times the median leg count as "long" -> break mark
+
   function projectPoints(points, w, h, pad = 24) {
     if (points.length < 2) return [];
-    const lats = points.map(p => p.lat), lngs = points.map(p => p.lng);
-    const latRange = Math.max(Math.max(...lats) - Math.min(...lats), 0.0005);
-    const lngRange = Math.max(Math.max(...lngs) - Math.min(...lngs), 0.0005);
-    const minLat = Math.min(...lats), minLng = Math.min(...lngs);
-    return points.map(p => ({
-      x: pad + ((p.lng - minLng) / lngRange) * (w - pad * 2),
-      y: pad + (1 - (p.lat - minLat) / latRange) * (h - pad * 2), // flipped: higher latitude = smaller y
-      label: p.label,
+    const R = 111; // km per degree latitude, close enough at this scale
+    const avgLat = points.reduce((s, p) => s + p.lat, 0) / points.length;
+    const km = points.map(p => ({
+      x: p.lng * Math.cos(avgLat * Math.PI / 180) * R,
+      y: -p.lat * R, // higher latitude = more negative = smaller y later = north stays up
     }));
+
+    function compressAxis(vals) {
+      const order = vals.map((_, i) => i).sort((a, b) => vals[a] - vals[b]);
+      const screen = new Array(vals.length);
+      screen[order[0]] = 0;
+      for (let k = 1; k < order.length; k++) {
+        const gap = vals[order[k]] - vals[order[k - 1]];
+        const drawGap = gap <= CLUSTER_KM ? gap : CLUSTER_KM + (gap - CLUSTER_KM) * 0.12;
+        screen[order[k]] = screen[order[k - 1]] + drawGap;
+      }
+      return screen;
+    }
+
+    const sx = compressAxis(km.map(p => p.x));
+    const sy = compressAxis(km.map(p => p.y));
+    const minX = Math.min(...sx), maxX = Math.max(...sx);
+    const minY = Math.min(...sy), maxY = Math.max(...sy);
+    const rangeX = Math.max(maxX - minX, 0.0005), rangeY = Math.max(maxY - minY, 0.0005);
+    const scale = Math.min((w - pad * 2) / rangeX, (h - pad * 2) / rangeY);
+    const offX = pad + ((w - pad * 2) - rangeX * scale) / 2;
+    const offY = pad + ((h - pad * 2) - rangeY * scale) / 2;
+
+    // real leg distances (km, haversine-lite via the same flat projection)
+    // in day order, to flag which legs are disproportionately long
+    const legKm = points.map((_, i) => {
+      if (i === 0) return 0;
+      const dx = km[i].x - km[i - 1].x, dy = km[i].y - km[i - 1].y;
+      return Math.hypot(dx, dy);
+    });
+    const nonZero = legKm.filter(d => d > 0).sort((a, b) => a - b);
+    const median = nonZero.length ? nonZero[Math.floor(nonZero.length / 2)] : 0;
+    const longThreshold = Math.max(50, median * LONG_LEG_MULT);
+
+    return points.map((p, i) => ({
+      x: offX + (sx[i] - minX) * scale,
+      y: offY + (sy[i] - minY) * scale,
+      label: p.label,
+      dayNum: i + 1,
+      legKm: Math.round(legKm[i]),
+      isLongLeg: i > 0 && legKm[i] > longThreshold,
+    }));
+  }
+
+  // Deterministic pseudo-random in [-1, 1] — stable across repeated exports
+  // of the same trip, unlike Math.random(), so the trail doesn't reshuffle
+  // every time someone re-exports.
+  function seededJitter(seed) {
+    const x = Math.sin(seed * 12.9898) * 43758.5453;
+    return (x - Math.floor(x)) * 2 - 1;
+  }
+
+  // Smooth, hand-drawn-looking curve through a start/end pair, via a few
+  // jittered waypoints — reads like an actual trail rather than a ruler
+  // line. Purely a visual device: waypoints are not real trail geometry.
+  function trailCurvePoints(p0, p1, legIndex) {
+    const dx = p1.x - p0.x, dy = p1.y - p0.y;
+    const dist = Math.hypot(dx, dy);
+    const px = -dy / dist, py = dx / dist; // perpendicular unit vector
+    const amp = Math.min(10, dist * 0.15);
+    const pts = [p0];
+    [0.28, 0.5, 0.72].forEach((t, vi) => {
+      const jx = p0.x + dx * t, jy = p0.y + dy * t;
+      const j = seededJitter(legIndex * 3 + vi) * amp;
+      pts.push({ x: jx + px * j, y: jy + py * j });
+    });
+    pts.push(p1);
+    return pts;
+  }
+
+  function drawSmoothPath(ctx, pts) {
+    const p = [pts[0], ...pts, pts[pts.length - 1]];
+    ctx.moveTo(p[1].x, p[1].y);
+    for (let i = 1; i < p.length - 2; i++) {
+      const p0 = p[i - 1], p1 = p[i], p2 = p[i + 1], p3 = p[i + 2];
+      const c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6;
+      const c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6;
+      ctx.bezierCurveTo(c1x, c1y, c2x, c2y, p2.x, p2.y);
+    }
   }
 
   function currentAccentColor() {
@@ -604,15 +690,15 @@ const JournalScreen = (() => {
       }
       let quoteLines = [];
       if (entry.pull_quote) {
-        scratch.font = '400 26px Georgia, serif';
+        scratch.font = '400 30px Georgia, serif';
         quoteLines = wrapLines(scratch, `"${entry.pull_quote}"`, CW);
-        y += quoteLines.length * 36 + 20;
+        y += quoteLines.length * 42 + 20;
       }
       let bodyLines = [];
       if (entry.narration) {
-        scratch.font = '400 18px Georgia, serif';
+        scratch.font = '400 22px Georgia, serif';
         bodyLines = wrapLines(scratch, stripMarkdown(entry.narration), CW);
-        y += bodyLines.length * 29 + 10;
+        y += bodyLines.length * 34 + 10;
       }
       let insetH = 0;
       if (otherImgs.length) {
@@ -652,23 +738,56 @@ const JournalScreen = (() => {
       const accentColor = currentAccentColor();
       ctx.save();
       ctx.translate(PAD, cy);
+
+      // dotted smooth trail, one leg at a time so each can carry its own
+      // break mark when it's a disproportionately long jump
       ctx.strokeStyle = accentColor;
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([1, 7]);
+      ctx.lineWidth = 2;
       ctx.lineCap = 'round';
-      ctx.beginPath();
-      routeProjected.forEach((p, i) => { i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y); });
-      ctx.stroke();
+      for (let i = 1; i < routeProjected.length; i++) {
+        const p0 = routeProjected[i - 1], p1 = routeProjected[i];
+        ctx.setLineDash([0.1, 8]);
+        ctx.beginPath();
+        drawSmoothPath(ctx, trailCurvePoints(p0, p1, i));
+        ctx.stroke();
+        if (p1.isLongLeg) {
+          const mx = (p0.x + p1.x) / 2, my = (p0.y + p1.y) / 2;
+          const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+          ctx.save();
+          ctx.translate(mx, my);
+          ctx.rotate(angle);
+          ctx.setLineDash([]);
+          ctx.strokeStyle = '#6B6357';
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(-7, -7); ctx.lineTo(7, 7); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-1, -12); ctx.lineTo(13, 2); ctx.stroke();
+          ctx.restore();
+          ctx.fillStyle = '#A39A8C';
+          ctx.font = '400 10px "Plus Jakarta Sans", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`${p1.legKm} km`, mx, my - 14);
+        }
+      }
       ctx.setLineDash([]);
+
+      // numbered day circles
       routeProjected.forEach(p => {
+        ctx.beginPath(); ctx.arc(p.x, p.y, 11, 0, Math.PI * 2);
+        ctx.fillStyle = '#FBEAE7'; ctx.fill();
+        ctx.strokeStyle = accentColor; ctx.lineWidth = 1.5; ctx.stroke();
         ctx.fillStyle = accentColor;
-        ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.font = '700 10px "Plus Jakarta Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(p.dayNum), p.x, p.y + 0.5);
+        ctx.textBaseline = 'alphabetic';
       });
+
       ctx.fillStyle = '#1C1A18';
       ctx.font = '400 13px Georgia, serif';
       ctx.textAlign = 'center';
       routeProjected.forEach(p => {
-        const labelY = p.y < ROUTE_H / 2 ? p.y - 14 : p.y + 22;
+        const labelY = p.y < ROUTE_H / 2 ? p.y - 18 : p.y + 26;
         ctx.fillText(p.label, p.x, labelY);
       });
       ctx.restore();
@@ -681,7 +800,7 @@ const JournalScreen = (() => {
       ctx.beginPath(); ctx.moveTo(PAD, by); ctx.lineTo(W - PAD, by); ctx.stroke();
       by += 22 + 16;
       ctx.fillStyle = '#6B6357';
-      ctx.font = '700 12px "Plus Jakarta Sans", sans-serif';
+      ctx.font = '700 13px "Plus Jakarta Sans", sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(dateLabelFor(b.entry), W / 2, by);
       by += 8;
@@ -694,14 +813,14 @@ const JournalScreen = (() => {
       ctx.textAlign = 'left';
       if (b.quoteLines.length) {
         ctx.fillStyle = '#1C1A18';
-        ctx.font = '400 26px Georgia, serif';
-        b.quoteLines.forEach(line => { by += 36; ctx.fillText(line, PAD, by); });
+        ctx.font = '400 30px Georgia, serif';
+        b.quoteLines.forEach(line => { by += 42; ctx.fillText(line, PAD, by); });
         by += 20;
       }
       if (b.bodyLines.length) {
         ctx.fillStyle = '#6B6357';
-        ctx.font = '400 18px Georgia, serif';
-        b.bodyLines.forEach(line => { by += 29; ctx.fillText(line, PAD, by); });
+        ctx.font = '400 22px Georgia, serif';
+        b.bodyLines.forEach(line => { by += 34; ctx.fillText(line, PAD, by); });
         by += 10;
       }
       if (b.otherImgs.length) {
