@@ -1268,8 +1268,27 @@ const Data = (() => {
      large on the page. Mirrors the dex_catches/dex_photos parent
      + child pattern already used for other multi-photo features. */
 
+  // Ordered by each entry's *effective* date — the tagged day's real
+  // calendar date if there is one, otherwise when the entry was written.
+  // This matches dateLabelFor() exactly, so the order on screen always
+  // agrees with the date printed on each entry. Previously this sorted
+  // by created_at alone, so writing a "Day 5" entry before going back to
+  // fill in "Day 2" made Day 5 appear first even though its own label
+  // read a later date than the entry below it.
   function getJournalEntries() {
-    return JOURNAL_ENTRIES.slice().sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+    function effectiveDate(entry) {
+      if (entry.day_id) {
+        const day = DAYS.find(d => d.id === entry.day_id);
+        if (day?.date) return new Date(day.date.length <= 10 ? day.date + 'T00:00:00' : day.date);
+      }
+      return new Date(entry.created_at);
+    }
+    return JOURNAL_ENTRIES.slice().sort((a, b) => {
+      const diff = effectiveDate(a) - effectiveDate(b);
+      // same effective date (e.g. two entries tagged to the same day) —
+      // fall back to write order so they don't shuffle unpredictably
+      return diff !== 0 ? diff : new Date(a.created_at) - new Date(b.created_at);
+    });
   }
   function getJournalEntry(id) { return JOURNAL_ENTRIES.find(e => e.id === id); }
 
