@@ -46,11 +46,16 @@ const MapScreen = (() => {
       ? `<text x="16" y="15" text-anchor="middle" font-family="system-ui" font-size="11" fill="${color}">✈</text>`
       : `<circle cx="16" cy="13" r="4" fill="${color}"/>`;
 
+    // Stops without their own coordinates fall back to their day's
+    // locality point — dashed outline + lower opacity marks these as
+    // approximate rather than the stop's real precise position.
+    const strokeAttrs = stop._approxLocation ? `stroke-dasharray="3 2" opacity="0.65"` : '';
+
     const size = 30;
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size+6}" viewBox="0 0 32 38">
         <path d="M16 1C9.4 1 4 6.4 4 13c0 8.5 12 24 12 24S28 21.5 28 13c0-6.6-5.4-12-12-12z"
-              fill="${bg}" stroke="${color}" stroke-width="2"/>
+              fill="${bg}" stroke="${color}" stroke-width="2" ${strokeAttrs}/>
         ${inner}
       </svg>`;
     return L.divIcon({ html: svg, iconSize:[size,size+6], iconAnchor:[size/2,size+6], className:'' });
@@ -62,7 +67,26 @@ const MapScreen = (() => {
     if (markersLayer) markersLayer.clearLayers();
     markersLayer = L.layerGroup().addTo(map);
 
-    const stops = Data.getStops().filter(s => s.lat && s.lng);
+    // Stops without their own coordinates fall back to their day's
+    // geocoded locality point rather than being dropped from the map
+    // entirely. Imprecise when a day has several such stops (they'll
+    // cluster at the same point instead of showing distinct positions),
+    // but still puts them on the right day/place — much better than
+    // vanishing silently, which is what happened before this fallback
+    // existed (see: every Thailand stop, which has no lat/lng at all).
+    const dayPointById = {};
+    (Data.getDays() || []).forEach(d => {
+      const wp = Array.isArray(d.weatherPoints) && d.weatherPoints[0];
+      if (wp && typeof wp.lat === 'number' && typeof wp.lng === 'number') dayPointById[d.id] = wp;
+    });
+
+    const stops = Data.getStops()
+      .map(s => {
+        if (s.lat && s.lng) return s;
+        const fallback = dayPointById[s.dayId];
+        return fallback ? { ...s, lat: fallback.lat, lng: fallback.lng, _approxLocation: true } : null;
+      })
+      .filter(Boolean);
     const groups = {};
 
     stops.forEach(stop => {
@@ -80,8 +104,14 @@ const MapScreen = (() => {
         return da !== db ? da - db : (a.order||0) - (b.order||0);
       });
 
-      if (sorted.length > 1) {
-        L.polyline(sorted.map(s => [s.lat, s.lng]), {
+      // Drop consecutive points that are identical (two approx-location
+      // stops sharing the same fallback day point) — a zero-length
+      // segment is just visual noise, not a real route leg.
+      const linePoints = sorted
+        .map(s => [s.lat, s.lng])
+        .filter((p, i, arr) => i === 0 || p[0] !== arr[i-1][0] || p[1] !== arr[i-1][1]);
+      if (linePoints.length > 1) {
+        L.polyline(linePoints, {
           color:     colorForKey(key),
           weight:    2,
           opacity:   0.45,
@@ -96,7 +126,7 @@ const MapScreen = (() => {
           BottomSheet.openStop(stop, day);
         });
         marker.bindTooltip(
-          `<strong>${stop.name}</strong><br><small>${stop.time || ''} ${tzAbbr(stop.timeZone)}</small>`,
+          `<strong>${stop.name}</strong><br><small>${stop.time || ''} ${tzAbbr(stop.timeZone)}${stop._approxLocation ? ' · approx. location' : ''}</small>`,
           { direction:'top', offset:[0,-36], opacity:0.95 }
         );
       });
