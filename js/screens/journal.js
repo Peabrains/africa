@@ -277,7 +277,7 @@ const JournalScreen = (() => {
 
       const editBtn = (bg, fg) => `
         <button class="j-edit-btn" data-entry="${entry.id}" style="position:absolute;top:14px;right:20px;width:28px;height:28px;border-radius:50%;background:${bg};border:none;color:${fg};display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${fg}" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+          ${Icons.pencil('icon-sm')}
         </button>`;
 
       const byline = showByline && entry.created_by ? `<div style="text-align:center;font-size:10px;color:#A39A8C;margin-top:-12px;margin-bottom:18px">— ${authorNames[entry.created_by] || 'Traveler'}</div>` : '';
