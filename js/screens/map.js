@@ -87,6 +87,24 @@ const MapScreen = (() => {
         return fallback ? { ...s, lat: fallback.lat, lng: fallback.lng, _approxLocation: true } : null;
       })
       .filter(Boolean);
+
+    // When several stops on the same day all fall back to the identical
+    // locality point, showing every one of them is just a pile of
+    // overlapping markers — only render the featured stop for that day
+    // (or the first one, if none is marked featured). Stops that have
+    // their own real coordinates are never hidden this way.
+    const approxByDay = {};
+    stops.forEach(s => {
+      if (!s._approxLocation) return;
+      (approxByDay[s.dayId] ||= []).push(s);
+    });
+    const hiddenIds = new Set();
+    Object.values(approxByDay).forEach(list => {
+      if (list.length <= 1) return;
+      const featured = list.find(s => s.featuredOnMap) || list[0];
+      list.forEach(s => { if (s.id !== featured.id) hiddenIds.add(s.id); });
+    });
+
     const groups = {};
 
     stops.forEach(stop => {
@@ -119,7 +137,7 @@ const MapScreen = (() => {
         }).addTo(markersLayer);
       }
 
-      sorted.forEach(stop => {
+      sorted.filter(stop => !hiddenIds.has(stop.id)).forEach(stop => {
         const marker = L.marker([stop.lat, stop.lng], { icon: makeIcon(stop) }).addTo(markersLayer);
         marker.on('click', () => {
           const day = Data.getDays().find(d => d.id === stop.dayId);
@@ -217,6 +235,7 @@ const MapScreen = (() => {
 
   return {
     init(el) { root = el; render(); },
+    refresh() { if (map) renderAll(); },
     destroy() { if (map) { map.remove(); map = null; } markersLayer = null; root = null; },
   };
 })();
