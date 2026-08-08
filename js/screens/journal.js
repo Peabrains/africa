@@ -273,19 +273,27 @@ const JournalScreen = (() => {
       const block = document.createElement('div');
       block.style.cssText = 'margin-bottom:8px;position:relative';
 
-      const heroWrap = document.createElement('div');
-      heroWrap.style.cssText = 'width:100%;height:170px;background-color:#EDE8DE;position:relative;overflow:hidden';
+      const hero = (entry.journal_photos || []).find(p => p.is_hero) || (entry.journal_photos || [])[0];
+
+      const editBtn = (bg, fg) => `
+        <button class="j-edit-btn" data-entry="${entry.id}" style="position:absolute;top:14px;right:20px;width:28px;height:28px;border-radius:50%;background:${bg};border:none;color:${fg};display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${fg}" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+        </button>`;
 
       const byline = showByline && entry.created_by ? `<div style="text-align:center;font-size:10px;color:#A39A8C;margin-top:-12px;margin-bottom:18px">— ${authorNames[entry.created_by] || 'Traveler'}</div>` : '';
       block.innerHTML = `
         <div style="height:1px;background:#1C1A18;opacity:.08;margin:0 26px 18px"></div>
         <div style="text-align:center;font-size:11px;font-weight:700;letter-spacing:.06em;color:#6B6357;margin-bottom:${showByline ? '4px' : '18px'}">${dateLabelFor(entry)}</div>
-        ${byline}`;
-      block.appendChild(heroWrap);
-      heroWrap.innerHTML = `
-        <button class="j-edit-btn" data-entry="${entry.id}" style="position:absolute;top:14px;right:20px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.4);border:none;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
-        </button>`;
+        ${byline}
+        ${hero ? '' : editBtn('rgba(0,0,0,.06)', '#6B6357')}`;
+
+      let heroWrap = null;
+      if (hero) {
+        heroWrap = document.createElement('div');
+        heroWrap.style.cssText = 'width:100%;height:170px;background-color:#EDE8DE;position:relative;overflow:hidden';
+        block.appendChild(heroWrap);
+        heroWrap.innerHTML = editBtn('rgba(0,0,0,.4)', '#fff');
+      }
 
       const bodyBlock = document.createElement('div');
       bodyBlock.style.cssText = 'padding:26px 26px 8px';
@@ -296,7 +304,6 @@ const JournalScreen = (() => {
       block.appendChild(bodyBlock);
       page.appendChild(block);
 
-      const hero = (entry.journal_photos || []).find(p => p.is_hero) || (entry.journal_photos || [])[0];
       if (hero) {
         Data.getJournalPhotoUrl(hero).then((url) => {
           if (!url) return;
