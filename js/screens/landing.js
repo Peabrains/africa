@@ -127,24 +127,34 @@ const LandingScreen = (() => {
     const current = Data.getCurrentTrip();
 
     const heading = document.createElement('div');
-    heading.style.cssText = 'padding:20px var(--s4) 10px';
-    heading.innerHTML = `<p style="font-size:21px;font-weight:700;color:var(--text-primary)">Where to?</p><p style="font-size:12px;color:var(--text-muted);margin-top:4px">${trips.length} trip${trips.length===1?'':'s'} planned</p>`;
+    heading.style.cssText = 'padding:20px var(--s4) 10px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px';
+    heading.innerHTML = `
+      <div>
+        <p style="font-size:21px;font-weight:700;color:var(--text-primary)">Where to?</p>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:4px">${trips.length} trip${trips.length===1?'':'s'} planned</p>
+      </div>
+      <button id="new-trip-pill" style="border:none;background:var(--surface-raised);color:var(--text-primary);font-family:var(--font);font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:100px;white-space:nowrap;cursor:pointer;flex-shrink:0">+ New</button>`;
     container.appendChild(heading);
+    heading.querySelector('#new-trip-pill').addEventListener('click', () => renderNewTripForm(container));
 
     if (!trips.length) {
       const empty = document.createElement('p');
       empty.style.cssText = 'text-align:center;color:var(--text-muted);font-size:var(--text-sm);padding:var(--s6) var(--s4)';
-      empty.textContent = 'No trips yet — create your first one below.';
+      empty.textContent = 'No trips yet — tap "+ New" above to create your first one.';
       container.appendChild(empty);
     }
 
-    trips.forEach(t => {
+    const list = document.createElement('div');
+    list.style.cssText = 'margin:0 var(--s4) var(--s6)';
+    container.appendChild(list);
+
+    trips.forEach((t, idx) => {
       const isPast = t.status === 'completed' || (t.end_date && new Date(t.end_date) < new Date());
       const isOngoing = !isPast && t.start_date && new Date(t.start_date) <= new Date();
       const dLeft = daysUntil(t.start_date);
 
-      const card = document.createElement('div');
-      card.style.cssText = 'background:var(--surface);border-radius:20px;padding:16px;display:flex;align-items:center;gap:14px;margin:0 var(--s4) 12px;border:1px solid var(--border-subtle);box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;position:relative';
+      const row = document.createElement('div');
+      row.style.cssText = `display:flex;align-items:center;gap:14px;padding:16px 4px;cursor:pointer;position:relative;${idx < trips.length - 1 ? 'border-bottom:1px solid var(--border-subtle)' : ''}`;
 
       const dateRange = [t.start_date, t.end_date].filter(Boolean)
         .map(d => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }))
@@ -152,23 +162,33 @@ const LandingScreen = (() => {
 
       let countdownHtml;
       if (isPast) {
-        countdownHtml = `<div style="text-align:center;flex-shrink:0"><div style="font-size:16px">✓</div><div style="font-size:8px;font-weight:700;color:var(--text-muted);text-transform:uppercase">Done</div></div>`;
+        countdownHtml = `<div style="font-size:16px;color:var(--text-primary)">✓</div><div style="font-size:9px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Done</div>`;
       } else if (isOngoing) {
-        countdownHtml = `<div style="text-align:center;flex-shrink:0"><div style="font-size:11px;font-weight:800;color:var(--text-primary)">Now</div><div style="font-size:8px;font-weight:700;color:var(--text-muted);text-transform:uppercase">Ongoing</div></div>`;
+        countdownHtml = `<div style="font-size:15px;font-weight:800;color:var(--accent)">Now</div><div style="font-size:9px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Ongoing</div>`;
       } else {
-        countdownHtml = `<div style="text-align:center;flex-shrink:0"><div style="font-size:20px;font-weight:800;color:var(--text-primary);line-height:1">${dLeft}</div><div style="font-size:8px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-top:2px">days to go</div></div>`;
+        countdownHtml = `<div style="font-size:28px;font-weight:800;color:var(--text-primary);line-height:1">${dLeft}</div><div style="font-size:9px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">days to go</div>`;
       }
 
-      card.innerHTML = `
-        <div style="width:48px;height:48px;border-radius:50%;flex-shrink:0;background:var(--surface-raised);border:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:center;font-size:23px">${t.cover_emoji || '🧭'}</div>
+      let progressHtml = '';
+      if (isOngoing && t.start_date && t.end_date) {
+        const start = new Date(t.start_date + 'T00:00:00');
+        const end = new Date(t.end_date + 'T00:00:00');
+        const now = new Date(new Date().toDateString());
+        const pct = Math.max(0, Math.min(100, ((now - start) / (end - start)) * 100));
+        progressHtml = `<div style="height:3px;background:var(--border-subtle);border-radius:2px;margin-top:8px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--accent);border-radius:2px"></div></div>`;
+      }
+
+      row.innerHTML = `
+        <div style="min-width:58px;text-align:center;flex-shrink:0">${countdownHtml}</div>
         <div style="flex:1;min-width:0">
-          <p style="font-size:16px;font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}${current?.id === t.id ? ' <span style=\'color:var(--accent);font-size:10px;font-weight:600\'>· current</span>' : ''}</p>
-          <p style="font-size:11px;color:var(--text-secondary);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(t.countries || []).join(' · ')}</p>
+          <p style="font-size:15px;font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}${current?.id === t.id ? ' <span style=\'color:var(--accent);font-size:10px;font-weight:600\'>· current</span>' : ''}</p>
+          <p style="font-size:12px;color:var(--text-secondary);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.cover_emoji || '🧭'} ${(t.countries || []).join(' · ')}</p>
           ${dateRange ? `<p style="font-size:10.5px;color:var(--text-muted);margin-top:2px">${dateRange}</p>` : ''}
+          ${progressHtml}
         </div>
-        ${countdownHtml}
-        <button class="trip-del-btn" style="position:absolute;top:10px;right:10px;background:none;border:none;color:var(--text-muted);font-size:16px;cursor:pointer;padding:2px 4px;line-height:1">×</button>`;
-      card.addEventListener('click', async (e) => {
+        <button class="trip-del-btn" style="background:none;border:none;color:var(--text-muted);font-size:16px;cursor:pointer;padding:2px 4px;line-height:1;flex-shrink:0">×</button>
+        <div style="color:var(--text-muted);font-size:18px;flex-shrink:0">›</div>`;
+      row.addEventListener('click', async (e) => {
         if (e.target.classList.contains('trip-del-btn')) return;
         if (current?.id === t.id) { App.switchTo('itinerary'); return; }
         Toast.show('Switching trip…', 'info');
@@ -176,9 +196,8 @@ const LandingScreen = (() => {
         App.switchTo('itinerary');
       });
 
-
       let delArmed = false, delTimer = null;
-      const delBtn = card.querySelector('.trip-del-btn');
+      const delBtn = row.querySelector('.trip-del-btn');
       delBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         if (!delArmed) {
@@ -202,14 +221,8 @@ const LandingScreen = (() => {
           Toast.show('Could not delete: ' + err.message, 'danger');
         }
       });
-      container.appendChild(card);
+      list.appendChild(row);
     });
-
-    const newBtn = document.createElement('div');
-    newBtn.style.cssText = 'margin:4px var(--s4) var(--s6);padding:14px;text-align:center;border:1.5px dashed var(--text-muted);border-radius:14px;color:var(--text-secondary);font-size:var(--text-sm);font-weight:700;cursor:pointer';
-    newBtn.textContent = '+ New Trip';
-    newBtn.addEventListener('click', () => renderNewTripForm(container));
-    container.appendChild(newBtn);
   }
 
   function renderNewTripForm(container) {
