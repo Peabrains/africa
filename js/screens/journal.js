@@ -441,10 +441,10 @@ const JournalScreen = (() => {
   // cluster.
   const CLUSTER_KM = 60;      // legs shorter than this stay near true scale
   const LONG_LEG_MULT = 2.5;  // legs this many times the median leg count as "long" -> break mark
-  const MIN_GAP_PX = 42;      // hard floor between any two points, same axis — a scale
+  const MIN_GAP_PX = 28;      // hard floor between any two points, same axis — a scale
                                // factor alone can still crush close points to sub-pixel
                                // distances; this guarantees they never overlap
-  const ROUTE_MIN_H = 220, ROUTE_MAX_H = 480;
+  const ROUTE_MIN_H = 160, ROUTE_MAX_H = 260;
 
   // Returns { points, height }. Width is fixed to w (the map has to sit
   // inline with everything else at a fixed content width), but height is
@@ -724,7 +724,7 @@ const JournalScreen = (() => {
     // This has to mirror the real draw pass's cy progression exactly,
     // line for line, or the header and the first entry drift apart.
     const scratch = document.createElement('canvas').getContext('2d');
-    let y = 170; // top margin, matches draw pass's initial cy
+    let y = 340; // top margin, matches draw pass's initial cy
     y += 44; // after kicker
     y += 34; // after trip title
     y += 44; // after countries subline
@@ -741,25 +741,25 @@ const JournalScreen = (() => {
     const blocks = []; // { type, ...layout info, yStart }
     for (const { entry, heroImg, heroFocal, otherImgs } of entryData) {
       const startY = y;
-      y += 1 + 22; // divider + gap
-      y += 22; // date label
+      y += 1 + 26; // divider + gap
+      y += 34; // date label — now a real header size, needs more room
       let heroH = 0;
       if (heroImg) {
         const portrait = heroImg.naturalHeight > heroImg.naturalWidth;
-        heroH = portrait ? 620 : 380;
+        heroH = portrait ? 380 : 260;
         y += heroH + 26;
       }
       let quoteLines = [];
       if (entry.pull_quote) {
-        scratch.font = '400 30px Georgia, serif';
+        scratch.font = '400 32px Georgia, serif';
         quoteLines = wrapLines(scratch, `"${entry.pull_quote}"`, CW);
-        y += quoteLines.length * 42 + 20;
+        y += quoteLines.length * 44 + 20;
       }
       let bodyLines = [];
       if (entry.narration) {
-        scratch.font = '400 22px Georgia, serif';
+        scratch.font = '400 24px Georgia, serif';
         bodyLines = wrapLines(scratch, stripMarkdown(entry.narration), CW);
-        y += bodyLines.length * 34 + 10;
+        y += bodyLines.length * 36 + 10;
       }
       let insetH = 0;
       if (otherImgs.length) {
@@ -769,7 +769,7 @@ const JournalScreen = (() => {
       y += 30; // bottom gap
       blocks.push({ entry, heroImg, heroFocal, heroH, quoteLines, bodyLines, otherImgs, insetH, startY });
     }
-    y += 50; // bottom margin
+    y += 100; // bottom margin
 
     // Real canvas, sized exactly to what was just measured.
     const canvas = document.createElement('canvas');
@@ -780,7 +780,7 @@ const JournalScreen = (() => {
     ctx.fillRect(0, 0, W, canvas.height);
     ctx.textBaseline = 'alphabetic';
 
-    let cy = 170;
+    let cy = 340;
     ctx.fillStyle = '#A39A8C';
     ctx.font = '700 13px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'center';
@@ -820,24 +820,24 @@ const JournalScreen = (() => {
           ctx.setLineDash([]);
           ctx.strokeStyle = '#6B6357';
           ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.moveTo(-7, -7); ctx.lineTo(7, 7); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(-1, -12); ctx.lineTo(13, 2); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(6, 6); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-1, -10); ctx.lineTo(11, 2); ctx.stroke();
           ctx.restore();
           ctx.fillStyle = '#A39A8C';
-          ctx.font = '400 11px "Plus Jakarta Sans", sans-serif';
+          ctx.font = '400 10px "Plus Jakarta Sans", sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText(`${p1.legKm} km`, mx, my - 16);
+          ctx.fillText(`${p1.legKm} km`, mx, my - 14);
         }
       }
       ctx.setLineDash([]);
 
       // numbered day circles
       routeProjected.forEach(p => {
-        ctx.beginPath(); ctx.arc(p.x, p.y, 13, 0, Math.PI * 2);
+        ctx.beginPath(); ctx.arc(p.x, p.y, 11, 0, Math.PI * 2);
         ctx.fillStyle = '#FBEAE7'; ctx.fill();
         ctx.strokeStyle = accentColor; ctx.lineWidth = 1.5; ctx.stroke();
         ctx.fillStyle = accentColor;
-        ctx.font = '700 11px "Plus Jakarta Sans", sans-serif';
+        ctx.font = '700 10px "Plus Jakarta Sans", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(String(p.dayNum), p.x, p.y + 0.5);
@@ -845,10 +845,10 @@ const JournalScreen = (() => {
       });
 
       ctx.fillStyle = '#1C1A18';
-      ctx.font = '400 16px Georgia, serif';
+      ctx.font = '400 13px Georgia, serif';
       ctx.textAlign = 'center';
       routeProjected.forEach(p => {
-        const labelY = p.y < ROUTE_H / 2 ? p.y - 22 : p.y + 32;
+        const labelY = p.y < ROUTE_H / 2 ? p.y - 18 : p.y + 26;
         ctx.fillText(p.label, p.x, labelY);
       });
       ctx.restore();
@@ -859,12 +859,12 @@ const JournalScreen = (() => {
       let by = b.startY;
       ctx.strokeStyle = 'rgba(28,26,24,.08)';
       ctx.beginPath(); ctx.moveTo(PAD, by); ctx.lineTo(W - PAD, by); ctx.stroke();
-      by += 22 + 16;
+      by += 26 + 20;
       ctx.fillStyle = '#6B6357';
-      ctx.font = '700 13px "Plus Jakarta Sans", sans-serif';
+      ctx.font = '700 20px "Plus Jakarta Sans", sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(dateLabelFor(b.entry), W / 2, by);
-      by += 8;
+      by += 20;
 
       if (b.heroImg) {
         drawCover(ctx, b.heroImg, PAD, by, CW, b.heroH, b.heroFocal);
@@ -874,14 +874,14 @@ const JournalScreen = (() => {
       ctx.textAlign = 'left';
       if (b.quoteLines.length) {
         ctx.fillStyle = '#1C1A18';
-        ctx.font = '400 30px Georgia, serif';
-        b.quoteLines.forEach(line => { by += 42; ctx.fillText(line, PAD, by); });
+        ctx.font = '400 32px Georgia, serif';
+        b.quoteLines.forEach(line => { by += 44; ctx.fillText(line, PAD, by); });
         by += 20;
       }
       if (b.bodyLines.length) {
         ctx.fillStyle = '#6B6357';
-        ctx.font = '400 22px Georgia, serif';
-        b.bodyLines.forEach(line => { by += 34; ctx.fillText(line, PAD, by); });
+        ctx.font = '400 24px Georgia, serif';
+        b.bodyLines.forEach(line => { by += 36; ctx.fillText(line, PAD, by); });
         by += 10;
       }
       if (b.otherImgs.length) {
