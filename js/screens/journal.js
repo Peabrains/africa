@@ -441,10 +441,10 @@ const JournalScreen = (() => {
   // cluster.
   const CLUSTER_KM = 60;      // legs shorter than this stay near true scale
   const LONG_LEG_MULT = 2.5;  // legs this many times the median leg count as "long" -> break mark
-  const MIN_GAP_PX = 28;      // hard floor between any two points, same axis — a scale
+  const MIN_GAP_PX = 22;      // hard floor between any two points, same axis — a scale
                                // factor alone can still crush close points to sub-pixel
                                // distances; this guarantees they never overlap
-  const ROUTE_MIN_H = 160, ROUTE_MAX_H = 260;
+  const ROUTE_MIN_H = 120, ROUTE_MAX_H = 190;
 
   // Returns { points, height }. Width is fixed to w (the map has to sit
   // inline with everything else at a fixed content width), but height is
@@ -820,24 +820,24 @@ const JournalScreen = (() => {
           ctx.setLineDash([]);
           ctx.strokeStyle = '#6B6357';
           ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(6, 6); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(-1, -10); ctx.lineTo(11, 2); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-5, -5); ctx.lineTo(5, 5); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-1, -8); ctx.lineTo(9, 2); ctx.stroke();
           ctx.restore();
           ctx.fillStyle = '#A39A8C';
-          ctx.font = '400 10px "Plus Jakarta Sans", sans-serif';
+          ctx.font = '400 9px "Plus Jakarta Sans", sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText(`${p1.legKm} km`, mx, my - 14);
+          ctx.fillText(`${p1.legKm} km`, mx, my - 12);
         }
       }
       ctx.setLineDash([]);
 
       // numbered day circles
       routeProjected.forEach(p => {
-        ctx.beginPath(); ctx.arc(p.x, p.y, 11, 0, Math.PI * 2);
+        ctx.beginPath(); ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
         ctx.fillStyle = '#FBEAE7'; ctx.fill();
         ctx.strokeStyle = accentColor; ctx.lineWidth = 1.5; ctx.stroke();
         ctx.fillStyle = accentColor;
-        ctx.font = '700 10px "Plus Jakarta Sans", sans-serif';
+        ctx.font = '700 9px "Plus Jakarta Sans", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(String(p.dayNum), p.x, p.y + 0.5);
@@ -845,10 +845,10 @@ const JournalScreen = (() => {
       });
 
       ctx.fillStyle = '#1C1A18';
-      ctx.font = '400 13px Georgia, serif';
+      ctx.font = '400 12px Georgia, serif';
       ctx.textAlign = 'center';
       routeProjected.forEach(p => {
-        const labelY = p.y < ROUTE_H / 2 ? p.y - 18 : p.y + 26;
+        const labelY = p.y < ROUTE_H / 2 ? p.y - 15 : p.y + 22;
         ctx.fillText(p.label, p.x, labelY);
       });
       ctx.restore();
