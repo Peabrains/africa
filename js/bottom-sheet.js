@@ -343,6 +343,7 @@ const BottomSheet = (() => {
         <!-- no stamp section for Africa -->
         <div class="bs-actions">
           ${stop.booking.status!=='booked'?`<button class="btn btn-primary bs-full-btn" id="bs-book-btn">Mark as booked</button>`:`<button class="btn btn-ghost bs-full-btn" id="bs-unbook-btn">✓ Booked — unmark</button>`}
+          <button class="btn btn-ghost bs-full-btn" id="bs-feature-btn">${stop.featuredOnMap ? '📍 Featured on map — tap to unfeature' : '📍 Feature this stop on the map'}</button>
           <div class="bs-action-row"><button class="btn btn-ghost" id="bs-edit-btn">Edit stop</button><button class="btn btn-danger" id="bs-remove-btn">Remove</button></div>
         </div>
       </div>`;
@@ -527,6 +528,22 @@ const BottomSheet = (() => {
       window.ItineraryScreen?.refresh(); window.BookingsScreen?.refresh?.();
     });
     // Stamp collect button removed — no stamps in Africa PWA
+    body.querySelector('#bs-feature-btn')?.addEventListener('click', async () => {
+      const next = !stop.featuredOnMap;
+      try {
+        if (next) {
+          // Only one featured stop per day — un-feature any sibling first,
+          // so map.js's "show the featured one" pick stays unambiguous.
+          const siblings = (Data.getStopsByDay?.(stop.dayId) || []).filter(s => s.id !== stop.id && s.featuredOnMap);
+          for (const sib of siblings) await Data.updateStop(sib.id, { featuredOnMap: false });
+        }
+        await Data.updateStop(stop.id, { featuredOnMap: next });
+        Toast.show(next ? `${stop.name} featured on map` : 'Unfeatured', 'info');
+      } catch (e) {
+        Toast.show('Could not save — check connection', 'danger');
+      }
+      window.MapScreen?.refresh?.(); close();
+    });
     body.querySelector('#bs-edit-btn')?.addEventListener('click', () => { body.innerHTML=stopEditHTML(stop,day); wireStopEdit(stop,day); });
 
     let removeArmed = false;
