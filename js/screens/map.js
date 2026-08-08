@@ -81,6 +81,7 @@ const MapScreen = (() => {
     });
 
     const stops = Data.getStops()
+      .filter(s => !s.hiddenFromMap)
       .map(s => {
         if (s.lat && s.lng) return s;
         const fallback = dayPointById[s.dayId];
