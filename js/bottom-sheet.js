@@ -343,7 +343,10 @@ const BottomSheet = (() => {
         <!-- no stamp section for Africa -->
         <div class="bs-actions">
           ${stop.booking.status!=='booked'?`<button class="btn btn-primary bs-full-btn" id="bs-book-btn">Mark as booked</button>`:`<button class="btn btn-ghost bs-full-btn" id="bs-unbook-btn">✓ Booked — unmark</button>`}
-          <button class="btn btn-ghost bs-full-btn" id="bs-feature-btn">${stop.featuredOnMap ? '📍 Featured on map — tap to unfeature' : '📍 Feature this stop on the map'}</button>
+          ${stop.hiddenFromMap
+            ? `<button class="btn btn-ghost bs-full-btn" id="bs-hide-btn">🙈 Hidden from map — tap to show</button>`
+            : `<button class="btn btn-ghost bs-full-btn" id="bs-feature-btn">${stop.featuredOnMap ? '📍 Featured on map — tap to unfeature' : '📍 Feature this stop on the map'}</button>
+               <button class="btn btn-ghost bs-full-btn" id="bs-hide-btn" style="color:var(--text-muted)">🙈 Hide this stop from the map</button>`}
           <div class="bs-action-row"><button class="btn btn-ghost" id="bs-edit-btn">Edit stop</button><button class="btn btn-danger" id="bs-remove-btn">Remove</button></div>
         </div>
       </div>`;
@@ -539,6 +542,16 @@ const BottomSheet = (() => {
         }
         await Data.updateStop(stop.id, { featuredOnMap: next });
         Toast.show(next ? `${stop.name} featured on map` : 'Unfeatured', 'info');
+      } catch (e) {
+        Toast.show('Could not save — check connection', 'danger');
+      }
+      window.MapScreen?.refresh?.(); close();
+    });
+    body.querySelector('#bs-hide-btn')?.addEventListener('click', async () => {
+      const next = !stop.hiddenFromMap;
+      try {
+        await Data.updateStop(stop.id, { hiddenFromMap: next });
+        Toast.show(next ? `${stop.name} hidden from map` : `${stop.name} shown on map`, 'info');
       } catch (e) {
         Toast.show('Could not save — check connection', 'danger');
       }
