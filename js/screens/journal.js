@@ -441,10 +441,15 @@ const JournalScreen = (() => {
   // cluster.
   const CLUSTER_KM = 60;      // legs shorter than this stay near true scale
   const LONG_LEG_MULT = 2.5;  // legs this many times the median leg count as "long" -> break mark
-  const MIN_GAP_PX = 22;      // hard floor between any two points, same axis — a scale
+  const MIN_GAP_PX = 28;      // hard floor between any two points, same axis — a scale
                                // factor alone can still crush close points to sub-pixel
                                // distances; this guarantees they never overlap
-  const ROUTE_MIN_H = 120, ROUTE_MAX_H = 190;
+  const ROUTE_MIN_H = 160, ROUTE_MAX_H = 260;
+  const WIDTH_FRACTION = 0.62; // map only needs to use this much of the content width —
+                                // scale = availW / rangeX was forcing it to span the FULL
+                                // width edge to edge every time, which is what actually
+                                // made it look stretched out horizontally, independent of
+                                // height. The map is centered within the leftover space.
 
   // Returns { points, height }. Width is fixed to w (the map has to sit
   // inline with everything else at a fixed content width), but height is
@@ -494,7 +499,8 @@ const JournalScreen = (() => {
     const rawY = compressAxis(km.map(p => p.y));
     const rangeX = Math.max(Math.max(...rawX) - Math.min(...rawX), 0.0005);
     const availW = w - pad * 2;
-    const scale = availW / rangeX; // same scale on both axes -> true shape preserved, not stretched
+    const targetW = availW * WIDTH_FRACTION;
+    const scale = targetW / rangeX; // same scale on both axes -> true shape preserved, not stretched
 
     const minX = Math.min(...rawX), minY = Math.min(...rawY);
     let px = rawX.map(v => (v - minX) * scale);
@@ -502,16 +508,21 @@ const JournalScreen = (() => {
     px = enforceMinGap(px);
     py = enforceMinGap(py);
 
-    // x must still fit the fixed content width — rescale back into [0, availW]
-    // if min-gap enforcement needed more room than that (rare: only when many
-    // points are packed into a tiny real area). y has no such ceiling other
-    // than ROUTE_MAX_H, so a crowded cluster gets to spread out vertically
-    // instead of being crushed back down.
+    // x only needs to fit within targetW, not the full content width — rescale
+    // down only if min-gap enforcement needed more room than that (rare: only
+    // when many points are packed into a tiny real area). Then center the
+    // whole thing within the full available width, so a narrow route doesn't
+    // get stretched to the edges. y has no such ceiling other than
+    // ROUTE_MAX_H, so a crowded cluster gets to spread out vertically instead
+    // of being crushed back down.
     const pxSpan = Math.max(...px) - Math.min(...px) || 1;
-    if (pxSpan > availW) {
+    if (pxSpan > targetW) {
       const pxMin = Math.min(...px);
-      px = px.map(v => (v - pxMin) / pxSpan * availW);
+      px = px.map(v => (v - pxMin) / pxSpan * targetW);
     }
+    const finalPxSpan = Math.max(...px) - Math.min(...px) || 1;
+    const centerOffset = (availW - finalPxSpan) / 2;
+    px = px.map(v => v + centerOffset);
     const pySpan = Math.max(...py) - Math.min(...py) || 1;
     const mapH = Math.min(ROUTE_MAX_H, Math.max(ROUTE_MIN_H, pySpan + pad * 2));
     const availH = mapH - pad * 2;
@@ -820,24 +831,24 @@ const JournalScreen = (() => {
           ctx.setLineDash([]);
           ctx.strokeStyle = '#6B6357';
           ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.moveTo(-5, -5); ctx.lineTo(5, 5); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(-1, -8); ctx.lineTo(9, 2); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(6, 6); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-1, -10); ctx.lineTo(11, 2); ctx.stroke();
           ctx.restore();
           ctx.fillStyle = '#A39A8C';
-          ctx.font = '400 9px "Plus Jakarta Sans", sans-serif';
+          ctx.font = '400 10px "Plus Jakarta Sans", sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText(`${p1.legKm} km`, mx, my - 12);
+          ctx.fillText(`${p1.legKm} km`, mx, my - 14);
         }
       }
       ctx.setLineDash([]);
 
       // numbered day circles
       routeProjected.forEach(p => {
-        ctx.beginPath(); ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
+        ctx.beginPath(); ctx.arc(p.x, p.y, 11, 0, Math.PI * 2);
         ctx.fillStyle = '#FBEAE7'; ctx.fill();
         ctx.strokeStyle = accentColor; ctx.lineWidth = 1.5; ctx.stroke();
         ctx.fillStyle = accentColor;
-        ctx.font = '700 9px "Plus Jakarta Sans", sans-serif';
+        ctx.font = '700 10px "Plus Jakarta Sans", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(String(p.dayNum), p.x, p.y + 0.5);
@@ -845,10 +856,10 @@ const JournalScreen = (() => {
       });
 
       ctx.fillStyle = '#1C1A18';
-      ctx.font = '400 12px Georgia, serif';
+      ctx.font = '400 13px Georgia, serif';
       ctx.textAlign = 'center';
       routeProjected.forEach(p => {
-        const labelY = p.y < ROUTE_H / 2 ? p.y - 15 : p.y + 22;
+        const labelY = p.y < ROUTE_H / 2 ? p.y - 18 : p.y + 26;
         ctx.fillText(p.label, p.x, labelY);
       });
       ctx.restore();
