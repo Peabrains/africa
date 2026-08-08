@@ -1177,6 +1177,24 @@ const Data = (() => {
     return item;
   }
 
+  async function updateBucketItem(id, { title, location, category, url } = {}) {
+    const item = getBucketItem(id);
+    if (!item) return;
+    const patch = {};
+    if (title !== undefined) patch.title = title;
+    if (location !== undefined) patch.location = location;
+    if (category !== undefined) patch.category = category;
+    if (url !== undefined) patch.url = url;
+
+    Object.assign(item, patch);
+    await DB.saveBucket(BUCKET_ITEMS);
+
+    if (navigator.onLine) {
+      const { error } = await SB.from('bucket_items').update(patch).eq('id', id);
+      if (error) { console.error('[Data] updateBucketItem error:', error); throw error; }
+    }
+  }
+
   async function deleteBucketItem(id) {
     const item = getBucketItem(id);
     BUCKET_ITEMS = BUCKET_ITEMS.filter(i => i.id !== id);
@@ -1962,7 +1980,7 @@ const Data = (() => {
     markStampCollected, unmarkStampCollected, addStampPhoto, removeStampPhoto, getStampPhoto,
     // Bucket List
     getBucketItems, getBucketItem, getBucketCategories, getBucketProgress,
-    addBucketItem, deleteBucketItem, toggleBucketDone, addBucketPhoto, removeBucketPhoto, getBucketPhoto,
+    addBucketItem, updateBucketItem, deleteBucketItem, toggleBucketDone, addBucketPhoto, removeBucketPhoto, getBucketPhoto,
     // Journal
     getJournalEntries, getJournalEntry, addJournalEntry, updateJournalEntry, deleteJournalEntry,
     addJournalPhoto, setJournalHeroPhoto, removeJournalPhoto, getJournalPhotoUrl, setJournalPhotoFocal, getProfilesByIds,
