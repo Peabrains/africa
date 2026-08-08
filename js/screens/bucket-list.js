@@ -19,6 +19,8 @@ const BucketListScreen = (() => {
   let activeTab = 'bucket'; // 'bucket' | 'collection'
   let addFormOpen = false;
   let pendingCategory = '';
+  let editingItemId = null;   // id of item currently showing its inline edit form, or null
+  let confirmDeleteId = null; // id of item mid tap-twice-to-confirm delete, or null
 
   const CATEGORY_ICONS = {
     'Food':       '🍜',
@@ -81,6 +83,8 @@ const BucketListScreen = (() => {
 
   /* ── Item row ─────────────────────────────────────────────── */
   function itemRow(item) {
+    if (item.id === editingItemId) return editForm(item);
+
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px var(--s4);border-bottom:1px solid var(--border-subtle)';
 
@@ -130,8 +134,124 @@ const BucketListScreen = (() => {
     cam.addEventListener('click', (e) => { e.stopPropagation(); pickPhoto(item.id); });
     row.appendChild(cam);
 
+    // Edit — opens an inline form pre-filled with this item's values
+    const edit = document.createElement('button');
+    edit.setAttribute('aria-label', 'Edit item');
+    edit.style.cssText = 'width:26px;height:26px;border-radius:50%;flex-shrink:0;background:var(--surface-raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-secondary);opacity:.55;cursor:pointer';
+    edit.textContent = '✏️';
+    edit.addEventListener('click', (e) => {
+      e.stopPropagation();
+      editingItemId = item.id;
+      confirmDeleteId = null;
+      render();
+    });
+    row.appendChild(edit);
+
+    // Delete — first tap turns this into a red confirm state, second tap
+    // (or tapping elsewhere, which resets it) actually deletes. Deleting
+    // is more destructive than removing a photo (loses title/location/url
+    // too), so unlike the photo-remove action this isn't a single tap.
+    const isConfirming = item.id === confirmDeleteId;
+    const del = document.createElement('button');
+    del.setAttribute('aria-label', isConfirming ? 'Confirm delete' : 'Delete item');
+    del.style.cssText = `width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;${
+      isConfirming
+        ? 'background:var(--danger-bg);border:1px solid var(--danger-border);color:var(--danger-text);opacity:1'
+        : 'background:var(--surface-raised);border:1px solid var(--border);color:var(--text-secondary);opacity:.55'
+    }`;
+    del.textContent = isConfirming ? '✓' : '🗑';
+    del.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!isConfirming) {
+        confirmDeleteId = item.id;
+        editingItemId = null;
+        render();
+        return;
+      }
+      await Data.deleteBucketItem(item.id);
+      confirmDeleteId = null;
+      Toast.show('Removed from list', 'info');
+      render();
+    });
+    row.appendChild(del);
+
     row.addEventListener('click', () => handleToggle(item.id));
     return row;
+  }
+
+  /* ── Inline edit form — same field set as Add, prefilled ────── */
+  function editForm(item) {
+    const existingCats = Data.getBucketCategories();
+    const allCats = Array.from(new Set([...Object.keys(CATEGORY_ICONS), ...existingCats, item.category].filter(Boolean)));
+    let pendingEditCategory = item.category || allCats[0] || '';
+
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'margin:8px var(--s4);background:var(--accent-subtle);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--s3);display:flex;flex-direction:column;gap:8px';
+
+    wrap.innerHTML = `
+      <div style="font-size:10px;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em">Edit item</div>
+      <div>
+        <label style="display:block;font-size:var(--text-xs);font-weight:500;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Title <span style="color:var(--accent)">*</span></label>
+        <input id="bke-title" class="bs-input" type="text" value="${(item.title || '').replace(/"/g, '&quot;')}">
+      </div>
+      <div>
+        <label style="display:block;font-size:var(--text-xs);font-weight:500;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Location</label>
+        <input id="bke-location" class="bs-input" type="text" value="${(item.location || '').replace(/"/g, '&quot;')}">
+      </div>
+      <div>
+        <label style="display:block;font-size:var(--text-xs);font-weight:500;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Category</label>
+        <div id="bke-cat-pills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+      <div>
+        <label style="display:block;font-size:var(--text-xs);font-weight:500;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Link <span style="text-transform:none;font-weight:400;color:var(--text-muted)">(optional)</span></label>
+        <input id="bke-url" class="bs-input" type="url" value="${(item.url || '').replace(/"/g, '&quot;')}">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:2px">
+        <button id="bke-save" class="btn btn-primary" style="flex:1">Save</button>
+        <button id="bke-cancel" class="btn btn-ghost" style="flex:1">Cancel</button>
+      </div>`;
+
+    const pillWrap = wrap.querySelector('#bke-cat-pills');
+    function renderPills() {
+      pillWrap.innerHTML = '';
+      allCats.forEach(cat => {
+        const pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = `pill ${pendingEditCategory === cat ? 'active' : ''}`;
+        pill.textContent = `${iconFor(cat)} ${cat}`;
+        pill.addEventListener('click', () => { pendingEditCategory = cat; renderPills(); });
+        pillWrap.appendChild(pill);
+      });
+      const newPill = document.createElement('button');
+      newPill.type = 'button';
+      newPill.className = 'pill';
+      newPill.style.cssText = 'border-style:dashed;color:var(--text-muted)';
+      newPill.textContent = '+ New';
+      newPill.addEventListener('click', () => {
+        const typed = prompt('New category name');
+        if (typed && typed.trim()) {
+          pendingEditCategory = typed.trim();
+          if (!allCats.includes(pendingEditCategory)) allCats.push(pendingEditCategory);
+          renderPills();
+        }
+      });
+      pillWrap.appendChild(newPill);
+    }
+    renderPills();
+
+    wrap.querySelector('#bke-cancel').addEventListener('click', () => { editingItemId = null; render(); });
+    wrap.querySelector('#bke-save').addEventListener('click', async () => {
+      const title = wrap.querySelector('#bke-title').value.trim();
+      if (!title) { Toast.show('Title is required', 'warning'); return; }
+      const location = wrap.querySelector('#bke-location').value.trim();
+      const url = wrap.querySelector('#bke-url').value.trim();
+      await Data.updateBucketItem(item.id, { title, location, category: pendingEditCategory, url });
+      Toast.show('Saved', 'success');
+      editingItemId = null;
+      render();
+    });
+
+    return wrap;
   }
 
   async function handleToggle(id) {
