@@ -393,9 +393,15 @@ const JournalScreen = (() => {
     return out;
   }
 
-  // One point per day-locality (not per stop) — averages that day's
-  // stops' coordinates as a representative position. Takes an explicit
-  // list of day ids chosen in the export options step, rather than
+  // One point per day-locality (not per stop). Uses the day's own
+  // geocoded locality coordinate (weatherPoints — the same point the
+  // weather widget on the day card already reads) rather than averaging
+  // that day's stops. Averaging pulled the point toward wherever the
+  // stops happened to spread (a driving day, a lodging stop, an
+  // attraction) instead of the actual place the day is "at". Falls back
+  // to averaging stops only for days that were never geocoded (no
+  // weatherPoints yet, e.g. added while offline). Takes an explicit list
+  // of day ids chosen in the export options step, rather than
   // auto-deriving from which entries happen to be tagged — so an
   // untagged journal doesn't mean an empty map, the traveler just
   // picks whichever days they want illustrated directly.
@@ -406,6 +412,11 @@ const JournalScreen = (() => {
       .sort((a, b) => (a.day_index ?? 0) - (b.day_index ?? 0));
     const points = [];
     for (const day of days) {
+      const wp = Array.isArray(day.weatherPoints) && day.weatherPoints[0];
+      if (wp && typeof wp.lat === 'number' && typeof wp.lng === 'number') {
+        points.push({ lat: wp.lat, lng: wp.lng, label: day.locality || day.label || '' });
+        continue;
+      }
       const stops = (Data.getStopsByDay?.(day.id) || []).filter(s => typeof s.lat === 'number' && typeof s.lng === 'number');
       if (!stops.length) continue;
       const lat = stops.reduce((sum, s) => sum + s.lat, 0) / stops.length;
@@ -430,9 +441,18 @@ const JournalScreen = (() => {
   // cluster.
   const CLUSTER_KM = 60;      // legs shorter than this stay near true scale
   const LONG_LEG_MULT = 2.5;  // legs this many times the median leg count as "long" -> break mark
+  const MIN_GAP_PX = 42;      // hard floor between any two points, same axis — a scale
+                               // factor alone can still crush close points to sub-pixel
+                               // distances; this guarantees they never overlap
+  const ROUTE_MIN_H = 220, ROUTE_MAX_H = 480;
 
-  function projectPoints(points, w, h, pad = 24) {
-    if (points.length < 2) return [];
+  // Returns { points, height }. Width is fixed to w (the map has to sit
+  // inline with everything else at a fixed content width), but height is
+  // free to grow — this is a long-image export, vertical space is cheap,
+  // and letting a crowded cluster spread out vertically is what actually
+  // keeps it legible instead of forcing everything into a fixed box.
+  function projectPoints(points, w, pad = 24) {
+    if (points.length < 2) return { points: [], height: 0 };
     const R = 111; // km per degree latitude, close enough at this scale
     const avgLat = points.reduce((s, p) => s + p.lat, 0) / points.length;
     const km = points.map(p => ({
@@ -440,6 +460,11 @@ const JournalScreen = (() => {
       y: -p.lat * R, // higher latitude = more negative = smaller y later = north stays up
     }));
 
+    // Rank-preserving compression per axis: real gaps up to CLUSTER_KM stay
+    // near true relative scale, gaps beyond that are compressed. Because
+    // each axis is compressed independently in strict sorted order, every
+    // pairwise north/south and east/west relationship stays correct for
+    // every pair of points, not just consecutive days on the route.
     function compressAxis(vals) {
       const order = vals.map((_, i) => i).sort((a, b) => vals[a] - vals[b]);
       const screen = new Array(vals.length);
@@ -452,17 +477,51 @@ const JournalScreen = (() => {
       return screen;
     }
 
-    const sx = compressAxis(km.map(p => p.x));
-    const sy = compressAxis(km.map(p => p.y));
-    const minX = Math.min(...sx), maxX = Math.max(...sx);
-    const minY = Math.min(...sy), maxY = Math.max(...sy);
-    const rangeX = Math.max(maxX - minX, 0.0005), rangeY = Math.max(maxY - minY, 0.0005);
-    const scale = Math.min((w - pad * 2) / rangeX, (h - pad * 2) / rangeY);
-    const offX = pad + ((w - pad * 2) - rangeX * scale) / 2;
-    const offY = pad + ((h - pad * 2) - rangeY * scale) / 2;
+    // Forward sweep in sorted order: never let two points end up closer
+    // than MIN_GAP_PX. Monotonic (only pushes forward), so pairwise order
+    // from compressAxis is preserved.
+    function enforceMinGap(vals) {
+      const order = vals.map((_, i) => i).sort((a, b) => vals[a] - vals[b]);
+      const out = vals.slice();
+      for (let k = 1; k < order.length; k++) {
+        const prev = order[k - 1], cur = order[k];
+        if (out[cur] - out[prev] < MIN_GAP_PX) out[cur] = out[prev] + MIN_GAP_PX;
+      }
+      return out;
+    }
 
-    // real leg distances (km, haversine-lite via the same flat projection)
-    // in day order, to flag which legs are disproportionately long
+    const rawX = compressAxis(km.map(p => p.x));
+    const rawY = compressAxis(km.map(p => p.y));
+    const rangeX = Math.max(Math.max(...rawX) - Math.min(...rawX), 0.0005);
+    const availW = w - pad * 2;
+    const scale = availW / rangeX; // same scale on both axes -> true shape preserved, not stretched
+
+    const minX = Math.min(...rawX), minY = Math.min(...rawY);
+    let px = rawX.map(v => (v - minX) * scale);
+    let py = rawY.map(v => (v - minY) * scale);
+    px = enforceMinGap(px);
+    py = enforceMinGap(py);
+
+    // x must still fit the fixed content width — rescale back into [0, availW]
+    // if min-gap enforcement needed more room than that (rare: only when many
+    // points are packed into a tiny real area). y has no such ceiling other
+    // than ROUTE_MAX_H, so a crowded cluster gets to spread out vertically
+    // instead of being crushed back down.
+    const pxSpan = Math.max(...px) - Math.min(...px) || 1;
+    if (pxSpan > availW) {
+      const pxMin = Math.min(...px);
+      px = px.map(v => (v - pxMin) / pxSpan * availW);
+    }
+    const pySpan = Math.max(...py) - Math.min(...py) || 1;
+    const mapH = Math.min(ROUTE_MAX_H, Math.max(ROUTE_MIN_H, pySpan + pad * 2));
+    const availH = mapH - pad * 2;
+    if (pySpan > availH) {
+      const pyMin = Math.min(...py);
+      py = py.map(v => (v - pyMin) / pySpan * availH);
+    }
+
+    // real leg distances (km, via the same flat projection) in day order,
+    // to flag which legs are disproportionately long for a break mark
     const legKm = points.map((_, i) => {
       if (i === 0) return 0;
       const dx = km[i].x - km[i - 1].x, dy = km[i].y - km[i - 1].y;
@@ -472,14 +531,15 @@ const JournalScreen = (() => {
     const median = nonZero.length ? nonZero[Math.floor(nonZero.length / 2)] : 0;
     const longThreshold = Math.max(50, median * LONG_LEG_MULT);
 
-    return points.map((p, i) => ({
-      x: offX + (sx[i] - minX) * scale,
-      y: offY + (sy[i] - minY) * scale,
+    const outPoints = points.map((p, i) => ({
+      x: pad + px[i],
+      y: pad + py[i],
       label: p.label,
       dayNum: i + 1,
       legKm: Math.round(legKm[i]),
       isLongLeg: i > 0 && legKm[i] > longThreshold,
     }));
+    return { points: outPoints, height: mapH };
   }
 
   // Deterministic pseudo-random in [-1, 1] — stable across repeated exports
@@ -664,14 +724,15 @@ const JournalScreen = (() => {
     // This has to mirror the real draw pass's cy progression exactly,
     // line for line, or the header and the first entry drift apart.
     const scratch = document.createElement('canvas').getContext('2d');
-    let y = 130; // top margin, matches draw pass's initial cy
-    y += 40; // after kicker
-    y += 30; // after trip title
-    y += 40; // after countries subline
+    let y = 170; // top margin, matches draw pass's initial cy
+    y += 44; // after kicker
+    y += 34; // after trip title
+    y += 44; // after countries subline
 
     const dayPoints = opts.includeMap ? getDayPointsForIds(opts.selectedDayIds) : [];
-    const routeProjected = projectPoints(dayPoints, CW, 190);
-    const ROUTE_H = 190;
+    const routeResult = projectPoints(dayPoints, CW);
+    const routeProjected = routeResult.points;
+    const ROUTE_H = routeResult.height;
     if (routeProjected.length) {
       y += ROUTE_H + 30; // illustration + breathing room
     }
@@ -719,20 +780,20 @@ const JournalScreen = (() => {
     ctx.fillRect(0, 0, W, canvas.height);
     ctx.textBaseline = 'alphabetic';
 
-    let cy = 130;
+    let cy = 170;
     ctx.fillStyle = '#A39A8C';
-    ctx.font = '700 11px "Plus Jakarta Sans", sans-serif';
+    ctx.font = '700 13px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('TRIP JOURNAL', W / 2, cy);
-    cy += 40;
+    cy += 44;
     ctx.fillStyle = '#1C1A18';
-    ctx.font = '400 40px Georgia, serif';
+    ctx.font = '400 46px Georgia, serif';
     ctx.fillText(trip?.name || '', W / 2, cy);
-    cy += 30;
+    cy += 34;
     ctx.fillStyle = '#A39A8C';
-    ctx.font = '400 14px "Plus Jakarta Sans", sans-serif';
+    ctx.font = '400 16px "Plus Jakarta Sans", sans-serif';
     ctx.fillText((trip?.countries || []).join(' · '), W / 2, cy);
-    cy += 40;
+    cy += 44;
 
     if (routeProjected.length) {
       const accentColor = currentAccentColor();
@@ -763,20 +824,20 @@ const JournalScreen = (() => {
           ctx.beginPath(); ctx.moveTo(-1, -12); ctx.lineTo(13, 2); ctx.stroke();
           ctx.restore();
           ctx.fillStyle = '#A39A8C';
-          ctx.font = '400 10px "Plus Jakarta Sans", sans-serif';
+          ctx.font = '400 11px "Plus Jakarta Sans", sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText(`${p1.legKm} km`, mx, my - 14);
+          ctx.fillText(`${p1.legKm} km`, mx, my - 16);
         }
       }
       ctx.setLineDash([]);
 
       // numbered day circles
       routeProjected.forEach(p => {
-        ctx.beginPath(); ctx.arc(p.x, p.y, 11, 0, Math.PI * 2);
+        ctx.beginPath(); ctx.arc(p.x, p.y, 13, 0, Math.PI * 2);
         ctx.fillStyle = '#FBEAE7'; ctx.fill();
         ctx.strokeStyle = accentColor; ctx.lineWidth = 1.5; ctx.stroke();
         ctx.fillStyle = accentColor;
-        ctx.font = '700 10px "Plus Jakarta Sans", sans-serif';
+        ctx.font = '700 11px "Plus Jakarta Sans", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(String(p.dayNum), p.x, p.y + 0.5);
@@ -784,10 +845,10 @@ const JournalScreen = (() => {
       });
 
       ctx.fillStyle = '#1C1A18';
-      ctx.font = '400 13px Georgia, serif';
+      ctx.font = '400 16px Georgia, serif';
       ctx.textAlign = 'center';
       routeProjected.forEach(p => {
-        const labelY = p.y < ROUTE_H / 2 ? p.y - 18 : p.y + 26;
+        const labelY = p.y < ROUTE_H / 2 ? p.y - 22 : p.y + 32;
         ctx.fillText(p.label, p.x, labelY);
       });
       ctx.restore();
