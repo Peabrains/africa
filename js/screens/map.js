@@ -102,13 +102,26 @@ const MapScreen = (() => {
       });
     });
 
-    // Fit all stops in view
+    // Fit all stops in view — falling back to day-level geocoded points
+    // when no stop has coordinates at all (e.g. flight/transit stops that
+    // were never given a lat/lng), so the map still centers on the actual
+    // trip instead of sitting at whatever the generic default view is.
     const latlngs = stops.map(s => [s.lat, s.lng]);
     if (latlngs.length) {
       map.fitBounds(L.latLngBounds(latlngs), {
         paddingTopLeft:     [24, 24],
         paddingBottomRight: [24, 88],
       });
+    } else {
+      const dayPoints = (Data.getDays() || [])
+        .flatMap(d => (d.weatherPoints || []).map(wp => [wp.lat, wp.lng]))
+        .filter(([lat, lng]) => typeof lat === 'number' && typeof lng === 'number');
+      if (dayPoints.length) {
+        map.fitBounds(L.latLngBounds(dayPoints), {
+          paddingTopLeft:     [24, 24],
+          paddingBottomRight: [24, 88],
+        });
+      }
     }
   }
 
@@ -156,7 +169,7 @@ const MapScreen = (() => {
     mapEl.id = 'map-container';
     root.appendChild(mapEl);
 
-    map = L.map('map-container', { zoomControl:true, attributionControl:true });
+    map = L.map('map-container', { zoomControl:true, attributionControl:true }).setView([13.7563, 100.5018], 4);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
       maxZoom: 18,
