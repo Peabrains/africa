@@ -21,6 +21,7 @@ const BucketListScreen = (() => {
   let pendingCategory = '';
   let editingItemId = null;   // id of item currently showing its inline edit form, or null
   let confirmDeleteId = null; // id of item mid tap-twice-to-confirm delete, or null
+  let confirmDeleteTimer = null;
 
   const CATEGORY_ICONS = {
     'Food':       '🍜',
@@ -137,37 +138,44 @@ const BucketListScreen = (() => {
     // Edit — opens an inline form pre-filled with this item's values
     const edit = document.createElement('button');
     edit.setAttribute('aria-label', 'Edit item');
-    edit.style.cssText = 'width:26px;height:26px;border-radius:50%;flex-shrink:0;background:var(--surface-raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-secondary);opacity:.55;cursor:pointer';
-    edit.textContent = '✏️';
+    edit.style.cssText = 'width:26px;height:26px;border-radius:50%;flex-shrink:0;background:var(--surface-raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);opacity:.55;cursor:pointer';
+    edit.innerHTML = Icons.pencil('icon-sm');
     edit.addEventListener('click', (e) => {
       e.stopPropagation();
+      clearTimeout(confirmDeleteTimer);
       editingItemId = item.id;
       confirmDeleteId = null;
       render();
     });
     row.appendChild(edit);
 
-    // Delete — first tap turns this into a red confirm state, second tap
-    // (or tapping elsewhere, which resets it) actually deletes. Deleting
-    // is more destructive than removing a photo (loses title/location/url
-    // too), so unlike the photo-remove action this isn't a single tap.
+    // Delete — first tap turns this into a red confirm state (auto-resets
+    // after 4s, same as removing a stop or a journal entry elsewhere in
+    // the app), second tap actually deletes. Deleting is more destructive
+    // than removing a photo (loses title/location/url too), so unlike the
+    // photo-remove action this isn't a single tap.
     const isConfirming = item.id === confirmDeleteId;
     const del = document.createElement('button');
     del.setAttribute('aria-label', isConfirming ? 'Confirm delete' : 'Delete item');
-    del.style.cssText = `width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;${
+    del.style.cssText = `width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;${
       isConfirming
         ? 'background:var(--danger-bg);border:1px solid var(--danger-border);color:var(--danger-text);opacity:1'
         : 'background:var(--surface-raised);border:1px solid var(--border);color:var(--text-secondary);opacity:.55'
     }`;
-    del.textContent = isConfirming ? '✓' : '🗑';
+    del.innerHTML = isConfirming ? Icons.check('icon-sm') : Icons.trash('icon-sm');
     del.addEventListener('click', async (e) => {
       e.stopPropagation();
       if (!isConfirming) {
-        confirmDeleteId = item.id;
         editingItemId = null;
+        confirmDeleteId = item.id;
         render();
+        confirmDeleteTimer = setTimeout(() => {
+          confirmDeleteId = null;
+          render();
+        }, 4000);
         return;
       }
+      clearTimeout(confirmDeleteTimer);
       await Data.deleteBucketItem(item.id);
       confirmDeleteId = null;
       Toast.show('Removed from list', 'info');
