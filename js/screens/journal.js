@@ -1076,7 +1076,7 @@ const JournalScreen = (() => {
 
       <div style="padding:18px 20px">
         <div style="font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#A39A8C;margin-bottom:10px">What happened?</div>
-        <textarea id="j-narration" rows="6" placeholder="Write whatever you want to remember…" style="width:100%;font-family:Georgia,serif;font-size:15px;line-height:1.7;color:#1C1A18;border:1px solid #E4DECE;border-radius:8px;padding:12px;background:#fff">${composeNarration}</textarea>
+        <textarea id="j-narration" rows="12" placeholder="Write whatever you want to remember…" style="width:100%;min-height:280px;font-family:Georgia,serif;font-size:15px;line-height:1.7;color:#1C1A18;border:1px solid #E4DECE;border-radius:8px;padding:12px;background:#fff">${composeNarration}</textarea>
         <div style="font-size:9.5px;color:#A39A8C;margin-top:6px;line-height:1.5">Type <code style="background:#F1EDE5;padding:1px 4px;border-radius:3px;font-family:monospace">**text**</code> for <strong>bold</strong>, <code style="background:#F1EDE5;padding:1px 4px;border-radius:3px;font-family:monospace">*text*</code> for <em>italic</em></div>
         <div id="j-sentence-picker" style="margin-top:14px"></div>
       </div>
