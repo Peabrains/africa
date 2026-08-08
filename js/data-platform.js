@@ -300,6 +300,7 @@ const Data = (() => {
       transportType: s.transport_type || 'walk',
       needsBooking:  s.needs_booking || false,
       isBooked:      s.is_booked || false,
+      featuredOnMap: s.featured_on_map || false,
       flightIncluded: fd?.included === true,
       flightExcluded: fd?.included === false,
       trainDetail:   fd?.trainDetail || null,
@@ -434,6 +435,7 @@ const Data = (() => {
     if ('notes'          in changes) patch.notes          = changes.notes;
     if ('needsBooking'   in changes) patch.needs_booking  = changes.needsBooking;
     if ('category'       in changes) patch.category       = changes.category;
+    if ('featuredOnMap'  in changes) patch.featured_on_map = changes.featuredOnMap;
 
     if (changes.booking) {
       patch.is_booked = changes.booking.status === 'booked';
