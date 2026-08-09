@@ -11,17 +11,17 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <title>Africa Safari 2026</title>
-  <link rel="stylesheet" href="css/tokens.css?v=125">
-  <link rel="stylesheet" href="css/print.css?v=125">
+  <link rel="stylesheet" href="css/tokens.css?v=126">
+  <link rel="stylesheet" href="css/print.css?v=126">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
   <!-- InstantDB real-time sync -->
   <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase.js?v=125"></script>
+  <script src="js/supabase.js?v=126"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <!-- Platform data layer + auth + trip switcher -->
-  <script src="js/data-platform.js?v=125"></script>
-  <script src="js/trip-switcher.js?v=125"></script>
+  <script src="js/data-platform.js?v=126"></script>
+  <script src="js/trip-switcher.js?v=126"></script>
 
   <style>
     /* ── Shell ─────────────────────────────────────────────────── */
@@ -114,11 +114,11 @@
     /* ── Timeline ──────────────────────────────────────────────── */
     .tl-day-block{padding:var(--s5) var(--s4) var(--s2);margin-top:var(--s1)}
     .tl-day-block:first-of-type{padding-top:var(--s3)}
-    .tl-day-header-row{display:flex;align-items:center;gap:10px;margin-bottom:4px}
-    .tl-day-pill{background:var(--accent);border-radius:var(--r-pill);padding:4px 12px;display:inline-flex;align-items:center;flex-shrink:0}
-    .tl-day-label{font-size:var(--text-sm);font-weight:500;color:#fff;letter-spacing:.04em}
-    .tl-day-date{font-size:16px;font-weight:500;color:var(--text-primary);line-height:1.2}
-    .tl-day-title-text{font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s2);padding-left:2px}
+    .tl-day-header-row{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+    .tl-day-pill{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:40px}
+    .tl-day-label{font-family:var(--display);font-size:26px;font-weight:600;color:var(--accent);line-height:1;letter-spacing:0}
+    .tl-day-date{font-size:15px;font-weight:700;color:var(--text-primary);line-height:1.2}
+    .tl-day-title-text{font-family:var(--display);font-style:italic;font-size:12.5px;color:var(--text-secondary);margin-bottom:var(--s2);padding-left:0}
     .tl-day-divider{height:1px;background:var(--border-subtle);margin:0 var(--s4) var(--s1)}
 
     /* Stop rows */
@@ -157,7 +157,7 @@
     .flight-card-codes{display:flex;align-items:center;margin-bottom:8px}
     .flight-card-code-block{min-width:52px}
     .flight-card-code-block--right{text-align:right}
-    .flight-card-code{font-size:19px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;line-height:1}
+    .flight-card-code{font-family:var(--display);font-size:20px;font-weight:600;color:var(--text-muted);letter-spacing:.3px;line-height:1}
     .flight-card-code--verified{color:var(--text-primary)}
     .flight-card-terminal{font-size:10px;color:var(--text-muted);margin-top:3px}
     .flight-card-arrow{flex:1;display:flex;flex-direction:column;align-items:center;padding:0 4px;min-width:0}
@@ -168,7 +168,7 @@
     .flight-card-times-col--right{text-align:right}
     .flight-card-times-duration{flex-shrink:0;padding:0 8px 3px;text-align:center;font-size:10px;color:var(--text-muted);white-space:nowrap}
     .flight-card-times-label{font-size:9px;font-weight:600;letter-spacing:.4px;color:var(--text-muted);margin-bottom:3px}
-    .flight-card-times-val{font-size:14px;font-weight:700;color:var(--text-primary)}
+    .flight-card-times-val{font-family:var(--display);font-size:15px;font-weight:600;color:var(--text-primary)}
     .flight-card-times-val--delayed{color:var(--danger-text)}
     .flight-card-times-old{text-decoration:line-through;opacity:.5;font-weight:400;font-size:12px;margin-right:5px}
     .flight-card-foot{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:10px;color:var(--text-muted)}
@@ -208,9 +208,24 @@
     .add-stop-btn{display:flex;align-items:center;gap:var(--s2);padding:var(--s2) var(--s4);font-size:var(--text-xs);color:var(--text-muted);background:none;border:none;cursor:pointer;font-family:var(--font)}
     .add-stop-btn:hover{color:var(--accent)}
 
-    /* Country divider between segments */
-    .country-divider{display:flex;align-items:center;gap:var(--s3);padding:var(--s3) var(--s4) var(--s2);margin-top:var(--s2)}
-    .country-divider-line{flex:1;height:1px;background:var(--border)}
+    /* "The Story" card — collapsed teaser (accent rule) / expanded (bordered card) */
+    .story-card{margin:var(--s2) var(--s4);cursor:pointer;user-select:none}
+    .story-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-left:14px;border-left:3px solid var(--accent)}
+    .story-card-head-text{flex:1;min-width:0}
+    .story-card-eyebrow{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.06em}
+    .story-card-eyebrow .icon{color:var(--accent)}
+    .story-card-title{font-family:var(--display);font-size:15px;font-weight:600;color:var(--text-primary);margin-top:4px;line-height:1.35}
+    .story-card-chevron{color:var(--text-muted);flex-shrink:0;margin-top:2px}
+    .story-card-body{margin-top:10px;background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--r-lg);padding:16px}
+    .story-card--open .story-card-header{border-left-color:var(--border-subtle)}
+    .story-card--open .story-card-title{font-size:16px}
+
+    /* Location divider — shown when locality changes (option B: rule + pin) */
+    .loc-divider{padding:22px var(--s4) 8px;border-top:1px solid var(--border);margin-top:var(--s2)}
+    .loc-divider-row{display:flex;align-items:center;gap:7px;color:var(--accent)}
+    .loc-divider-row .icon{flex-shrink:0}
+    .loc-divider-name{font-family:var(--display);font-size:17px;font-weight:600;color:var(--text-primary)}
+    .loc-divider-nights{display:block;font-size:10.5px;color:var(--text-muted);margin-top:2px;margin-left:23px}
 
     /* ── Inclusions/exclusions screen ──────────────────────────── */
     .inc-section{padding:var(--s3) var(--s4) 0}
@@ -350,7 +365,8 @@
     .wx-location{font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;padding:5px 10px 3px;border-bottom:1px solid var(--border-subtle)}
     .wx-days-row{display:grid;grid-template-columns:repeat(3,1fr)}
     .wx-day{display:flex;align-items:center;gap:5px;padding:6px 10px}
-    .wx-icon{font-size:16px;line-height:1;flex-shrink:0}
+    .wx-icon{display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--text-secondary)}
+    .wx-icon .icon{width:20px;height:20px}
     .wx-text{display:flex;flex-direction:column;gap:0}
     .wx-date{font-size:9px;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em;line-height:1.2}
     .wx-temp{font-size:11px;color:var(--text-primary);font-weight:500;line-height:1.3;white-space:nowrap}
@@ -446,26 +462,26 @@
   </nav>
 </div>
 
-<script src="js/auth.js?v=125"></script>
-<script src="js/config.js?v=125"></script>
-<script src="js/db.js?v=125"></script>
-<script src="js/icons.js?v=125"></script>
-<script src="js/toast.js?v=125"></script>
-<script src="js/bottom-sheet.js?v=125"></script>
-<script src="js/weather.js?v=125"></script>
-<script src="js/flight-price.js?v=125"></script>
-<script src="js/screens/itinerary.js?v=125"></script>
-<script src="js/screens/map.js?v=125"></script>
-<script src="js/screens/dex.js?v=125"></script>
-<script src="js/screens/bookings.js?v=125"></script>
-<script src="js/screens/sos.js?v=125"></script>
-<script src="js/screens/stamps.js?v=125"></script>
-<script src="js/screens/food.js?v=125"></script>
-<script src="js/screens/bucket-list.js?v=125"></script>
-<script src="js/screens/journal.js?v=125"></script>
-<script src="js/screens/landing.js?v=125"></script>
-<script src="js/screens/account.js?v=125"></script>
-<script src="js/app.js?v=125"></script>
+<script src="js/auth.js?v=126"></script>
+<script src="js/config.js?v=126"></script>
+<script src="js/db.js?v=126"></script>
+<script src="js/icons.js?v=126"></script>
+<script src="js/toast.js?v=126"></script>
+<script src="js/bottom-sheet.js?v=126"></script>
+<script src="js/weather.js?v=126"></script>
+<script src="js/flight-price.js?v=126"></script>
+<script src="js/screens/itinerary.js?v=126"></script>
+<script src="js/screens/map.js?v=126"></script>
+<script src="js/screens/dex.js?v=126"></script>
+<script src="js/screens/bookings.js?v=126"></script>
+<script src="js/screens/sos.js?v=126"></script>
+<script src="js/screens/stamps.js?v=126"></script>
+<script src="js/screens/food.js?v=126"></script>
+<script src="js/screens/bucket-list.js?v=126"></script>
+<script src="js/screens/journal.js?v=126"></script>
+<script src="js/screens/landing.js?v=126"></script>
+<script src="js/screens/account.js?v=126"></script>
+<script src="js/app.js?v=126"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const navCfg = [
