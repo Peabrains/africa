@@ -36,6 +36,15 @@ const BookingsScreen = (() => {
     return `${Number(d)} ${month}`;
   }
 
+  // Single shared money formatter — up to 2 decimal places shown only
+  // when actually present, no forced rounding. Used everywhere an
+  // amount or total is displayed on this screen, so a value like
+  // TWD 13,980.5 doesn't quietly become TWD 13,981 in a total further
+  // up the page while showing correctly on its own line item.
+  function fmtMoney(n) {
+    return (n || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  }
+
   // Currency code fixed-width + left-aligned, amount right-aligned with
   // tabular-nums (equal-width digits) — so "TWD" starts at the same X
   // position on every row and the numbers line up on their digits like
@@ -43,10 +52,9 @@ const BookingsScreen = (() => {
   // to 2 decimal places only when the amount actually has a fraction —
   // whole numbers stay clean without a trailing ".00".
   function formatMoneyAligned(currency, amount) {
-    const numStr = (amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
     return `<span style="display:inline-flex;width:94px;flex-shrink:0">
       <span style="color:var(--text-muted);width:36px;flex-shrink:0">${currency}</span>
-      <span style="color:var(--text-muted);flex:1;text-align:right;font-variant-numeric:tabular-nums">${numStr}</span>
+      <span style="color:var(--text-muted);flex:1;text-align:right;font-variant-numeric:tabular-nums">${fmtMoney(amount)}</span>
     </span>`;
   }
 
@@ -287,7 +295,7 @@ const BookingsScreen = (() => {
             </div>
             <p style="font-weight:500;font-size:var(--text-sm);color:var(--text-primary)">${o.name}</p>
             ${o.ref?`<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">Ref: ${o.ref}</p>`:''}
-            ${o.cost?`<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">${o.cost_currency||Data.getTripCurrency()} ${o.cost.toLocaleString()}${o.payment_status?` · <span style="color:${o.payment_status==='paid'?'var(--success-text)':o.payment_status==='partial'?'var(--warning-text)':'var(--text-muted)'}">${o.payment_status==='paid'?'✓ Paid':o.payment_status==='partial'?'Partial':'Unpaid'}</span>`:''}</p>`:''}
+            ${o.cost?`<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">${o.cost_currency||Data.getTripCurrency()} ${fmtMoney(o.cost)}${o.payment_status?` · <span style="color:${o.payment_status==='paid'?'var(--success-text)':o.payment_status==='partial'?'var(--warning-text)':'var(--text-muted)'}">${o.payment_status==='paid'?'✓ Paid':o.payment_status==='partial'?'Partial':'Unpaid'}</span>`:''}</p>`:''}
             ${o.deadline?`<p style="font-size:var(--text-xs);color:var(--danger-text);margin-top:1px">Book by ${new Date(o.deadline).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</p>`:''}
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
@@ -419,7 +427,7 @@ const BookingsScreen = (() => {
     // repeating "Unpaid" or "✓ Paid" on each row was pure redundancy.
     const statusPill = (status, it) => {
       if (status !== 'partial') return '';
-      return `<span class="badge badge-pending" style="font-size:9px">${it.currency} ${it.paidAmount.toLocaleString()} of ${it.cost.toLocaleString()}</span>`;
+      return `<span class="badge badge-pending" style="font-size:9px">${it.currency} ${fmtMoney(it.paidAmount)} of ${fmtMoney(it.cost)}</span>`;
     };
 
     const groupContent = (items) => () => {
@@ -464,11 +472,11 @@ const BookingsScreen = (() => {
     totals.innerHTML = `
       <div style="flex:1">
         <p style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Paid</p>
-        <p style="font-size:16px;font-weight:500;color:var(--success-text)">${cur} ${Math.round(summary.totalPaid).toLocaleString()}</p>
+        <p style="font-size:16px;font-weight:500;color:var(--success-text)">${cur} ${fmtMoney(summary.totalPaid)}</p>
       </div>
       <div style="flex:1">
         <p style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Outstanding</p>
-        <p style="font-size:16px;font-weight:500;color:${summary.totalOutstanding>0?'var(--warning-text)':'var(--text-primary)'}">${cur} ${Math.round(summary.totalOutstanding).toLocaleString()}</p>
+        <p style="font-size:16px;font-weight:500;color:${summary.totalOutstanding>0?'var(--warning-text)':'var(--text-primary)'}">${cur} ${fmtMoney(summary.totalOutstanding)}</p>
       </div>`;
     frag.appendChild(totals);
 
@@ -598,11 +606,11 @@ const BookingsScreen = (() => {
     summary.style.marginTop = 'var(--s3)';
     let summaryHTML = `
       <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s2);text-transform:uppercase;letter-spacing:.04em;font-weight:500">Total spent</p>
-      <p style="font-size:22px;font-weight:500;color:var(--text-primary)">${cur} ${Math.round(totalSpent).toLocaleString()}</p>
-      ${totalOutstanding>0?`<p style="font-size:var(--text-xs);color:var(--warning-text);margin-bottom:2px">+ ${cur} ${Math.round(totalOutstanding).toLocaleString()} outstanding on itinerary bookings</p>`:''}
-      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:6px">Budget: ${cur} ${budgetUSD.toLocaleString()}</p>
+      <p style="font-size:22px;font-weight:500;color:var(--text-primary)">${cur} ${fmtMoney(totalSpent)}</p>
+      ${totalOutstanding>0?`<p style="font-size:var(--text-xs);color:var(--warning-text);margin-bottom:2px">+ ${cur} ${fmtMoney(totalOutstanding)} outstanding on itinerary bookings</p>`:''}
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:6px">Budget: ${cur} ${fmtMoney(budgetUSD)}</p>
       <div class="budget-bar"><div class="budget-fill" style="width:${pctOfBudget}%;background:${pctOfBudget>90?'var(--danger-text)':pctOfBudget>70?'var(--warning-text)':'var(--accent)'}"></div></div>
-      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">${cur} ${Math.max(0,budgetUSD-totalSpent).toLocaleString()} remaining</p>`;
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">${cur} ${fmtMoney(Math.max(0,budgetUSD-totalSpent))} remaining</p>`;
 
     if (travelers.length && expenses.length) {
       const paid = {}; const share = {};
@@ -617,7 +625,7 @@ const BookingsScreen = (() => {
       summaryHTML += `<div style="margin-top:var(--s3);padding-top:var(--s3);border-top:1px solid var(--border-subtle)">`;
       summaryHTML += `<p style="font-size:10px;color:var(--text-muted);margin-bottom:var(--s2)">Split below covers logged expenses only — itinerary bookings aren't split between travelers yet</p>`;
       travelers.forEach(t => {
-        summaryHTML += `<div class="settlement-row"><span style="font-weight:500">${t}</span><span style="color:var(--text-muted)">paid ${cur} ${(paid[t]||0).toLocaleString()} · share ${cur} ${Math.round(share[t]||0).toLocaleString()}</span></div>`;
+        summaryHTML += `<div class="settlement-row"><span style="font-weight:500">${t}</span><span style="color:var(--text-muted)">paid ${cur} ${fmtMoney(paid[t]||0)} · share ${cur} ${fmtMoney(share[t]||0)}</span></div>`;
       });
       summaryHTML += `</div>`;
       const balances = Data.calcSettlement();
@@ -629,8 +637,8 @@ const BookingsScreen = (() => {
       } else {
         negatives.forEach(debtor => {
           positives.forEach(creditor => {
-            const amt = Math.round(Math.min(Math.abs(balances[debtor]), balances[creditor]));
-            if (amt>0) summaryHTML += `<p class="settlement-owed">💸 ${debtor} owes ${creditor} ${cur} ${amt.toLocaleString()}</p>`;
+            const amt = Math.min(Math.abs(balances[debtor]), balances[creditor]);
+            if (amt>0) summaryHTML += `<p class="settlement-owed">💸 ${debtor} owes ${creditor} ${cur} ${fmtMoney(amt)}</p>`;
           });
         });
       }
@@ -673,20 +681,21 @@ const BookingsScreen = (() => {
         const day = Data.getDays().find(d=>d.id===dayId);
         const sec = document.createElement('div');
         sec.className = 'expense-section';
-        sec.innerHTML = `<div class="expense-day-header"><span>${day?.label||dayId} · ${day?formatShortDate(day.date):''}</span><span>${cur} ${exps.reduce((s,e)=>s+e.amountJPY,0).toLocaleString()}</span></div>`;
+        sec.innerHTML = `<div class="expense-day-header"><span>${day?.label||dayId} · ${day?formatShortDate(day.date):''}</span><span>${cur} ${fmtMoney(exps.reduce((s,e)=>s+e.amountJPY,0))}</span></div>`;
         exps.forEach(exp => {
           const splitPax = Math.max(1, exp.splitBetween?.length||1);
-          const perHead  = Math.round(exp.amountJPY/splitPax);
+          const perHead  = exp.amountJPY/splitPax;
           const loggedAt = exp.createdAt ? new Date(exp.createdAt).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
           const catColor = EXPENSE_CAT_COLORS[exp.category] || 'var(--text-muted)';
           const initial = n => (n||'?').trim().charAt(0).toUpperCase();
+          const AV = 'width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0';
 
           const row = document.createElement('div');
           row.className = 'expense-row';
           // NOTE: .expense-row's own CSS class sets display:flex with a
           // row direction — must explicitly override to column here or
           // every child below gets squashed onto one horizontal line.
-          row.style.cssText = 'display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:12px var(--s4);border-bottom:1px solid var(--border-subtle)';
+          row.style.cssText = 'display:flex;flex-direction:column;align-items:stretch;gap:0;padding:10px var(--s4);border-bottom:1px solid var(--border-subtle)';
           row.innerHTML = `
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s2)">
               <div style="display:flex;align-items:center;gap:7px;min-width:0">
@@ -694,27 +703,27 @@ const BookingsScreen = (() => {
                 <span style="font-size:var(--text-sm);font-weight:500;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${exp.description}</span>
               </div>
               <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-                <span style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary)">${cur} ${exp.amountJPY.toLocaleString()}</span>
+                <span style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary)">${cur} ${fmtMoney(exp.amountJPY)}</span>
                 <button class="expense-more" aria-label="More actions" style="width:26px;height:26px;border-radius:50%;flex-shrink:0;background:var(--surface-raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);opacity:.7;cursor:pointer">${Icons.dotsV('icon-sm')}</button>
               </div>
             </div>
-            <p style="font-size:10.5px;color:var(--text-muted);margin:3px 0 0 15px">${exp.category}${loggedAt?` · Logged ${loggedAt}`:''}</p>
             ${(exp.paidBy || exp.splitBetween?.length) ? `
-            <div style="display:flex;align-items:center;gap:10px;margin:8px 0 0 15px">
+            <div style="display:flex;align-items:center;gap:10px;margin:5px 0 0 15px">
               ${exp.paidBy ? `
                 <div style="display:flex;align-items:center;gap:5px">
                   <span style="font-size:10px;color:var(--text-muted)">Paid</span>
-                  <div style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0;background:${travelerColor(exp.paidBy)}">${initial(exp.paidBy)}</div>
+                  <div style="${AV};background:${travelerColor(exp.paidBy)}">${initial(exp.paidBy)}</div>
                 </div>` : ''}
               ${exp.splitBetween?.length ? `
                 <div style="display:flex;align-items:center;gap:5px">
                   <span style="font-size:10px;color:var(--text-muted)">Split</span>
                   <div style="display:flex">
-                    ${exp.splitBetween.map((name,i) => `<div style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0;border:2px solid var(--surface);background:${travelerColor(name)};${i>0?'margin-left:-7px':''}">${initial(name)}</div>`).join('')}
+                    ${exp.splitBetween.map((name,i) => `<div style="${AV};background:${travelerColor(name)};${i>0?'margin-left:-6px':''}">${initial(name)}</div>`).join('')}
                   </div>
-                  ${splitPax>1?`<span style="font-size:10.5px;color:var(--text-muted);margin-left:2px">${cur} ${perHead.toLocaleString()} pp</span>`:''}
+                  ${splitPax>1?`<span style="font-size:10.5px;color:var(--text-muted);margin-left:2px">${cur} ${fmtMoney(perHead)} pp</span>`:''}
                 </div>` : ''}
-            </div>` : ''}`;
+            </div>` : ''}
+            <p style="font-size:10.5px;color:var(--text-muted);margin:4px 0 0 15px">${exp.category}${loggedAt?` · Logged ${loggedAt}`:''}</p>`;
 
           // Inline edit form — same field set as the Log Expense form,
           // prefilled. Toggled open by the "Edit" option in the actions
