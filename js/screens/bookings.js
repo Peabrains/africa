@@ -421,14 +421,19 @@ const BookingsScreen = (() => {
     const groups = { unpaid: [], partial: [], paid: [] };
     summary.items.forEach(it => groups[it.status]?.push(it));
 
-    // Only show a per-row pill for 'partial' — it adds real information
-    // (how much of the cost is paid so far). For 'unpaid' and 'paid',
-    // the group header above already says that for every row in it;
-    // repeating "Unpaid" or "✓ Paid" on each row was pure redundancy.
-    const statusPill = (status, it) => {
-      if (status !== 'partial') return '';
-      return `<span class="badge badge-pending" style="font-size:9px">${it.currency} ${fmtMoney(it.paidAmount)} of ${fmtMoney(it.cost)}</span>`;
-    };
+    // Partial rows show a compact "paid/total" fraction in place of the
+    // plain amount — same fixed-width currency column as every other
+    // row (formatMoneyAligned), so the list stays aligned regardless of
+    // status, and each row correctly shows its own currency even when
+    // rows are in different currencies. Replaces the old separate pill,
+    // which was redundant with the amount already shown next to it.
+    const formatMoneyAlignedPartial = (currency, paidAmount, cost) => `
+      <span style="display:inline-flex;width:94px;flex-shrink:0">
+        <span style="color:var(--text-muted);width:36px;flex-shrink:0">${currency}</span>
+        <span style="flex:1;text-align:right;font-variant-numeric:tabular-nums">
+          <span style="color:var(--warning-text);font-weight:700">${fmtMoney(paidAmount)}</span><span style="color:var(--text-muted)">/${fmtMoney(cost)}</span>
+        </span>
+      </span>`;
 
     const groupContent = (items) => () => {
       const g = document.createDocumentFragment();
@@ -449,8 +454,7 @@ const BookingsScreen = (() => {
             <span>${it.name}</span>
           </span>
           <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-            ${formatMoneyAligned(it.currency, it.cost)}
-            ${statusPill(it.status, it)}
+            ${it.status === 'partial' ? formatMoneyAlignedPartial(it.currency, it.paidAmount, it.cost) : formatMoneyAligned(it.currency, it.cost)}
           </span>`;
         row.addEventListener('click', () => {
           if (it.type === 'stop') {
@@ -522,7 +526,7 @@ const BookingsScreen = (() => {
     const travelers = Data.getTravelers();
     const expenses  = Data.getExpenses();
     const totalUSD  = Data.getTotalSpentJPY(); // field name kept for compat, stores USD
-    const budgetUSD = Config.BUDGET_MYR || 0;  // BUDGET_MYR stores total USD budget
+    const budgetUSD = Data.getBudgetTotal?.() || 0;
     const cur = Data.getTripCurrency();
 
     /* ── Log expense — button + form, now the first thing on the tab ── */
@@ -1112,7 +1116,7 @@ const BookingsScreen = (() => {
     budgetSection.className = 'settings-section';
     budgetSection.innerHTML = `
       <p class="settings-section-title">Budget</p>
-      <div class="bs-edit-group"><label class="bs-edit-label">Total Budget (${Data.getTripCurrency()})</label><input id="cfg-budget" class="bs-input" type="number" value="${Config.BUDGET_MYR}"></div>
+      <div class="bs-edit-group"><label class="bs-edit-label">Total Budget (${Data.getTripCurrency()})</label><input id="cfg-budget" class="bs-input" type="number" step="0.01" value="${Data.getBudgetTotal?.() || ''}" placeholder="e.g. 5000"></div>
       
       <button class="btn btn-primary" id="cfg-save-btn" style="width:100%;margin-top:var(--s2)">Save budget settings</button>`;
     const tripSection = document.createElement('div');
@@ -1207,9 +1211,14 @@ const BookingsScreen = (() => {
         Toast.show('Reload failed: ' + e.message,'warning');
       }
     });
-    budgetSection.querySelector('#cfg-save-btn')?.addEventListener('click', () => {
-      Config.BUDGET_MYR        = parseInt(budgetSection.querySelector('#cfg-budget')?.value)||Config.BUDGET_MYR;
-      
+    budgetSection.querySelector('#cfg-save-btn')?.addEventListener('click', async () => {
+      const raw = budgetSection.querySelector('#cfg-budget')?.value;
+      // Empty field means "reset to 0" — previously `parseInt(raw)||oldValue`
+      // meant clearing the field and saving just silently kept the old
+      // value, since an empty/invalid parse is falsy and fell through to
+      // the fallback instead of actually resetting anything.
+      const amount = raw === '' ? 0 : (parseFloat(raw) || 0);
+      await Data.setBudgetTotal?.(amount);
       Toast.show('Budget settings saved','success'); render();
     });
     return frag;
