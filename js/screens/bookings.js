@@ -399,10 +399,13 @@ const BookingsScreen = (() => {
     const groups = { unpaid: [], partial: [], paid: [] };
     summary.items.forEach(it => groups[it.status]?.push(it));
 
+    // Only show a per-row pill for 'partial' — it adds real information
+    // (how much of the cost is paid so far). For 'unpaid' and 'paid',
+    // the group header above already says that for every row in it;
+    // repeating "Unpaid" or "✓ Paid" on each row was pure redundancy.
     const statusPill = (status, it) => {
-      const cls = status==='paid' ? 'badge-booked' : status==='partial' ? 'badge-pending' : 'badge-open';
-      const lbl = status==='paid' ? '✓ Paid' : status==='partial' ? `${it.currency} ${it.paidAmount.toLocaleString()} of ${it.cost.toLocaleString()}` : 'Unpaid';
-      return `<span class="badge ${cls}" style="font-size:9px">${lbl}</span>`;
+      if (status !== 'partial') return '';
+      return `<span class="badge badge-pending" style="font-size:9px">${it.currency} ${it.paidAmount.toLocaleString()} of ${it.cost.toLocaleString()}</span>`;
     };
 
     const groupContent = (items) => () => {
@@ -666,7 +669,10 @@ const BookingsScreen = (() => {
 
           const row = document.createElement('div');
           row.className = 'expense-row';
-          row.style.cssText = 'position:relative;padding:12px var(--s4);border-bottom:1px solid var(--border-subtle)';
+          // NOTE: .expense-row's own CSS class sets display:flex with a
+          // row direction — must explicitly override to column here or
+          // every child below gets squashed onto one horizontal line.
+          row.style.cssText = 'display:flex;flex-direction:column;gap:2px;padding:12px var(--s4);border-bottom:1px solid var(--border-subtle)';
           row.innerHTML = `
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s2)">
               <div style="display:flex;align-items:center;gap:7px;min-width:0">
@@ -675,7 +681,7 @@ const BookingsScreen = (() => {
               </div>
               <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
                 <span style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary)">${cur} ${exp.amountJPY.toLocaleString()}</span>
-                <button class="expense-more" style="width:24px;height:24px;border-radius:50%;background:none;border:none;color:var(--text-muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font);line-height:1">⋮</button>
+                <button class="expense-more" aria-label="More actions" style="width:26px;height:26px;border-radius:50%;flex-shrink:0;background:var(--surface-raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);opacity:.7;cursor:pointer">${Icons.dotsV('icon-sm')}</button>
               </div>
             </div>
             <p style="font-size:10.5px;color:var(--text-muted);margin:3px 0 0 15px">${exp.category}${loggedAt?` · Logged ${loggedAt}`:''}</p>
@@ -694,36 +700,12 @@ const BookingsScreen = (() => {
                   </div>
                   ${splitPax>1?`<span style="font-size:10.5px;color:var(--text-muted);margin-left:2px">${cur} ${perHead.toLocaleString()} pp</span>`:''}
                 </div>` : ''}
-            </div>` : ''}
-            <div class="expense-more-menu" style="display:none;position:absolute;top:38px;right:var(--s4);background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-md);box-shadow:0 4px 14px rgba(0,0,0,.12);z-index:5;overflow:hidden;min-width:110px">
-              <button class="expense-edit" style="width:100%;text-align:left;padding:9px 14px;font-size:var(--text-sm);background:none;border:none;font-family:var(--font);color:var(--text-primary);cursor:pointer">✏️ Edit</button>
-              <button class="expense-del" style="width:100%;text-align:left;padding:9px 14px;font-size:var(--text-sm);background:none;border:none;border-top:1px solid var(--border-subtle);font-family:var(--font);color:#B91C1C;cursor:pointer">🗑 Delete</button>
-            </div>`;
+            </div>` : ''}`;
 
-          const moreBtn  = row.querySelector('.expense-more');
-          const moreMenu = row.querySelector('.expense-more-menu');
-          moreBtn.addEventListener('click', e => {
-            e.stopPropagation();
-            document.querySelectorAll('.expense-more-menu').forEach(m => { if (m !== moreMenu) m.style.display = 'none'; });
-            moreMenu.style.display = moreMenu.style.display === 'none' ? 'block' : 'none';
-          });
-          document.addEventListener('click', () => { moreMenu.style.display = 'none'; });
-
-          let expDelArmed = false, expDelTimer = null;
-          const expDelBtn = row.querySelector('.expense-del');
-          expDelBtn.addEventListener('click', async e => {
-            e.stopPropagation();
-            if (!expDelArmed) {
-              expDelArmed = true;
-              expDelBtn.textContent = '✓ Tap again to confirm';
-              expDelTimer = setTimeout(() => { expDelArmed = false; expDelBtn.textContent = '🗑 Delete'; }, 3000);
-              return;
-            }
-            clearTimeout(expDelTimer);
-            await Data.deleteExpense(exp.id); Toast.show('Removed','info'); render();
-          });
-
-          // Inline edit form
+          // Inline edit form — same field set as the Log Expense form,
+          // prefilled. Toggled open by the "Edit" option in the actions
+          // sheet below (kept inline rather than a separate sheet, since
+          // it's already a working self-contained form).
           const editRow = document.createElement('div');
           editRow.style.cssText = 'display:none;flex-direction:column;gap:6px;width:100%;padding:8px 0 4px;border-top:1px solid var(--border-subtle);margin-top:10px';
           const dayOpts = `<option value="">No specific day</option>` + Data.getDays().map(d=>`<option value="${d.id}" ${d.id===exp.dayId?'selected':''}>${d.label} · ${formatShortDate(d.date)}</option>`).join('');
@@ -744,11 +726,6 @@ const BookingsScreen = (() => {
             </div>`;
           row.appendChild(editRow);
 
-          row.querySelector('.expense-edit').addEventListener('click', e => {
-            e.stopPropagation();
-            moreMenu.style.display = 'none';
-            editRow.style.display = editRow.style.display === 'none' ? 'flex' : 'none';
-          });
           editRow.querySelectorAll('.ee-paid-chip').forEach(chip => {
             chip.addEventListener('click', () => {
               editRow.querySelectorAll('.ee-paid-chip').forEach(c=>c.classList.remove('traveler-chip--active'));
@@ -771,12 +748,50 @@ const BookingsScreen = (() => {
             render();
           });
 
+          row.querySelector('.expense-more').addEventListener('click', (e) => {
+            e.stopPropagation();
+            openExpenseActions(exp, () => { editRow.style.display = 'flex'; });
+          });
+
           sec.appendChild(row);
         });
         frag.appendChild(sec);
       });
     }
     return frag;
+  }
+
+  /* ── Expense row actions sheet — same overlay pattern as bucket-list's
+     openRowActions: one overflow tap opens a bottom sheet with the
+     available actions, delete needs a second tap to confirm. Kept
+     visually/interaction-wise identical rather than inventing a new
+     dropdown pattern. ── */
+  function openExpenseActions(exp, onEdit) {
+    let confirming = false;
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:280;background:rgba(0,0,0,.45);display:flex;align-items:flex-end';
+    document.body.appendChild(overlay);
+
+    function draw() {
+      overlay.innerHTML = `
+        <div style="background:var(--bg);width:100%;border-radius:20px 20px 0 0;padding:var(--s2) 0 calc(var(--s4) + env(safe-area-inset-bottom))">
+          <div style="display:flex;justify-content:center;padding:6px 0 4px"><div style="width:36px;height:4px;background:var(--border);border-radius:2px"></div></div>
+          <p style="padding:var(--s2) var(--s4) var(--s3);font-size:var(--text-sm);font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${exp.description}</p>
+          <button id="ea-edit" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px var(--s4);background:none;border:none;font-family:var(--font);font-size:var(--text-sm);color:var(--text-primary);text-align:left">${Icons.pencil('icon-sm')}Edit</button>
+          <button id="ea-delete" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px var(--s4);background:none;border:none;font-family:var(--font);font-size:var(--text-sm);text-align:left;color:${confirming ? 'var(--danger-text)' : 'var(--text-primary)'}">${confirming ? Icons.check('icon-sm') : Icons.trash('icon-sm')}${confirming ? 'Tap again to delete' : 'Delete'}</button>
+        </div>`;
+
+      overlay.querySelector('#ea-edit').addEventListener('click', () => { overlay.remove(); onEdit(); });
+      overlay.querySelector('#ea-delete').addEventListener('click', async () => {
+        if (!confirming) { confirming = true; draw(); return; }
+        overlay.remove();
+        await Data.deleteExpense(exp.id);
+        Toast.show('Removed', 'info');
+        render();
+      });
+    }
+    draw();
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
   }
 
   /* Category dot colors for the expense row — reused nowhere else, kept
