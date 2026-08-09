@@ -38,15 +38,23 @@ const ItineraryScreen = (() => {
     return colorForKey(day?.locality || stop.segment);
   }
   /* Divider shown once when locality changes ─────────────────── */
-  function localityDivider(locality) {
+  function nightsAtLocality(days, startIdx) {
+    const locality = days[startIdx].locality;
+    let count = 0;
+    for (let i = startIdx; i < days.length && days[i].locality === locality; i++) count++;
+    return count;
+  }
+  function localityDivider(locality, nights) {
     const div = document.createElement('div');
-    div.className = 'country-divider';
+    div.className = 'loc-divider';
     const label = locality || 'Transit';
-    const color = colorForKey(locality);
+    const nightsLabel = nights === 1 ? '1 night' : nights > 1 ? `${nights} nights` : '';
     div.innerHTML = `
-      <div class="country-divider-line"></div>
-      <span class="country-pill" style="background:${color}20;color:${color};border:1px solid ${color}60">● ${label}</span>
-      <div class="country-divider-line"></div>`;
+      <div class="loc-divider-row">
+        ${Icons.mapPin('icon-sm')}
+        <span class="loc-divider-name">${label}</span>
+      </div>
+      ${nightsLabel ? `<span class="loc-divider-nights">${nightsLabel}</span>` : ''}`;
     return div;
   }
 
@@ -474,7 +482,7 @@ const ItineraryScreen = (() => {
   /* ── Render story paragraph with [[glossary]] terms tappable ── */
   function renderStoryParagraph(text) {
     const p = document.createElement('p');
-    p.style.cssText = 'font-size:var(--text-sm);color:var(--text-primary);line-height:1.65;margin-bottom:var(--s3)';
+    p.style.cssText = 'font-size:var(--text-sm);color:var(--text-secondary);line-height:1.65;margin-bottom:var(--s3)';
 
     // Tokens: [[glossary term]], **bold**, *italic*, [link text](https://...)
     const parts = text.split(/(\[\[.*?\]\]|\*\*.*?\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\))/g);
@@ -537,26 +545,30 @@ const ItineraryScreen = (() => {
     const isOpen = !!storyExpanded[day.id];
 
     const card = document.createElement('div');
-    card.style.cssText = 'margin:var(--s2) var(--s4);border:1.5px solid #E8D9B0;border-radius:var(--r-lg);overflow:hidden;background:#FDF6E8';
+    card.className = `story-card ${isOpen ? 'story-card--open' : ''}`;
 
     const header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:var(--s3);cursor:pointer;user-select:none';
+    header.className = 'story-card-header';
     header.innerHTML = `
-      <span style="font-size:var(--text-sm);font-weight:500;color:var(--text-secondary)">📖 The Story — ${story.title}</span>
-      <span class="story-arrow" style="color:var(--text-muted);font-size:13px;transition:transform .2s;${isOpen?'transform:rotate(90deg)':''}">▸</span>`;
+      <div class="story-card-head-text">
+        <div class="story-card-eyebrow">${Icons.bookmark('icon-sm')}<span>The Story</span></div>
+        <p class="story-card-title">${story.title}</p>
+      </div>
+      <span class="story-card-chevron">${isOpen ? Icons.chevronUp('icon-sm') : Icons.chevronDown('icon-sm')}</span>`;
     card.appendChild(header);
 
     const body = document.createElement('div');
-    body.style.cssText = `padding:${isOpen?'var(--s4)':'0 var(--s4)'};display:${isOpen?'block':'none'};border-top:${isOpen?'1px solid #E8D9B0':'none'}`;
+    body.className = 'story-card-body';
+    body.style.display = isOpen ? 'block' : 'none';
     story.paragraphs.forEach(para => body.appendChild(renderStoryParagraph(para)));
     card.appendChild(body);
 
     header.addEventListener('click', () => {
       storyExpanded[day.id] = !storyExpanded[day.id];
       const nowOpen = storyExpanded[day.id];
+      card.classList.toggle('story-card--open', nowOpen);
       body.style.display = nowOpen ? 'block' : 'none';
-      body.style.padding = nowOpen ? 'var(--s4)' : '0 var(--s4)';
-      header.querySelector('.story-arrow').style.transform = nowOpen ? 'rotate(90deg)' : '';
+      header.querySelector('.story-card-chevron').innerHTML = nowOpen ? Icons.chevronUp('icon-sm') : Icons.chevronDown('icon-sm');
     });
 
     return card;
@@ -600,14 +612,15 @@ const ItineraryScreen = (() => {
     root.appendChild(addDayBtn);
 
     let lastLocality = undefined;
+    const days = Data.getDays();
 
-    Data.getDays().forEach(day => {
+    days.forEach((day, dayIdx) => {
       const stops  = Data.getStopsByDay(day.id);
       const isOpen = getDayExpanded(day.id);
 
       // Insert a divider when the locality changes from the previous day
       if (day.locality !== lastLocality) {
-        root.appendChild(localityDivider(day.locality));
+        root.appendChild(localityDivider(day.locality, nightsAtLocality(days, dayIdx)));
         lastLocality = day.locality;
       }
 
