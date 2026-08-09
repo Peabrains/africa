@@ -547,7 +547,7 @@ const BookingsScreen = (() => {
       <select id="exp-day" class="bs-input"><option value="">Day…</option>${Data.getDays().map(d=>`<option value="${d.id}">${d.label} · ${formatShortDate(d.date)}</option>`).join('')}</select>
       <select id="exp-cat" class="bs-input"><option value="">Category…</option>${EXPENSE_CATS.map(c=>`<option>${c}</option>`).join('')}</select>
       <input id="exp-desc" class="bs-input" type="text" placeholder="Description">
-      <input id="exp-amt" class="bs-input" type="number" placeholder="Amount (${cur})">
+      <input id="exp-amt" class="bs-input" type="number" step="0.01" placeholder="Amount (${cur})">
       ${travelers.length?`
         <div class="bs-edit-group"><label class="bs-edit-label">Paid by</label><div class="split-chips" id="paid-by-chips">${paidByChips}</div></div>
         <div class="bs-edit-group"><label class="bs-edit-label">Split between</label><div class="split-chips" id="split-chips">${splitChips}</div></div>`
@@ -675,6 +675,32 @@ const BookingsScreen = (() => {
       frag.appendChild(Object.assign(document.createElement('div'),{className:'empty-state',innerHTML:'<p class="empty-title">No expenses yet</p>'}));
     } else {
       const cur = Data.getTripCurrency();
+
+      // Category breakdown + total — summary at the top, same pattern
+      // as Itinerary Payments' totals-at-top layout.
+      const byCat = {};
+      let grandTotal = 0;
+      expenses.forEach(e => {
+        byCat[e.category] = (byCat[e.category] || 0) + e.amountJPY;
+        grandTotal += e.amountJPY;
+      });
+      const catSummary = document.createElement('div');
+      catSummary.style.cssText = 'padding:10px var(--s4) 12px;border-bottom:1px solid var(--border-subtle)';
+      catSummary.innerHTML = `
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+          ${Object.entries(byCat).map(([cat, amt]) => `
+            <span style="display:inline-flex;align-items:center;gap:5px;background:var(--surface-raised);border-radius:100px;padding:4px 10px 4px 8px;font-size:11px">
+              <span style="width:7px;height:7px;border-radius:50%;background:${EXPENSE_CAT_COLORS[cat]||'var(--text-muted)'};flex-shrink:0"></span>
+              <span style="color:var(--text-secondary)">${cat}</span>
+              <span style="font-weight:600;color:var(--text-primary)">${cur} ${fmtMoney(amt)}</span>
+            </span>`).join('')}
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Total</span>
+          <span style="font-size:16px;font-weight:600;color:var(--text-primary)">${cur} ${fmtMoney(grandTotal)}</span>
+        </div>`;
+      frag.appendChild(catSummary);
+
       const byDay = {};
       expenses.forEach(e => { const k=e.dayId||'unknown'; if(!byDay[k])byDay[k]=[]; byDay[k].push(e); });
       Object.entries(byDay).forEach(([dayId,exps]) => {
@@ -739,7 +765,7 @@ const BookingsScreen = (() => {
             <select class="ee-day bs-input">${dayOpts}</select>
             <select class="ee-cat bs-input">${catOpts}</select>
             <input class="ee-desc bs-input" type="text" value="${exp.description.replace(/"/g,'&quot;')}">
-            <input class="ee-amt bs-input" type="number" value="${exp.amountJPY}">
+            <input class="ee-amt bs-input" type="number" step="0.01" value="${exp.amountJPY}">
             ${travelers.length?`
               <div class="bs-edit-group"><label class="bs-edit-label">Paid by</label><div class="split-chips ee-paid-wrap">${paidChips}</div></div>
               <div class="bs-edit-group"><label class="bs-edit-label">Split between</label><div class="split-chips ee-split-wrap">${splitChips}</div></div>`:''}
