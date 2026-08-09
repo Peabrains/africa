@@ -9,29 +9,29 @@
 const Weather = (() => {
   const CACHE = {};
 
-  /* WMO weather codes → emoji (no icon font needed, works offline) */
+  /* WMO weather codes → icon key (Icons.*, matches app's line-icon set) */
   const WMO = {
-    0:  { label:'Clear',         emoji:'☀️' },
-    1:  { label:'Mainly clear',  emoji:'🌤️' },
-    2:  { label:'Partly cloudy', emoji:'⛅' },
-    3:  { label:'Overcast',      emoji:'☁️' },
-    45: { label:'Fog',           emoji:'🌫️' },
-    48: { label:'Freezing fog',  emoji:'🌫️' },
-    51: { label:'Light drizzle', emoji:'🌦️' },
-    53: { label:'Drizzle',       emoji:'🌦️' },
-    61: { label:'Light rain',    emoji:'🌧️' },
-    63: { label:'Rain',          emoji:'🌧️' },
-    65: { label:'Heavy rain',    emoji:'🌧️' },
-    71: { label:'Light snow',    emoji:'🌨️' },
-    73: { label:'Snow',          emoji:'❄️'  },
-    80: { label:'Showers',       emoji:'🌦️' },
-    81: { label:'Showers',       emoji:'🌧️' },
-    95: { label:'Thunderstorm',  emoji:'⛈️' },
-    99: { label:'Thunderstorm',  emoji:'⛈️' },
+    0:  { label:'Clear',         icon:'sun' },
+    1:  { label:'Mainly clear',  icon:'cloudSun' },
+    2:  { label:'Partly cloudy', icon:'cloudSun' },
+    3:  { label:'Overcast',      icon:'cloud' },
+    45: { label:'Fog',           icon:'cloudFog' },
+    48: { label:'Freezing fog',  icon:'cloudFog' },
+    51: { label:'Light drizzle', icon:'cloudDrizzle' },
+    53: { label:'Drizzle',       icon:'cloudDrizzle' },
+    61: { label:'Light rain',    icon:'cloudRain' },
+    63: { label:'Rain',          icon:'cloudRain' },
+    65: { label:'Heavy rain',    icon:'cloudRain' },
+    71: { label:'Light snow',    icon:'cloudSnow' },
+    73: { label:'Snow',          icon:'cloudSnow' },
+    80: { label:'Showers',       icon:'cloudRain' },
+    81: { label:'Showers',       icon:'cloudRain' },
+    95: { label:'Thunderstorm',  icon:'cloudLightning' },
+    99: { label:'Thunderstorm',  icon:'cloudLightning' },
   };
 
   function wmo(code) {
-    return WMO[code] || WMO[Math.floor(code / 10) * 10] || { label:'Mixed', emoji:'🌡️' };
+    return WMO[code] || WMO[Math.floor(code / 10) * 10] || { label:'Mixed', icon:'cloud' };
   }
 
   async function fetch3Day(lat, lng) {
@@ -64,7 +64,7 @@ const Weather = (() => {
   const REL_LABELS = ['Today', 'Tmrw', '+2d'];
 
   function dayCard(d, idx) {
-    const { label, emoji } = wmo(d.code);
+    const { label, icon } = wmo(d.code);
     const dateLabel = REL_LABELS[idx] || '+' + idx + 'd';
     const hasRain = d.precipProb != null && d.precipProb > 0;
     const isWet   = hasRain && d.precipProb >= 40;
@@ -74,7 +74,7 @@ const Weather = (() => {
       : `<span class="wx-rain">—</span>`;
     return `
       <div class="wx-day">
-        <span class="wx-icon" title="${label}">${emoji}</span>
+        <span class="wx-icon" title="${label}">${Icons[icon] ? Icons[icon]('icon-md') : ''}</span>
         <div class="wx-text">
           <span class="wx-date">${dateLabel}</span>
           <span class="wx-temp">${d.max}° <span class="wx-temp-min">${d.min}°</span></span>
