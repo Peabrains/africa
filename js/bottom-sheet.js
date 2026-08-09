@@ -582,7 +582,6 @@ const BottomSheet = (() => {
         <p class="bs-name" style="margin-bottom:var(--s4)">${Icons.moon('icon-sm')} Overnight stay</p>
         ${field('Accommodation name','o-name',o.name||'','text','e.g. Kiri-no-Sato Takahara Lodge')}
         ${field('Address','o-address',o.address||'','text','e.g. 15 Takahara, Tanabe, Wakayama')}
-        ${o.name ? `<button type="button" class="btn btn-ghost bs-full-btn" id="o-show-card-btn" style="margin-bottom:var(--s3)">${Icons.card('icon-sm')} Show to driver / front desk</button>` : ''}
         ${select('Booking status','o-status',o.status||'open',statusOpts)}
         ${field('Booking reference','o-ref',o.ref||'','text','e.g. HTL-20270412')}
         ${costWithCurrency('o-cost','o-cost-cur',o.cost,o.cost_currency)}
@@ -893,14 +892,6 @@ const BottomSheet = (() => {
 
   function wireOvernight(day) {
     const g = id => body.querySelector('#'+id)?.value?.trim()||'';
-
-    body.querySelector('#o-show-card-btn')?.addEventListener('click', () => {
-      showAccommodationCard({
-        name: g('o-name') || 'Accommodation',
-        address: g('o-address'),
-        ref: g('o-ref'),
-      });
-    });
 
     const lfToggle = body.querySelector('#o-lf-toggle');
     const lfFields = body.querySelector('#o-lf-fields');
