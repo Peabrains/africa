@@ -46,9 +46,22 @@ const App = (() => {
   }
 
   /* ── Sync status ─────────────────────────────────────────────── */
-  function updateSyncStatus(state) {
+  async function updateSyncStatus(state) {
     const el = document.getElementById('sync-badge');
     if (!el) return;
+    if (state === 'synced' || state === 'offline' || state === 'pending') {
+      // Even when "synced"/"offline", check whether anything is still
+      // sitting in the queue — that takes priority over the plain label
+      // so a stale "Synced" badge never hides unsynced changes.
+      try {
+        const pending = await Data.getPendingCount?.();
+        if (pending > 0) {
+          el.className = 'badge badge-pending';
+          el.textContent = `${pending} pending`;
+          return;
+        }
+      } catch (_) {}
+    }
     const m = {
       synced:  ['badge-booked',  'Synced'],
       syncing: ['badge-pending', 'Syncing…'],
@@ -75,10 +88,16 @@ const App = (() => {
   /* ── Connectivity ────────────────────────────────────────────── */
   function watchConnectivity() {
     window.addEventListener('online', async () => {
-      if (Config.INSTANT_APP_ID) {
-        updateSyncStatus('syncing');
-        try   { await Sync.pushAll(); updateSyncStatus('synced'); }
-        catch (_) { updateSyncStatus('error'); }
+      updateSyncStatus('syncing');
+      try {
+        const { flushed, remaining } = await Data.flushQueue();
+        updateSyncStatus(remaining > 0 ? 'pending' : 'synced');
+        if (flushed > 0) {
+          Toast?.show?.(`Synced ${flushed} change${flushed === 1 ? '' : 's'} made while offline`, 'success');
+          App.reload?.();
+        }
+      } catch (_) {
+        updateSyncStatus('error');
       }
     });
     window.addEventListener('offline', () => updateSyncStatus('offline'));
@@ -278,7 +297,10 @@ const App = (() => {
     document.getElementById('sync-btn')?.addEventListener('click', async () => {
       Toast.show('Syncing with Supabase…', 'info');
       await Data.loadTrips?.();
-      await Data.init();
+      await Data.init(); // loadTripData() inside this flushes the offline queue before pulling fresh data
+      const pending = await Data.getPendingCount?.() || 0;
+      Toast.show(pending > 0 ? `Synced — ${pending} change${pending === 1 ? '' : 's'} still waiting for a connection` : 'Synced', 'success');
+      await updateSyncStatus(navigator.onLine ? 'synced' : 'offline');
       App.reload?.();
     });
 
