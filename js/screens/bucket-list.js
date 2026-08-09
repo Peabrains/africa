@@ -20,15 +20,19 @@ const BucketListScreen = (() => {
   let addFormOpen = false;
   let pendingCategory = '';
   let editingItemId = null;   // id of item currently showing its inline edit form, or null
-  let confirmDeleteId = null; // id of item mid tap-twice-to-confirm delete, or null
-  let confirmDeleteTimer = null;
 
-  const CATEGORY_ICONS = {
-    'Food':       '🍜',
-    'Places':     '📍',
-    'Experience': '✨',
+  let searchQuery = '';
+
+  const CATEGORY_ICON_KEYS = {
+    'Food':       'bowl',
+    'Places':     'mapPin',
+    'Experience': 'star',
   };
-  function iconFor(cat) { return CATEGORY_ICONS[cat] || '📝'; }
+  function iconKeyFor(cat) { return CATEGORY_ICON_KEYS[cat] || 'checklist'; }
+  function categoryIconHTML(cat, cls = 'icon-sm') {
+    const key = iconKeyFor(cat);
+    return Icons[key] ? Icons[key](cls) : Icons.checklist(cls);
+  }
 
   /* ── Header progress bar — same shape as Dex/Food/Stamps ──── */
   function renderHeader() {
@@ -39,7 +43,7 @@ const BucketListScreen = (() => {
     const pct = p.total ? Math.round((p.done / p.total) * 100) : 0;
     wrap.innerHTML = `
       <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
-        <p style="font-size:var(--text-lg);font-weight:500;color:var(--text-primary)">📝 Bucket List</p>
+        <p style="display:flex;align-items:center;gap:7px;font-size:var(--text-lg);font-weight:500;color:var(--text-primary)">${Icons.checklist('icon-sm')}Bucket List</p>
         <p style="font-size:var(--text-sm);font-weight:500;color:var(--accent)">${p.done}/${p.total} done</p>
       </div>
       <div style="height:8px;background:var(--border);border-radius:var(--r-pill);overflow:hidden">
@@ -64,14 +68,16 @@ const BucketListScreen = (() => {
       el.innerHTML = `<div id="bk-thumb-img-${item.id}" style="width:100%;height:100%;border-radius:6px;background-size:cover;background-position:center"></div>`;
       if (item.done) {
         const badge = document.createElement('span');
-        badge.style.cssText = 'position:absolute;bottom:-3px;right:-3px;width:14px;height:14px;border-radius:50%;background:var(--accent);color:#fff;font-size:8px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--surface)';
-        badge.textContent = '✓';
+        badge.style.cssText = 'position:absolute;bottom:-3px;right:-3px;width:14px;height:14px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--surface)';
+        badge.innerHTML = Icons.check('icon-sm');
+        badge.querySelector('.icon').style.cssText = 'width:9px;height:9px';
         el.appendChild(badge);
       }
       loadThumbImage(item.id);
     } else {
-      el.textContent = item.done ? '✓' : '';
-      if (!item.done) { el.style.borderStyle = 'dashed'; el.textContent = '＋'; el.style.color = 'var(--text-muted)'; }
+      el.innerHTML = item.done ? Icons.check('icon-sm') : '';
+      if (item.done) el.querySelector('.icon').style.cssText = 'width:14px;height:14px';
+      if (!item.done) { el.style.borderStyle = 'dashed'; el.innerHTML = Icons.plus('icon-sm'); el.querySelector('.icon').style.cssText = 'width:13px;height:13px'; el.style.color = 'var(--text-muted)'; }
     }
     return el;
   }
@@ -106,11 +112,12 @@ const BucketListScreen = (() => {
 
     if (item.location || item.url) {
       const meta = document.createElement('div');
-      meta.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:2px;flex-wrap:wrap';
+      meta.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:2px;flex-wrap:wrap';
       if (item.location) {
         const loc = document.createElement('span');
-        loc.style.cssText = 'font-size:10px;color:var(--text-muted)';
-        loc.textContent = `📍 ${item.location}`;
+        loc.style.cssText = 'display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--text-muted)';
+        loc.innerHTML = `${Icons.mapPin('icon-sm')}${item.location}`;
+        loc.querySelector('.icon').style.cssText = 'width:10px;height:10px';
         meta.appendChild(loc);
       }
       if (item.url) {
@@ -118,8 +125,9 @@ const BucketListScreen = (() => {
         chip.href = item.url;
         chip.target = '_blank';
         chip.rel = 'noopener';
-        chip.style.cssText = 'display:inline-flex;align-items:center;gap:2px;font-size:9px;font-weight:500;color:var(--accent);background:var(--accent-subtle);border:1px solid var(--border);border-radius:var(--r-sm);padding:1px 6px;text-decoration:none';
-        chip.textContent = '🔗 Link';
+        chip.style.cssText = 'display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:500;color:var(--accent);background:var(--accent-subtle);border:1px solid var(--border);border-radius:var(--r-sm);padding:1px 6px;text-decoration:none';
+        chip.innerHTML = `${Icons.link('icon-sm')}Link`;
+        chip.querySelector('.icon').style.cssText = 'width:9px;height:9px';
         chip.addEventListener('click', e => e.stopPropagation());
         meta.appendChild(chip);
       }
@@ -127,64 +135,57 @@ const BucketListScreen = (() => {
     }
     row.appendChild(mid);
 
-    // Subtle camera icon — separate, optional action, never blocks completion
-    const cam = document.createElement('button');
-    cam.setAttribute('aria-label', 'Add photo');
-    cam.style.cssText = 'width:26px;height:26px;border-radius:50%;flex-shrink:0;background:var(--surface-raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-secondary);opacity:.55;cursor:pointer';
-    cam.textContent = '📷';
-    cam.addEventListener('click', (e) => { e.stopPropagation(); pickPhoto(item.id); });
-    row.appendChild(cam);
-
-    // Edit — opens an inline form pre-filled with this item's values
-    const edit = document.createElement('button');
-    edit.setAttribute('aria-label', 'Edit item');
-    edit.style.cssText = 'width:26px;height:26px;border-radius:50%;flex-shrink:0;background:var(--surface-raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);opacity:.55;cursor:pointer';
-    edit.innerHTML = Icons.pencil('icon-sm');
-    edit.addEventListener('click', (e) => {
-      e.stopPropagation();
-      clearTimeout(confirmDeleteTimer);
-      editingItemId = item.id;
-      confirmDeleteId = null;
-      render();
-    });
-    row.appendChild(edit);
-
-    // Delete — first tap turns this into a red confirm state (auto-resets
-    // after 4s, same as removing a stop or a journal entry elsewhere in
-    // the app), second tap actually deletes. Deleting is more destructive
-    // than removing a photo (loses title/location/url too), so unlike the
-    // photo-remove action this isn't a single tap.
-    const isConfirming = item.id === confirmDeleteId;
-    const del = document.createElement('button');
-    del.setAttribute('aria-label', isConfirming ? 'Confirm delete' : 'Delete item');
-    del.style.cssText = `width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;${
-      isConfirming
-        ? 'background:var(--danger-bg);border:1px solid var(--danger-border);color:var(--danger-text);opacity:1'
-        : 'background:var(--surface-raised);border:1px solid var(--border);color:var(--text-secondary);opacity:.55'
-    }`;
-    del.innerHTML = isConfirming ? Icons.check('icon-sm') : Icons.trash('icon-sm');
-    del.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      if (!isConfirming) {
-        editingItemId = null;
-        confirmDeleteId = item.id;
-        render();
-        confirmDeleteTimer = setTimeout(() => {
-          confirmDeleteId = null;
-          render();
-        }, 4000);
-        return;
-      }
-      clearTimeout(confirmDeleteTimer);
-      await Data.deleteBucketItem(item.id);
-      confirmDeleteId = null;
-      Toast.show('Removed from list', 'info');
-      render();
-    });
-    row.appendChild(del);
+    // Single overflow button — opens a sheet with photo/edit/delete,
+    // replacing three always-visible buttons that crowded the row.
+    const more = document.createElement('button');
+    more.setAttribute('aria-label', 'More actions');
+    more.style.cssText = 'width:26px;height:26px;border-radius:50%;flex-shrink:0;background:var(--surface-raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);opacity:.7;cursor:pointer';
+    more.innerHTML = Icons.dotsV('icon-sm');
+    more.addEventListener('click', (e) => { e.stopPropagation(); openRowActions(item); });
+    row.appendChild(more);
 
     row.addEventListener('click', () => handleToggle(item.id));
     return row;
+  }
+
+  /* ── Row actions sheet — replaces 3 always-visible buttons with
+     one overflow tap. Delete needs a second tap to confirm, same
+     intent as the old auto-resetting row button, just inside the
+     sheet instead of on the row itself. ─────────────────────── */
+  function openRowActions(item) {
+    let confirming = false;
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:280;background:rgba(0,0,0,.45);display:flex;align-items:flex-end';
+    document.body.appendChild(overlay);
+
+    function draw() {
+      overlay.innerHTML = `
+        <div style="background:var(--bg);width:100%;border-radius:20px 20px 0 0;padding:var(--s2) 0 calc(var(--s4) + env(safe-area-inset-bottom))">
+          <div style="display:flex;justify-content:center;padding:6px 0 4px"><div style="width:36px;height:4px;background:var(--border);border-radius:2px"></div></div>
+          <p style="padding:var(--s2) var(--s4) var(--s3);font-size:var(--text-sm);font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.title}</p>
+          <button id="ra-photo" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px var(--s4);background:none;border:none;font-family:var(--font);font-size:var(--text-sm);color:var(--text-primary);text-align:left">${Icons.camera('icon-sm')}${item.photo_storage_path ? 'Change photo' : 'Add photo'}</button>
+          <button id="ra-edit" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px var(--s4);background:none;border:none;font-family:var(--font);font-size:var(--text-sm);color:var(--text-primary);text-align:left">${Icons.pencil('icon-sm')}Edit</button>
+          <button id="ra-delete" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px var(--s4);background:none;border:none;font-family:var(--font);font-size:var(--text-sm);text-align:left;color:${confirming ? 'var(--danger-text)' : 'var(--text-primary)'}">${confirming ? Icons.check('icon-sm') : Icons.trash('icon-sm')}${confirming ? 'Tap again to delete' : 'Delete'}</button>
+        </div>`;
+
+      overlay.querySelector('#ra-photo').addEventListener('click', () => { overlay.remove(); pickPhoto(item.id); });
+      overlay.querySelector('#ra-edit').addEventListener('click', () => {
+        overlay.remove();
+        editingItemId = item.id;
+        render();
+      });
+      overlay.querySelector('#ra-delete').addEventListener('click', async () => {
+        if (!confirming) { confirming = true; draw(); return; }
+        overlay.remove();
+        await Data.deleteBucketItem(item.id);
+        Toast.show('Removed from list', 'info');
+        render();
+      });
+    }
+    draw();
+
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
   }
 
   /* ── Inline edit form — same field set as Add, prefilled ────── */
@@ -226,7 +227,8 @@ const BucketListScreen = (() => {
         const pill = document.createElement('button');
         pill.type = 'button';
         pill.className = `pill ${pendingEditCategory === cat ? 'active' : ''}`;
-        pill.textContent = `${iconFor(cat)} ${cat}`;
+        pill.innerHTML = `${categoryIconHTML(cat)}${cat}`;
+        pill.style.display = 'inline-flex'; pill.style.alignItems = 'center'; pill.style.gap = '5px';
         pill.addEventListener('click', () => { pendingEditCategory = cat; renderPills(); });
         pillWrap.appendChild(pill);
       });
@@ -267,15 +269,89 @@ const BucketListScreen = (() => {
     render();
   }
 
+  /* ── Search bar — filters title, location, and link together ── */
+  function renderSearchBar() {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'padding:var(--s3) var(--s4) var(--s2);position:relative;background:var(--surface)';
+    wrap.innerHTML = `
+      <div style="position:relative;display:flex;align-items:center">
+        <span style="position:absolute;left:12px;color:var(--text-muted);display:flex;pointer-events:none">${Icons.search('icon-sm')}</span>
+        <input id="bk-search" class="bs-input" type="text" placeholder="Search name, location, or link" value="${(searchQuery || '').replace(/"/g, '&quot;')}" style="padding-left:34px;padding-right:${searchQuery ? '34px' : '12px'}">
+        ${searchQuery ? `<button id="bk-search-clear" aria-label="Clear search" style="position:absolute;right:8px;background:none;border:none;color:var(--text-muted);display:flex;padding:4px">${Icons.x('icon-sm')}</button>` : ''}
+      </div>`;
+
+    wrap.querySelector('#bk-search').addEventListener('input', (e) => {
+      searchQuery = e.target.value;
+      refreshList();
+    });
+    const clearBtn = wrap.querySelector('#bk-search-clear');
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+      searchQuery = '';
+      refreshList();
+      const input = root?.querySelector('#bk-search');
+      if (input) input.focus();
+    });
+
+    return wrap;
+  }
+
+  // Re-renders just the list area (not the search input itself) so
+  // typing doesn't lose focus the way a full render() would.
+  function refreshList() {
+    const area = root?.querySelector('#bk-list-area');
+    if (!area) return;
+    area.innerHTML = '';
+    area.appendChild(renderList());
+    // Clear button appears/disappears with query state — swap the
+    // whole search bar in place without touching the focused input's
+    // own value, since its value already reflects what the user typed.
+    const searchWrap = root?.querySelector('#bk-search-wrap');
+    if (searchWrap) {
+      const clearBtn = searchWrap.querySelector('#bk-search-clear');
+      const hasClear = !!clearBtn;
+      const shouldHaveClear = !!searchQuery;
+      if (hasClear !== shouldHaveClear) {
+        const focused = document.activeElement === searchWrap.querySelector('#bk-search');
+        const newBar = renderSearchBar();
+        searchWrap.replaceWith(newBar);
+        newBar.id = 'bk-search-wrap';
+        if (focused) {
+          const input = newBar.querySelector('#bk-search');
+          input.focus();
+          input.setSelectionRange(input.value.length, input.value.length);
+        }
+      }
+    }
+  }
+
+  function matchesQuery(item, q) {
+    if (!q) return true;
+    const hay = [item.title, item.location, item.url].filter(Boolean).join(' ').toLowerCase();
+    return hay.includes(q);
+  }
+
   /* ── Grouped list ─────────────────────────────────────────── */
   function renderList() {
     const wrap = document.createElement('div');
-    const items = Data.getBucketItems();
+    const allItems = Data.getBucketItems();
 
-    if (!items.length) {
+    if (!allItems.length) {
       const empty = document.createElement('div');
       empty.style.cssText = 'padding:var(--s6) var(--s4);text-align:center;color:var(--text-muted)';
-      empty.innerHTML = `<span style="font-size:36px">📝</span><p style="margin-top:var(--s2);font-size:var(--text-sm)">Nothing on the list yet — add the first thing to do or try.</p>`;
+      empty.innerHTML = `<span style="display:inline-flex;color:var(--text-muted)">${Icons.checklist('icon-lg')}</span><p style="margin-top:var(--s2);font-size:var(--text-sm)">Nothing on the list yet — add the first thing to do or try.</p>`;
+      empty.querySelector('.icon').style.cssText = 'width:36px;height:36px';
+      wrap.appendChild(empty);
+      return wrap;
+    }
+
+    const q = searchQuery.trim().toLowerCase();
+    const items = allItems.filter(i => matchesQuery(i, q));
+
+    if (q && !items.length) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'padding:var(--s6) var(--s4);text-align:center;color:var(--text-muted)';
+      empty.innerHTML = `<span style="display:inline-flex;color:var(--text-muted)">${Icons.search('icon-lg')}</span><p style="margin-top:var(--s2);font-size:var(--text-sm)">No matches for "${searchQuery}"</p>`;
+      empty.querySelector('.icon').style.cssText = 'width:32px;height:32px';
       wrap.appendChild(empty);
       return wrap;
     }
@@ -289,8 +365,8 @@ const BucketListScreen = (() => {
 
     Object.keys(byCategory).forEach(cat => {
       const head = document.createElement('p');
-      head.style.cssText = 'font-size:10px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;padding:8px var(--s4) 6px';
-      head.textContent = `${iconFor(cat)} ${cat}`;
+      head.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;padding:8px var(--s4) 6px';
+      head.innerHTML = `${categoryIconHTML(cat)}${cat}`;
       wrap.appendChild(head);
       byCategory[cat].forEach(item => wrap.appendChild(itemRow(item)));
     });
@@ -344,7 +420,8 @@ const BucketListScreen = (() => {
         const pill = document.createElement('button');
         pill.type = 'button';
         pill.className = `pill ${pendingCategory === cat ? 'active' : ''}`;
-        pill.textContent = `${iconFor(cat)} ${cat}`;
+        pill.innerHTML = `${categoryIconHTML(cat)}${cat}`;
+        pill.style.display = 'inline-flex'; pill.style.alignItems = 'center'; pill.style.gap = '5px';
         pill.addEventListener('click', () => { pendingCategory = cat; renderPills(); });
         pillWrap.appendChild(pill);
       });
@@ -430,10 +507,10 @@ const BucketListScreen = (() => {
     overlay.innerHTML = `
       <img src="${dataUrl || ''}" style="max-width:100%;max-height:55vh;border-radius:10px;object-fit:contain" />
       <div style="display:flex;gap:8px;width:220px">
-        <button id="bk-pv-toggle" style="flex:1;padding:9px;border-radius:8px;font-size:11px;font-weight:500;border:1px solid rgba(255,255,255,.25);color:#fff;background:rgba(255,255,255,.08)">${item.done ? '↺ Mark not done' : '✓ Mark done'}</button>
+        <button id="bk-pv-toggle" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;border-radius:8px;font-size:11px;font-weight:500;border:1px solid rgba(255,255,255,.25);color:#fff;background:rgba(255,255,255,.08)">${item.done ? Icons.refresh('icon-sm') : Icons.check('icon-sm')}${item.done ? 'Mark not done' : 'Mark done'}</button>
       </div>
       <div style="display:flex;gap:8px;width:220px">
-        <button id="bk-pv-remove" style="flex:1;padding:9px;border-radius:8px;font-size:11px;font-weight:500;border:1px solid rgba(255,155,138,.4);color:#ff9b8a;background:rgba(255,255,255,.08)">🗑 Remove photo</button>
+        <button id="bk-pv-remove" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;border-radius:8px;font-size:11px;font-weight:500;border:1px solid rgba(255,155,138,.4);color:#ff9b8a;background:rgba(255,255,255,.08)">${Icons.trash('icon-sm')}Remove photo</button>
       </div>
       <div style="display:flex;gap:8px;width:220px">
         <button id="bk-pv-close" style="flex:1;padding:9px;border-radius:8px;font-size:11px;font-weight:500;border:1px solid rgba(255,255,255,.25);color:#fff;background:transparent">Close</button>
@@ -496,7 +573,13 @@ const BucketListScreen = (() => {
     }
 
     root.appendChild(renderHeader());
-    root.appendChild(renderList());
+    const searchWrap = renderSearchBar();
+    searchWrap.id = 'bk-search-wrap';
+    root.appendChild(searchWrap);
+    const listArea = document.createElement('div');
+    listArea.id = 'bk-list-area';
+    listArea.appendChild(renderList());
+    root.appendChild(listArea);
     root.appendChild(renderAddForm());
   }
 
