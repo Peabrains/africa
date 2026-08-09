@@ -36,6 +36,20 @@ const BookingsScreen = (() => {
     return `${Number(d)} ${month}`;
   }
 
+  // Currency code fixed-width + left-aligned, amount right-aligned with
+  // tabular-nums (equal-width digits) — so "TWD" starts at the same X
+  // position on every row and the numbers line up on their digits like
+  // a ledger, regardless of how many digits each amount has. Shows up
+  // to 2 decimal places only when the amount actually has a fraction —
+  // whole numbers stay clean without a trailing ".00".
+  function formatMoneyAligned(currency, amount) {
+    const numStr = (amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    return `<span style="display:inline-flex;width:94px;flex-shrink:0">
+      <span style="color:var(--text-muted);width:36px;flex-shrink:0">${currency}</span>
+      <span style="color:var(--text-muted);flex:1;text-align:right;font-variant-numeric:tabular-nums">${numStr}</span>
+    </span>`;
+  }
+
   /* ─── Tab bar ────────────────────────────────────────────── */
   function tabBar() {
     const bar = document.createElement('div');
@@ -427,7 +441,7 @@ const BookingsScreen = (() => {
             <span>${it.name}</span>
           </span>
           <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-            <span style="color:var(--text-muted)">${it.currency} ${it.cost.toLocaleString()}</span>
+            ${formatMoneyAligned(it.currency, it.cost)}
             ${statusPill(it.status, it)}
           </span>`;
         row.addEventListener('click', () => {
@@ -553,7 +567,7 @@ const BookingsScreen = (() => {
       const paidBy = travelers.length ? addForm.querySelector('.paid-chip.traveler-chip--active')?.dataset.name||'' : g('exp-paid');
       const splitBetween = travelers.length ? [...addForm.querySelectorAll('.split-chip.traveler-chip--active')].map(c=>c.dataset.name) : [];
       saveBtn.disabled = true;
-      await Data.addExpense({ dayId:g('exp-day'), category:g('exp-cat'), description:g('exp-desc'), amountJPY:parseInt(g('exp-amt')), paidBy, splitBetween });
+      await Data.addExpense({ dayId:g('exp-day'), category:g('exp-cat'), description:g('exp-desc'), amountJPY:parseFloat(g('exp-amt')), paidBy, splitBetween });
       Toast.show('Expense logged','success');
       render();
     });
@@ -672,7 +686,7 @@ const BookingsScreen = (() => {
           // NOTE: .expense-row's own CSS class sets display:flex with a
           // row direction — must explicitly override to column here or
           // every child below gets squashed onto one horizontal line.
-          row.style.cssText = 'display:flex;flex-direction:column;gap:2px;padding:12px var(--s4);border-bottom:1px solid var(--border-subtle)';
+          row.style.cssText = 'display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:12px var(--s4);border-bottom:1px solid var(--border-subtle)';
           row.innerHTML = `
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s2)">
               <div style="display:flex;align-items:center;gap:7px;min-width:0">
@@ -740,7 +754,7 @@ const BookingsScreen = (() => {
             const dayId = editRow.querySelector('.ee-day').value || null;
             const category = editRow.querySelector('.ee-cat').value;
             const description = editRow.querySelector('.ee-desc').value.trim();
-            const amountJPY = parseInt(editRow.querySelector('.ee-amt').value) || 0;
+            const amountJPY = parseFloat(editRow.querySelector('.ee-amt').value) || 0;
             const paidBy = travelers.length ? (editRow.querySelector('.ee-paid-chip.traveler-chip--active')?.dataset.name || '') : exp.paidBy;
             const splitBetween = travelers.length ? [...editRow.querySelectorAll('.ee-split-chip.traveler-chip--active')].map(c=>c.dataset.name) : exp.splitBetween;
             await Data.updateExpense(exp.id, { dayId, category, description, amountJPY, paidBy, splitBetween });
