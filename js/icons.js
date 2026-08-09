@@ -82,6 +82,10 @@ const Icons = {
   /* Budget / people */
   users:       (c) => Icons._svg(`<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" ${S}/><circle cx="9" cy="7" r="4" ${S}/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" ${S}/>`, c),
   yen:         (c) => Icons._svg(`<path d="M12 21V11M6 3l6 8 6-8M5 11h14M5 15h14" ${S}/>`, c),
+  // Currency-neutral banknote — used anywhere a cost is shown, since the
+  // amount's currency can now differ per stop/overnight rather than
+  // always being the trip's default (see cost_currency).
+  cash:        (c) => Icons._svg(`<rect x="2" y="6" width="20" height="12" rx="2" ${S}/><circle cx="12" cy="12" r="3" ${S}/><path d="M6 9v.01M18 15v.01" ${S}/>`, c),
 };
 
 window.Icons = Icons;
