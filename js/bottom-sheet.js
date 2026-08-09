@@ -578,6 +578,7 @@ const BottomSheet = (() => {
         <p class="bs-name" style="margin-bottom:var(--s4)">${Icons.moon('icon-sm')} Overnight stay</p>
         ${field('Accommodation name','o-name',o.name||'','text','e.g. Kiri-no-Sato Takahara Lodge')}
         ${field('Address','o-address',o.address||'','text','e.g. 15 Takahara, Tanabe, Wakayama')}
+        ${o.name ? `<button type="button" class="btn btn-ghost bs-full-btn" id="o-show-card-btn" style="margin-bottom:var(--s3)">${Icons.card('icon-sm')} Show to driver / front desk</button>` : ''}
         ${select('Booking status','o-status',o.status||'open',statusOpts)}
         ${field('Booking reference','o-ref',o.ref||'','text','e.g. HTL-20270412')}
         ${costWithCurrency('o-cost','o-cost-cur',o.cost,o.cost_currency)}
@@ -859,8 +860,39 @@ const BottomSheet = (() => {
   }
 
   /* ─── Wire: overnight ────────────────────────────────────── */
+  /* ── "Show to driver / front desk" card — a large-text, high-contrast
+     overlay meant to be held up and read by someone else (a taxi
+     driver, a hotel receptionist), not typed into. Deliberately not
+     the edit sheet: no inputs, no small labels, just the three things
+     someone else actually needs to read from arm's length. ── */
+  function showAccommodationCard(o) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:var(--s4)';
+    overlay.innerHTML = `
+      <div style="background:#fff;color:#111;border-radius:var(--r-xl);padding:28px 24px;width:100%;max-width:400px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+        <p style="font-size:13px;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Please take me here</p>
+        <p style="font-size:28px;font-weight:700;line-height:1.25;margin-bottom:${o.address?'14px':'20px'}">${o.name}</p>
+        ${o.address ? `<p style="font-size:19px;color:#333;line-height:1.4;margin-bottom:20px">${o.address}</p>` : ''}
+        ${o.ref ? `<div style="background:#F3F1EC;border-radius:var(--r-md);padding:10px 14px;margin-bottom:6px"><p style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.05em">Booking reference</p><p style="font-size:17px;font-weight:600;color:#111">${o.ref}</p></div>` : ''}
+        ${!o.address ? `<p style="font-size:12px;color:#B8860B;margin-top:4px">No address saved for this stay yet — add one on the accommodation card.</p>` : ''}
+        <button id="show-card-close" style="margin-top:20px;width:100%;padding:12px;border:1.5px solid #ddd;border-radius:var(--r-md);background:#fff;color:#111;font-family:var(--font);font-size:15px;font-weight:500">Close</button>
+      </div>`;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    overlay.querySelector('#show-card-close').addEventListener('click', close);
+  }
+
   function wireOvernight(day) {
     const g = id => body.querySelector('#'+id)?.value?.trim()||'';
+
+    body.querySelector('#o-show-card-btn')?.addEventListener('click', () => {
+      showAccommodationCard({
+        name: g('o-name') || 'Accommodation',
+        address: g('o-address'),
+        ref: g('o-ref'),
+      });
+    });
 
     const lfToggle = body.querySelector('#o-lf-toggle');
     const lfFields = body.querySelector('#o-lf-fields');
