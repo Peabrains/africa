@@ -44,6 +44,19 @@ const Data = (() => {
     journal:  'sb_journal',
   };
 
+  /* Every cache key except `trips` (the list of all trips, not per-trip
+     data) MUST be scoped to the active trip. Without this, switching
+     trips while offline — or any time a fetch fails and the app falls
+     back to cache — silently shows whatever trip was cached last instead
+     of the one that was actually requested, since IndexedDB has no
+     concept of "current trip" on its own. CURRENT_TRIP is always set
+     before loadTripData()/loadFromCache() run, in every call path
+     (init, switchTrip, createTrip), so this is safe to resolve implicitly
+     rather than threading a tripId through every single write function. */
+  function tripKey(base) {
+    return CURRENT_TRIP?.id ? `${base}::${CURRENT_TRIP.id}` : base;
+  }
+
   /* ── Offline write queue ─────────────────────────────────────
      Every mutation applies to local state immediately (optimistic),
      then tries Supabase right away if online. If that attempt fails
@@ -115,7 +128,7 @@ const Data = (() => {
         if (error) throw error;
         const idx = STOPS.findIndex(s => s.id === localId);
         if (idx >= 0) STOPS[idx] = data; else STOPS.push(data);
-        await DB.setMeta(CACHE_KEYS.stops, STOPS);
+        await DB.setMeta(tripKey(CACHE_KEYS.stops), STOPS);
         return { localId, realId: data.id };
       }
       case 'updateStop': {
@@ -133,7 +146,7 @@ const Data = (() => {
         const { data, error } = await SB.from('overnights').insert(row).select().single();
         if (error) throw error;
         if (OVERNIGHTS[dayId]?.id === localId) OVERNIGHTS[dayId] = data;
-        await DB.setMeta(CACHE_KEYS.overnight, OVERNIGHTS);
+        await DB.setMeta(tripKey(CACHE_KEYS.overnight), OVERNIGHTS);
         return { localId, realId: data.id };
       }
       case 'updateOvernight': {
@@ -152,7 +165,7 @@ const Data = (() => {
         if (error) throw error;
         EXPENSES = EXPENSES.filter(e => e.id !== localId);
         EXPENSES.push(data);
-        await DB.setMeta(CACHE_KEYS.expenses, EXPENSES);
+        await DB.setMeta(tripKey(CACHE_KEYS.expenses), EXPENSES);
         return { localId, realId: data.id };
       }
       case 'updateExpense': {
@@ -171,7 +184,7 @@ const Data = (() => {
         if (error) throw error;
         PACKING = PACKING.filter(i => i.id !== localId);
         PACKING.push(data);
-        await DB.setMeta(CACHE_KEYS.packing, PACKING);
+        await DB.setMeta(tripKey(CACHE_KEYS.packing), PACKING);
         return { localId, realId: data.id };
       }
       case 'updatePacking': {
@@ -190,7 +203,7 @@ const Data = (() => {
         if (error) throw error;
         const idx = BUCKET_ITEMS.findIndex(i => i.id === localId);
         if (idx >= 0) BUCKET_ITEMS[idx] = data; else BUCKET_ITEMS.push(data);
-        await DB.saveBucket(BUCKET_ITEMS);
+        await DB.saveBucket(BUCKET_ITEMS, tripKey('bucketItems'));
         return { localId, realId: data.id };
       }
       case 'updateBucketItem': {
@@ -209,7 +222,7 @@ const Data = (() => {
         if (error) throw error;
         CUSTOM_LINKS = CUSTOM_LINKS.filter(l => l.id !== localId);
         CUSTOM_LINKS.push(data);
-        await DB.setMeta(CACHE_KEYS.links, CUSTOM_LINKS);
+        await DB.setMeta(tripKey(CACHE_KEYS.links), CUSTOM_LINKS);
         return { localId, realId: data.id };
       }
       case 'updateCustomLink': {
@@ -371,17 +384,17 @@ const Data = (() => {
 
         // Cache everything for offline
         await Promise.all([
-          DB.setMeta(CACHE_KEYS.days,      DAYS),
-          DB.setMeta(CACHE_KEYS.stops,     STOPS),
-          DB.setMeta(CACHE_KEYS.overnight, OVERNIGHTS),
-          DB.setMeta(CACHE_KEYS.expenses,  EXPENSES),
-          DB.setMeta(CACHE_KEYS.packing,   PACKING),
-          DB.setMeta(CACHE_KEYS.dex,       DEX_CATCHES),
-          DB.setMeta(CACHE_KEYS.food,      FOOD_CATCHES),
-          DB.setMeta(CACHE_KEYS.links,     CUSTOM_LINKS),
-          DB.setMeta(CACHE_KEYS.glossary,  GLOSSARY_TERMS),
-          DB.saveBucket(BUCKET_ITEMS),
-          DB.setMeta(CACHE_KEYS.journal, JOURNAL_ENTRIES),
+          DB.setMeta(tripKey(CACHE_KEYS.days),      DAYS),
+          DB.setMeta(tripKey(CACHE_KEYS.stops),     STOPS),
+          DB.setMeta(tripKey(CACHE_KEYS.overnight), OVERNIGHTS),
+          DB.setMeta(tripKey(CACHE_KEYS.expenses),  EXPENSES),
+          DB.setMeta(tripKey(CACHE_KEYS.packing),   PACKING),
+          DB.setMeta(tripKey(CACHE_KEYS.dex),       DEX_CATCHES),
+          DB.setMeta(tripKey(CACHE_KEYS.food),      FOOD_CATCHES),
+          DB.setMeta(tripKey(CACHE_KEYS.links),     CUSTOM_LINKS),
+          DB.setMeta(tripKey(CACHE_KEYS.glossary),  GLOSSARY_TERMS),
+          DB.saveBucket(BUCKET_ITEMS, tripKey('bucketItems')),
+          DB.setMeta(tripKey(CACHE_KEYS.journal), JOURNAL_ENTRIES),
         ]);
 
         console.log('[Data] Loaded from Supabase:', DAYS.length, 'days,', STOPS.length, 'stops');
@@ -399,17 +412,17 @@ const Data = (() => {
   }
 
   async function loadFromCache() {
-    DAYS         = await DB.getMeta(CACHE_KEYS.days)     || [];
-    STOPS        = await DB.getMeta(CACHE_KEYS.stops)    || [];
-    OVERNIGHTS   = await DB.getMeta(CACHE_KEYS.overnight)|| {};
-    EXPENSES     = await DB.getMeta(CACHE_KEYS.expenses) || [];
-    PACKING      = await DB.getMeta(CACHE_KEYS.packing)  || [];
-    DEX_CATCHES  = await DB.getMeta(CACHE_KEYS.dex)      || {};
-    FOOD_CATCHES = await DB.getMeta(CACHE_KEYS.food)     || {};
-    CUSTOM_LINKS = await DB.getMeta(CACHE_KEYS.links)    || [];
-    GLOSSARY_TERMS = await DB.getMeta(CACHE_KEYS.glossary) || {};
-    BUCKET_ITEMS = await DB.loadBucket() || [];
-    JOURNAL_ENTRIES = await DB.getMeta(CACHE_KEYS.journal) || [];
+    DAYS         = await DB.getMeta(tripKey(CACHE_KEYS.days))     || [];
+    STOPS        = await DB.getMeta(tripKey(CACHE_KEYS.stops))    || [];
+    OVERNIGHTS   = await DB.getMeta(tripKey(CACHE_KEYS.overnight))|| {};
+    EXPENSES     = await DB.getMeta(tripKey(CACHE_KEYS.expenses)) || [];
+    PACKING      = await DB.getMeta(tripKey(CACHE_KEYS.packing))  || [];
+    DEX_CATCHES  = await DB.getMeta(tripKey(CACHE_KEYS.dex))      || {};
+    FOOD_CATCHES = await DB.getMeta(tripKey(CACHE_KEYS.food))     || {};
+    CUSTOM_LINKS = await DB.getMeta(tripKey(CACHE_KEYS.links))    || [];
+    GLOSSARY_TERMS = await DB.getMeta(tripKey(CACHE_KEYS.glossary)) || {};
+    BUCKET_ITEMS = await DB.loadBucket(tripKey('bucketItems')) || [];
+    JOURNAL_ENTRIES = await DB.getMeta(tripKey(CACHE_KEYS.journal)) || [];
     console.log('[Data] Loaded from cache:', DAYS.length, 'days');
   }
 
@@ -567,7 +580,7 @@ const Data = (() => {
         SB.from('stops').update({ sort_order: u.sort_order }).eq('id', u.id)
       ));
     }
-    await DB.setMeta(CACHE_KEYS.stops, STOPS);
+    await DB.setMeta(tripKey(CACHE_KEYS.stops), STOPS);
   }
 
   async function addStop(stop) {
@@ -698,7 +711,7 @@ const Data = (() => {
     if ('time' in dbPatch || 'day_id' in dbPatch) {
       await resortStopsForDay(STOPS[idx].day_id);
     } else {
-      await DB.setMeta(CACHE_KEYS.stops, STOPS);
+      await DB.setMeta(tripKey(CACHE_KEYS.stops), STOPS);
     }
   }
 
@@ -715,7 +728,7 @@ const Data = (() => {
     } else {
       await enqueue('deleteStop', { id });
     }
-    await DB.setMeta(CACHE_KEYS.stops, STOPS);
+    await DB.setMeta(tripKey(CACHE_KEYS.stops), STOPS);
   }
 
   /* ── OVERNIGHT API ───────────────────────────────────────── */
@@ -810,7 +823,7 @@ const Data = (() => {
       }
     }
 
-    await DB.setMeta(CACHE_KEYS.overnight, OVERNIGHTS);
+    await DB.setMeta(tripKey(CACHE_KEYS.overnight), OVERNIGHTS);
   }
 
   async function deleteOvernight(dayId) {
@@ -830,7 +843,7 @@ const Data = (() => {
         await enqueue('deleteOvernight', { id: o.id });
       }
     }
-    await DB.setMeta(CACHE_KEYS.overnight, OVERNIGHTS);
+    await DB.setMeta(tripKey(CACHE_KEYS.overnight), OVERNIGHTS);
   }
 
   /* Geocode a place name via Open-Meteo's free geocoding API (same provider
@@ -898,7 +911,7 @@ const Data = (() => {
       const { error } = await SB.from('itinerary_days').update(patch).eq('id', dayId);
       if (error) { console.error('[Data] updateDay error:', error); throw error; }
     }
-    await DB.setMeta(CACHE_KEYS.days, DAYS);
+    await DB.setMeta(tripKey(CACHE_KEYS.days), DAYS);
     if ('date' in changes) await syncTripDateRange();
   }
 
@@ -914,7 +927,7 @@ const Data = (() => {
       const { error } = await SB.from('itinerary_days').update(patch).eq('id', dayId);
       if (error) { console.error('[Data] updateStory error:', error); throw error; }
     }
-    await DB.setMeta(CACHE_KEYS.days, DAYS);
+    await DB.setMeta(tripKey(CACHE_KEYS.days), DAYS);
   }
 
   async function deleteStory(dayId) {
@@ -1101,7 +1114,7 @@ const Data = (() => {
     } else {
       await enqueue('addExpense', { localId, row: newExp });
     }
-    await DB.setMeta(CACHE_KEYS.expenses, EXPENSES);
+    await DB.setMeta(tripKey(CACHE_KEYS.expenses), EXPENSES);
     return newExp;
   }
 
@@ -1130,7 +1143,7 @@ const Data = (() => {
     } else {
       await enqueue('updateExpense', { id, patch });
     }
-    await DB.setMeta(CACHE_KEYS.expenses, EXPENSES);
+    await DB.setMeta(tripKey(CACHE_KEYS.expenses), EXPENSES);
   }
 
   async function deleteExpense(id) {
@@ -1146,7 +1159,7 @@ const Data = (() => {
     } else {
       await enqueue('deleteExpense', { id });
     }
-    await DB.setMeta(CACHE_KEYS.expenses, EXPENSES);
+    await DB.setMeta(tripKey(CACHE_KEYS.expenses), EXPENSES);
   }
 
   /* ── PACKING API ─────────────────────────────────────────── */
@@ -1188,7 +1201,7 @@ const Data = (() => {
     } else {
       await enqueue('updatePacking', { id, patch: { checked_by_names: next } });
     }
-    await DB.setMeta(CACHE_KEYS.packing, PACKING);
+    await DB.setMeta(tripKey(CACHE_KEYS.packing), PACKING);
   }
 
   function getPackingProgressByTraveler() {
@@ -1213,7 +1226,7 @@ const Data = (() => {
     } else {
       await enqueue('updatePacking', { id, patch: { checked } });
     }
-    await DB.setMeta(CACHE_KEYS.packing, PACKING);
+    await DB.setMeta(tripKey(CACHE_KEYS.packing), PACKING);
   }
 
   async function addPackingItem({ cat, item, essential = false }) {
@@ -1242,7 +1255,7 @@ const Data = (() => {
     } else {
       await enqueue('addPacking', { localId, row: newItem });
     }
-    await DB.setMeta(CACHE_KEYS.packing, PACKING);
+    await DB.setMeta(tripKey(CACHE_KEYS.packing), PACKING);
   }
 
   async function updatePackingItem(id, changes) {
@@ -1264,7 +1277,7 @@ const Data = (() => {
     } else {
       await enqueue('updatePacking', { id, patch });
     }
-    await DB.setMeta(CACHE_KEYS.packing, PACKING);
+    await DB.setMeta(tripKey(CACHE_KEYS.packing), PACKING);
   }
 
   async function deletePacking(id) {
@@ -1280,7 +1293,7 @@ const Data = (() => {
     } else {
       await enqueue('deletePacking', { id });
     }
-    await DB.setMeta(CACHE_KEYS.packing, PACKING);
+    await DB.setMeta(tripKey(CACHE_KEYS.packing), PACKING);
   }
 
   /* ── DEX API ─────────────────────────────────────────────── */
@@ -1343,7 +1356,7 @@ const Data = (() => {
         DEX_CATCHES[animalId] = { ...data, photoIds: [] };
       }
     }
-    await DB.setMeta(CACHE_KEYS.dex, DEX_CATCHES);
+    await DB.setMeta(tripKey(CACHE_KEYS.dex), DEX_CATCHES);
     return DEX_CATCHES[animalId];
   }
 
@@ -1353,7 +1366,7 @@ const Data = (() => {
     if (navigator.onLine && catchId) {
       await SB.from('dex_catches').delete().eq('id', catchId);
     }
-    await DB.setMeta(CACHE_KEYS.dex, DEX_CATCHES);
+    await DB.setMeta(tripKey(CACHE_KEYS.dex), DEX_CATCHES);
   }
 
   async function addDexPhoto(animalId, fileDataUrl) {
@@ -1365,7 +1378,7 @@ const Data = (() => {
     await DB.saveDexPhoto(photoId, fileDataUrl);
     if (!DEX_CATCHES[animalId].photoIds) DEX_CATCHES[animalId].photoIds = [];
     DEX_CATCHES[animalId].photoIds.push(photoId);
-    await DB.setMeta(CACHE_KEYS.dex, DEX_CATCHES);
+    await DB.setMeta(tripKey(CACHE_KEYS.dex), DEX_CATCHES);
 
     // Sync to Supabase Storage so other devices can see it too.
     // Photo arrives here already compressed (see dex.js compressImage()).
@@ -1399,7 +1412,7 @@ const Data = (() => {
     if (!DEX_CATCHES[animalId]) return;
     DEX_CATCHES[animalId].photoIds = (DEX_CATCHES[animalId].photoIds || []).filter(id => id !== photoId);
     await DB.deleteDexPhoto(photoId);
-    await DB.setMeta(CACHE_KEYS.dex, DEX_CATCHES);
+    await DB.setMeta(tripKey(CACHE_KEYS.dex), DEX_CATCHES);
 
     const storagePath = DEX_PHOTO_META[photoId]?.storage_path;
     if (navigator.onLine && storagePath) {
@@ -1478,7 +1491,7 @@ const Data = (() => {
       const user = (await SB.auth.getUser()).data.user;
       await enqueue('addBucketItem', { localId, row: { ...entry, created_by: user?.id } });
     }
-    await DB.saveBucket(BUCKET_ITEMS);
+    await DB.saveBucket(BUCKET_ITEMS, tripKey('bucketItems'));
     return item;
   }
 
@@ -1492,7 +1505,7 @@ const Data = (() => {
     if (url !== undefined) patch.url = url;
 
     Object.assign(item, patch);
-    await DB.saveBucket(BUCKET_ITEMS);
+    await DB.saveBucket(BUCKET_ITEMS, tripKey('bucketItems'));
 
     if (navigator.onLine) {
       try {
@@ -1510,7 +1523,7 @@ const Data = (() => {
   async function deleteBucketItem(id) {
     const item = getBucketItem(id);
     BUCKET_ITEMS = BUCKET_ITEMS.filter(i => i.id !== id);
-    await DB.saveBucket(BUCKET_ITEMS);
+    await DB.saveBucket(BUCKET_ITEMS, tripKey('bucketItems'));
 
     if (navigator.onLine) {
       try {
@@ -1536,7 +1549,7 @@ const Data = (() => {
     const item = getBucketItem(id);
     if (!item) return;
     item.done = !item.done;
-    await DB.saveBucket(BUCKET_ITEMS);
+    await DB.saveBucket(BUCKET_ITEMS, tripKey('bucketItems'));
     if (navigator.onLine) {
       try {
         const { error } = await SB.from('bucket_items').update({ done: item.done }).eq('id', id);
@@ -1576,7 +1589,7 @@ const Data = (() => {
         console.error('[Data] bucket photo sync error:', e);
       }
     }
-    await DB.saveBucket(BUCKET_ITEMS);
+    await DB.saveBucket(BUCKET_ITEMS, tripKey('bucketItems'));
   }
 
   async function removeBucketPhoto(id) {
@@ -1585,7 +1598,7 @@ const Data = (() => {
     const storagePath = item.photo_storage_path;
     item.photo_storage_path = null;
     await DB.deleteBucketPhoto(id);
-    await DB.saveBucket(BUCKET_ITEMS);
+    await DB.saveBucket(BUCKET_ITEMS, tripKey('bucketItems'));
 
     if (navigator.onLine) {
       await SB.from('bucket_items').update({ photo_storage_path: null }).eq('id', id);
@@ -1646,7 +1659,7 @@ const Data = (() => {
     if (error) throw error;
     const entry = { ...data, journal_photos: [] };
     JOURNAL_ENTRIES.push(entry);
-    await DB.setMeta(CACHE_KEYS.journal, JOURNAL_ENTRIES);
+    await DB.setMeta(tripKey(CACHE_KEYS.journal), JOURNAL_ENTRIES);
     return entry;
   }
 
@@ -1662,14 +1675,14 @@ const Data = (() => {
       narration: patch.narration !== undefined ? patch.narration : entry.narration,
       pull_quote: patch.pull_quote !== undefined ? patch.pull_quote : entry.pull_quote,
     });
-    await DB.setMeta(CACHE_KEYS.journal, JOURNAL_ENTRIES);
+    await DB.setMeta(tripKey(CACHE_KEYS.journal), JOURNAL_ENTRIES);
     if (navigator.onLine) await SB.from('journal_entries').update(patch).eq('id', id);
   }
 
   async function deleteJournalEntry(id) {
     const entry = getJournalEntry(id);
     JOURNAL_ENTRIES = JOURNAL_ENTRIES.filter(e => e.id !== id);
-    await DB.setMeta(CACHE_KEYS.journal, JOURNAL_ENTRIES);
+    await DB.setMeta(tripKey(CACHE_KEYS.journal), JOURNAL_ENTRIES);
     if (navigator.onLine) await SB.from('journal_entries').delete().eq('id', id);
     // Clean up local photo cache + Storage for every photo this entry had.
     for (const p of (entry?.journal_photos || [])) {
@@ -1713,7 +1726,7 @@ const Data = (() => {
         }
       } catch (e) { console.error('[Data] journal photo upload error:', e); }
     }
-    await DB.setMeta(CACHE_KEYS.journal, JOURNAL_ENTRIES);
+    await DB.setMeta(tripKey(CACHE_KEYS.journal), JOURNAL_ENTRIES);
     return photo;
   }
 
@@ -1721,7 +1734,7 @@ const Data = (() => {
     const entry = getJournalEntry(entryId);
     if (!entry) return;
     (entry.journal_photos || []).forEach(p => { p.is_hero = (p.id === photoId); });
-    await DB.setMeta(CACHE_KEYS.journal, JOURNAL_ENTRIES);
+    await DB.setMeta(tripKey(CACHE_KEYS.journal), JOURNAL_ENTRIES);
     if (navigator.onLine) {
       await SB.from('journal_photos').update({ is_hero: false }).eq('entry_id', entryId);
       await SB.from('journal_photos').update({ is_hero: true }).eq('id', photoId);
@@ -1735,7 +1748,7 @@ const Data = (() => {
     const entry = getJournalEntry(entryId);
     const photo = entry?.journal_photos?.find(p => p.id === photoId);
     if (photo) photo.focal_position = focalPosition;
-    await DB.setMeta(CACHE_KEYS.journal, JOURNAL_ENTRIES);
+    await DB.setMeta(tripKey(CACHE_KEYS.journal), JOURNAL_ENTRIES);
     if (navigator.onLine) {
       await SB.from('journal_photos').update({ focal_position: focalPosition }).eq('id', photoId);
     }
@@ -1747,7 +1760,7 @@ const Data = (() => {
     const photo = (entry.journal_photos || []).find(p => p.id === photoId);
     entry.journal_photos = (entry.journal_photos || []).filter(p => p.id !== photoId);
     await DB.deleteJournalPhoto(photoId);
-    await DB.setMeta(CACHE_KEYS.journal, JOURNAL_ENTRIES);
+    await DB.setMeta(tripKey(CACHE_KEYS.journal), JOURNAL_ENTRIES);
     if (navigator.onLine) {
       await SB.from('journal_photos').delete().eq('id', photoId);
       if (photo?.storage_path) await SB.storage.from('journal-photos').remove([photo.storage_path]);
@@ -1841,7 +1854,7 @@ const Data = (() => {
         FOOD_CATCHES[dishId] = { ...data, photoIds: [] };
       }
     }
-    await DB.setMeta(CACHE_KEYS.food, FOOD_CATCHES);
+    await DB.setMeta(tripKey(CACHE_KEYS.food), FOOD_CATCHES);
     return FOOD_CATCHES[dishId];
   }
 
@@ -1851,7 +1864,7 @@ const Data = (() => {
     if (navigator.onLine && catchId) {
       await SB.from('food_catches').delete().eq('id', catchId);
     }
-    await DB.setMeta(CACHE_KEYS.food, FOOD_CATCHES);
+    await DB.setMeta(tripKey(CACHE_KEYS.food), FOOD_CATCHES);
   }
 
   async function addFoodPhoto(dishId, fileDataUrl) {
@@ -1861,7 +1874,7 @@ const Data = (() => {
     await DB.saveDexPhoto(photoId, fileDataUrl); // shared local photo store, distinct id prefix avoids collisions
     if (!FOOD_CATCHES[dishId].photoIds) FOOD_CATCHES[dishId].photoIds = [];
     FOOD_CATCHES[dishId].photoIds.push(photoId);
-    await DB.setMeta(CACHE_KEYS.food, FOOD_CATCHES);
+    await DB.setMeta(tripKey(CACHE_KEYS.food), FOOD_CATCHES);
 
     if (navigator.onLine && CURRENT_TRIP) {
       try {
@@ -1893,7 +1906,7 @@ const Data = (() => {
     if (!FOOD_CATCHES[dishId]) return;
     FOOD_CATCHES[dishId].photoIds = (FOOD_CATCHES[dishId].photoIds || []).filter(id => id !== photoId);
     await DB.deleteDexPhoto(photoId);
-    await DB.setMeta(CACHE_KEYS.food, FOOD_CATCHES);
+    await DB.setMeta(tripKey(CACHE_KEYS.food), FOOD_CATCHES);
 
     const storagePath = FOOD_PHOTO_META[photoId]?.storage_path;
     if (navigator.onLine && storagePath) {
@@ -2092,7 +2105,7 @@ const Data = (() => {
       const user = (await SB.auth.getUser()).data.user;
       await enqueue('addCustomLink', { localId, row: { ...newLink, created_by: user?.id } });
     }
-    await DB.setMeta(CACHE_KEYS.links, CUSTOM_LINKS);
+    await DB.setMeta(tripKey(CACHE_KEYS.links), CUSTOM_LINKS);
   }
 
   async function updateCustomLink(id, { title, url, dayId, section }) {
@@ -2115,7 +2128,7 @@ const Data = (() => {
     } else {
       await enqueue('updateCustomLink', { id, patch });
     }
-    await DB.setMeta(CACHE_KEYS.links, CUSTOM_LINKS);
+    await DB.setMeta(tripKey(CACHE_KEYS.links), CUSTOM_LINKS);
   }
 
   async function deleteCustomLink(id) {
@@ -2131,7 +2144,7 @@ const Data = (() => {
     } else {
       await enqueue('deleteCustomLink', { id });
     }
-    await DB.setMeta(CACHE_KEYS.links, CUSTOM_LINKS);
+    await DB.setMeta(tripKey(CACHE_KEYS.links), CUSTOM_LINKS);
   }
 
   /* ── JR PASS LEGS API ─────────────────────────────────────
