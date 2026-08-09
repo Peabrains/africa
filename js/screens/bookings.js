@@ -421,20 +421,6 @@ const BookingsScreen = (() => {
     const groups = { unpaid: [], partial: [], paid: [] };
     summary.items.forEach(it => groups[it.status]?.push(it));
 
-    // Partial rows show a compact "paid/total" fraction in place of the
-    // plain amount — same fixed-width currency column as every other
-    // row (formatMoneyAligned), so the list stays aligned regardless of
-    // status, and each row correctly shows its own currency even when
-    // rows are in different currencies. Replaces the old separate pill,
-    // which was redundant with the amount already shown next to it.
-    const formatMoneyAlignedPartial = (currency, paidAmount, cost) => `
-      <span style="display:inline-flex;width:94px;flex-shrink:0">
-        <span style="color:var(--text-muted);width:36px;flex-shrink:0">${currency}</span>
-        <span style="flex:1;text-align:right;font-variant-numeric:tabular-nums">
-          <span style="color:var(--warning-text);font-weight:700">${fmtMoney(paidAmount)}</span><span style="color:var(--text-muted)">/${fmtMoney(cost)}</span>
-        </span>
-      </span>`;
-
     const groupContent = (items) => () => {
       const g = document.createDocumentFragment();
       if (!items.length) {
@@ -445,18 +431,33 @@ const BookingsScreen = (() => {
         return g;
       }
       items.forEach(it => {
-        const row = document.createElement('div');
-        row.className = 'settlement-row payment-row';
-        row.style.cursor = 'pointer';
-        row.innerHTML = `
-          <span style="min-width:0;display:flex;align-items:center;gap:6px">
-            <span class="badge badge-open" style="font-size:9px">${dayLabel(it.dayId)}</span>
-            <span>${it.name}</span>
-          </span>
-          <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-            ${it.status === 'partial' ? formatMoneyAlignedPartial(it.currency, it.paidAmount, it.cost) : formatMoneyAligned(it.currency, it.cost)}
-          </span>`;
-        row.addEventListener('click', () => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;flex-direction:column;padding:5px 0;cursor:pointer';
+        const pct = it.cost ? Math.min(100, Math.max(0, (it.paidAmount/it.cost)*100)) : 0;
+        // Partial rows: the main row keeps a single plain amount (no
+        // overflow risk, unlike the old paid/total fraction which had a
+        // fixed-width box that clipped for large numbers — see note
+        // below). Progress goes on its own line where the bar itself
+        // can flex/shrink instead of text getting cut off.
+        wrap.innerHTML = `
+          <div class="settlement-row" style="padding:0">
+            <span style="min-width:0;display:flex;align-items:center;gap:6px">
+              <span class="badge badge-open" style="font-size:9px">${dayLabel(it.dayId)}</span>
+              <span>${it.name}</span>
+            </span>
+            <span style="display:flex;align-items:center;flex-shrink:0">
+              ${formatMoneyAligned(it.currency, it.cost)}
+            </span>
+          </div>
+          ${it.status === 'partial' ? `
+          <div style="display:flex;align-items:center;gap:6px;margin:3px 0 0 46px">
+            <span style="font-size:9.5px;color:var(--text-muted);flex-shrink:0">Paid</span>
+            <div style="flex:1;min-width:24px;max-width:100px;height:4px;background:var(--surface-raised);border-radius:100px;overflow:hidden">
+              <div style="width:${pct}%;height:100%;background:var(--warning-text)"></div>
+            </div>
+            <span style="font-size:10px;color:var(--text-muted);flex-shrink:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.currency} ${fmtMoney(it.paidAmount)}</span>
+          </div>` : ''}`;
+        wrap.addEventListener('click', () => {
           if (it.type === 'stop') {
             const stop = Data.getStops().find(s => s.id === it.id);
             const stopDay = Data.getDays().find(d => d.id === stop?.dayId);
@@ -466,7 +467,7 @@ const BookingsScreen = (() => {
             if (oDay) window.BottomSheet?.openOvernight(oDay);
           }
         });
-        g.appendChild(row);
+        g.appendChild(wrap);
       });
       return g;
     };
