@@ -8,6 +8,12 @@
 @font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:700;font-display:swap;src:url('fonts/pjs-700.woff2') format('woff2');}
 @font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:800;font-display:swap;src:url('fonts/pjs-800.woff2') format('woff2');}
 
+/* Editorial display face for the itinerary redesign — self-hosted for the
+   same offline-PWA reason as Plus Jakarta Sans above. Only the two weights
+   actually used (500/600) to keep the precache small. */
+@font-face{font-family:'Fraunces';font-style:normal;font-weight:500;font-display:swap;src:url('fonts/fraunces-500.woff2') format('woff2');}
+@font-face{font-family:'Fraunces';font-style:normal;font-weight:600;font-display:swap;src:url('fonts/fraunces-600.woff2') format('woff2');}
+
 /* ─── Light mode — safari earth tones ───────────────────────── */
 :root {
   --bg:             #F4F0E8; /* warm savannah sand */
@@ -54,6 +60,7 @@
   --flight-accent-subtle: #F5E8D8;
 
   --font:    'Plus Jakarta Sans', sans-serif;
+  --display: 'Fraunces', serif;
   --text-xs: 10px; --text-sm: 12px; --text-base: 14px;
   --text-md: 15px; --text-lg: 16px;
 
