@@ -1,10 +1,10 @@
 /* ============================================================
    SERVICE WORKER — Africa Safari PWA (platform branch)
    Cache version bumped manually alongside APP_VERSION.
-   BUILD: 202608091930
+   BUILD: 202608092010
    ============================================================ */
-const CACHE   = 'africa-safari-lab-202608091930';
-const VERSION = '202608091930';
+const CACHE   = 'africa-safari-lab-202608092010';
+const VERSION = '202608092010';
 
 const PRECACHE = [
   './', './index.html', './css/tokens.css', './css/print.css',
@@ -60,6 +60,22 @@ self.addEventListener('activate', e => {
 /* ── Fetch: routing strategy ────────────────────────────────── */
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
+
+  // Supabase — always network, never cached, never routed through the
+  // app-shell strategy below. That strategy's catch-all falls through to
+  // `undefined` for any non-navigate request with no cache match, which
+  // the browser turns into "FetchEvent.respondWith received an error:
+  // Returned response is null" — a hard crash on the page's own fetch()
+  // call. Every insert/update/delete/select the app makes goes through
+  // Supabase, so this bypass matters a lot more than it looks: a single
+  // flaky request (not even a full offline state) was enough to break
+  // whatever action triggered it, with no queue/retry possible since the
+  // page never got a real rejection to catch — it got a browser-level
+  // TypeError instead.
+  if (url.hostname.includes('supabase.co')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
 
   // InstantDB sync — always network, never cache (auth data)
   if (url.hostname.includes('instantdb.com') || url.hostname.includes('getadb.com')) {
