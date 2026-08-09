@@ -53,6 +53,9 @@ const BookingsScreen = (() => {
   /* ═══ RESERVATIONS TAB ══════════════════════════════════ */
   function renderReservations() {
     const frag = document.createDocumentFragment();
+    const spacer = document.createElement('div');
+    spacer.style.height = 'var(--s3)';
+    frag.appendChild(spacer);
     const nights = Data.getDays().map(d=>({day:d,o:Data.getOvernight(d.id)})).filter(({o})=>o?.name);
     const booked = nights.filter(({o})=>o.status==='booked').length;
     const transStops = Data.getTransportReservations();
@@ -273,8 +276,15 @@ const BookingsScreen = (() => {
             ${o.cost?`<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">${o.cost_currency||Data.getTripCurrency()} ${o.cost.toLocaleString()}${o.payment_status?` · <span style="color:${o.payment_status==='paid'?'var(--success-text)':o.payment_status==='partial'?'var(--warning-text)':'var(--text-muted)'}">${o.payment_status==='paid'?'✓ Paid':o.payment_status==='partial'?'Partial':'Unpaid'}</span>`:''}</p>`:''}
             ${o.deadline?`<p style="font-size:var(--text-xs);color:var(--danger-text);margin-top:1px">Book by ${new Date(o.deadline).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</p>`:''}
           </div>
-          ${statusBadge(o.status)}
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <button class="overnight-show-btn" aria-label="Show to driver or front desk" style="width:28px;height:28px;border-radius:50%;background:var(--surface-raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-secondary)">${Icons.card('icon-sm')}</button>
+            ${statusBadge(o.status)}
+          </div>
         </div>`;
+      card.querySelector('.overnight-show-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.BottomSheet?.showAccommodationCard?.({ name: o.name, address: o.address, ref: o.ref });
+      });
       card.addEventListener('click', () => BottomSheet.openOvernight(day));
       frag.appendChild(card);
     });
