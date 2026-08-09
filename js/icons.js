@@ -32,6 +32,17 @@ const Icons = {
   car:         (c) => Icons._svg(`<path d="M5 17h14M5 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm14 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM5 17v-4l2-5a2 2 0 0 1 1.9-1.4h6.2A2 2 0 0 1 17 7.6l2 5.4v4" ${S}/><path d="M3 13h18" ${S}/>`, c),
   cable:       (c) => Icons._svg(`<path d="M3 3h18M7 3v10a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3V3" ${S}/><circle cx="12" cy="20" r="2" ${S}/>`, c),
   route:       (c) => Icons._svg(`<circle cx="6" cy="19" r="3" ${S}/><circle cx="18" cy="5" r="3" ${S}/><path d="M12 19h4.5a3.5 3.5 0 0 0 0-7h-8a3.5 3.5 0 0 1 0-7H12" ${S}/>`, c),
+  mapPin:      (c) => Icons._svg(`<path d="M12 22s7-7.58 7-12a7 7 0 1 0-14 0c0 4.42 7 12 7 12z" ${S}/><circle cx="12" cy="10" r="2.5" ${S}/>`, c),
+
+  /* Weather condition icons — used by weather.js in place of emoji */
+  sun:            (c) => Icons._svg(`<circle cx="12" cy="12" r="4" ${S}/><path d="M12 2v2M12 20v2M4 12H2m20 0h-2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" ${S}/>`, c),
+  cloudSun:       (c) => Icons._svg(`<path d="M12 2v2m-7.07.93 1.41 1.41M2 12h2m14.66-4.66 1.41-1.41M15.95 12.65a4 4 0 0 0-5.925-4.128" ${S}/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6z" ${S}/>`, c),
+  cloud:          (c) => Icons._svg(`<path d="M17.5 19H9a5 5 0 1 1 1.05-9.9A6 6 0 0 1 21 12.5 3.5 3.5 0 0 1 17.5 19z" ${S}/>`, c),
+  cloudFog:       (c) => Icons._svg(`<path d="M16 17H6a4 4 0 1 1 .9-7.9A5.5 5.5 0 0 1 17 9.5 3.5 3.5 0 0 1 16 17z" ${S}/><path d="M4 20h16M6 23h12" ${S}/>`, c),
+  cloudDrizzle:   (c) => Icons._svg(`<path d="M17.5 15H9a5 5 0 1 1 1.05-9.9A6 6 0 0 1 21 8.5 3.5 3.5 0 0 1 17.5 15z" ${S}/><path d="M8 19v1M8 15v1M12 21v1M12 17v1M16 19v1M16 15v1" ${S}/>`, c),
+  cloudRain:      (c) => Icons._svg(`<path d="M17.5 15H9a5 5 0 1 1 1.05-9.9A6 6 0 0 1 21 8.5 3.5 3.5 0 0 1 17.5 15z" ${S}/><path d="M8 19l-1 3M12 19l-1 3M16 19l-1 3" ${S}/>`, c),
+  cloudSnow:      (c) => Icons._svg(`<path d="M17.5 15H9a5 5 0 1 1 1.05-9.9A6 6 0 0 1 21 8.5 3.5 3.5 0 0 1 17.5 15z" ${S}/><path d="M8 19v.01M12 21v.01M16 19v.01M8 22v.01M16 22v.01" ${S}/>`, c),
+  cloudLightning: (c) => Icons._svg(`<path d="M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973" ${S}/><path d="m13 12-3 5h4l-3 5" ${S}/>`, c),
 
   /* Actions */
   pencil:      (c) => Icons._svg(`<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" ${S}/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z" ${S}/>`, c),
