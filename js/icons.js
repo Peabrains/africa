@@ -77,7 +77,7 @@ const Icons = {
   building:    (c) => Icons._svg(`<path d="M3 21h18M9 8h1M9 12h1M9 16h1M14 8h1M14 12h1M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16" ${S}/><path d="M14 21v-4h-4v4" ${S}/>`, c),
   card:        (c) => Icons._svg(`<rect x="1" y="4" width="22" height="16" rx="2" ${S}/><path d="M1 10h22" ${S}/>`, c),
   language:    (c) => Icons._svg(`<path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6" ${S}/>`, c),
-  heart:       (c) => Icons._svg(`<path d="M22 12h-4l-3 9L9 3l-3 9H2" ${S}/>`, c),
+  heart:       (c) => Icons._svg(`<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" ${S}/>`, c),
 
   /* Budget / people */
   users:       (c) => Icons._svg(`<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" ${S}/><circle cx="9" cy="7" r="4" ${S}/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" ${S}/>`, c),
