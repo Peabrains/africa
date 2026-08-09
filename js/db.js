@@ -117,9 +117,10 @@ const DB = (() => {
     })),
 
     /* Sync queue */
-    queueChange: (change) => put('queue', { ...change, id: Date.now() + Math.random() }),
-    loadQueue:   ()        => getAll('queue'),
-    clearQueue:  ()        => clear('queue'),
+    queueChange:   (change) => put('queue', { ...change, id: Date.now() + Math.random() }),
+    loadQueue:     ()        => getAll('queue'),
+    dequeueChange: (id)      => del('queue', id),
+    clearQueue:    ()        => clear('queue'),
 
     /* Travelers + overnight */
     loadTravelers: ()       => getMeta('travelers').then(v => v || []),
