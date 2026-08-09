@@ -3,8 +3,38 @@
 const BookingsScreen = (() => {
   let root;
   let activeTab = 'reservations';
-  const sectionsOpen = { accommodation: true, transport: true, activities: true };
+  const sectionsOpen = {
+    accommodation: true, transport: true, activities: true,
+    // Payments (Budget tab) — itinerary/other split, plus per-status
+    // sub-groups inside itinerary. Paid starts collapsed (least urgent
+    // to look at); unpaid/partial start open (actionable).
+    paymentsItinerary: true, paymentsOther: true,
+    payUnpaid: true, payPartial: true, payPaid: false,
+  };
   const EXPENSE_CATS = ['Food','Transport','Accommodation','Activities','Shopping','Other'];
+
+  // Same date formatting as itinerary.js/bottom-sheet.js — duplicated
+  // rather than shared (tiny, self-contained). Full form for cards,
+  // compact form for tight dropdown option labels.
+  function formatDayDate(iso) {
+    if (!iso) return '';
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+    if (!m) return iso;
+    const [, y, mo, d] = m;
+    const dt = new Date(Number(y), Number(mo) - 1, Number(d));
+    const weekday = dt.toLocaleDateString('en-US', { weekday: 'short' });
+    const month   = dt.toLocaleDateString('en-US', { month: 'short' });
+    return `${weekday}, ${Number(d)} ${month} ${y}`;
+  }
+  function formatShortDate(iso) {
+    if (!iso) return '';
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+    if (!m) return iso;
+    const [, y, mo, d] = m;
+    const dt = new Date(Number(y), Number(mo) - 1, Number(d));
+    const month = dt.toLocaleDateString('en-US', { month: 'short' });
+    return `${Number(d)} ${month}`;
+  }
 
   /* ─── Tab bar ────────────────────────────────────────────── */
   function tabBar() {
@@ -70,7 +100,7 @@ const BookingsScreen = (() => {
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">
               <span class="badge badge-open" style="font-size:9px;padding:1px 5px">${day.label}</span>
-              <span style="font-size:var(--text-xs);color:var(--text-muted)">${day.date}</span>
+              <span style="font-size:var(--text-xs);color:var(--text-muted)">${formatDayDate(day.date)}</span>
             </div>
             <p style="font-weight:500;font-size:var(--text-sm);color:var(--text-primary)">${route}</p>
             ${times ? `<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">${times}</p>` : ''}
@@ -133,7 +163,7 @@ const BookingsScreen = (() => {
     card.innerHTML = `
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
         ${day ? `<span class="badge badge-open" style="font-size:9px;padding:1px 5px">${day.label}</span>` : ''}
-        <span style="font-size:var(--text-xs);color:var(--text-muted)">${day ? day.date : ''}</span>
+        <span style="font-size:var(--text-xs);color:var(--text-muted)">${day ? formatDayDate(day.date) : ''}</span>
       </div>
       <p style="font-weight:600;font-size:var(--text-md);color:var(--text-primary)">${leg.fromStation && leg.toStation ? leg.fromStation + ' → ' + leg.toStation : (leg.trainName || 'Train')}</p>
       ${leg.trainName ? `<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">${leg.trainName}</p>` : ''}
@@ -155,7 +185,7 @@ const BookingsScreen = (() => {
     const lines = ['JR Train Seat Reservations', ''];
     legs.forEach(leg => {
       const day = allDays.find(d => d.id === leg.dayId);
-      lines.push(`${day ? day.label + ' · ' + day.date : ''}`.trim());
+      lines.push(`${day ? day.label + ' · ' + formatDayDate(day.date) : ''}`.trim());
       lines.push(leg.fromStation && leg.toStation ? `${leg.fromStation} → ${leg.toStation}` : (leg.trainName || 'Train'));
       if (leg.trainName) lines.push(leg.trainName);
       if (leg.departTime || leg.arriveTime) lines.push(`Depart: ${leg.departTime || 'TBD'} · Arrive: ${leg.arriveTime || 'TBD'}${leg.duration ? ' · ' + leg.duration : ''}`);
@@ -236,11 +266,11 @@ const BookingsScreen = (() => {
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">
               <span class="badge badge-open" style="font-size:9px;padding:1px 5px">${day.label}</span>
-              <span style="font-size:var(--text-xs);color:var(--text-muted)">${day.date}</span>
+              <span style="font-size:var(--text-xs);color:var(--text-muted)">${formatDayDate(day.date)}</span>
             </div>
             <p style="font-weight:500;font-size:var(--text-sm);color:var(--text-primary)">${o.name}</p>
             ${o.ref?`<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">Ref: ${o.ref}</p>`:''}
-            ${o.cost?`<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">${Data.getTripCurrency()} ${o.cost.toLocaleString()}</p>`:''}
+            ${o.cost?`<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">${o.cost_currency||Data.getTripCurrency()} ${o.cost.toLocaleString()}${o.payment_status?` · <span style="color:${o.payment_status==='paid'?'var(--success-text)':o.payment_status==='partial'?'var(--warning-text)':'var(--text-muted)'}">${o.payment_status==='paid'?'✓ Paid':o.payment_status==='partial'?'Partial':'Unpaid'}</span>`:''}</p>`:''}
             ${o.deadline?`<p style="font-size:var(--text-xs);color:var(--danger-text);margin-top:1px">Book by ${new Date(o.deadline).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</p>`:''}
           </div>
           ${statusBadge(o.status)}
@@ -335,98 +365,121 @@ const BookingsScreen = (() => {
   /* ── PAYMENTS SUMMARY — separate from the expense/settlement tracker
      above. That one splits shared costs between travelers; this one
      answers "of everything we've booked, what's actually been paid?" ── */
-  function renderPaymentsSummary() {
+  /* ── ITINERARY PAYMENTS — stop/overnight costs, grouped by paid
+     status. Each status group is its own collapsible accordion (same
+     helper as Accommodation/Transport/etc.) since a trip with a lot of
+     bookings makes one flat list too long to scan. ── */
+  function renderItineraryPaymentsGroups() {
+    const frag = document.createDocumentFragment();
     const summary = Data.getPaymentsSummary();
-    const wrap = document.createElement('div');
-    wrap.className = 'settlement-card';
-    wrap.style.marginTop = 'var(--s3)';
 
     if (!summary.items.length) {
-      wrap.innerHTML = `
-        <p style="display:flex;align-items:center;gap:6px;font-size:var(--text-sm);font-weight:500;margin-bottom:4px">${Icons.cash('icon-sm')}Payments</p>
-        <p style="font-size:var(--text-xs);color:var(--text-muted)">No stop or accommodation has a cost set yet — add one on a stop or overnight card to track it here.</p>`;
-      return wrap;
+      const em = document.createElement('p');
+      em.style.cssText = 'font-size:var(--text-sm);color:var(--text-muted);padding:var(--s2) 0';
+      em.textContent = 'No stop or accommodation has a cost set yet — add one on a stop or overnight card to track it here.';
+      frag.appendChild(em);
+      return frag;
     }
 
     const cur = summary.tripCurrency;
     const foreignCurrencies = [...new Set(summary.items.map(i => i.currency).filter(c => c !== cur))];
     const rates = Data.getExchangeRates();
+    const dayLabel = (dayId) => Data.getDays().find(d => d.id === dayId)?.label || '';
 
     const groups = { unpaid: [], partial: [], paid: [] };
     summary.items.forEach(it => groups[it.status]?.push(it));
 
-    const dayLabel = (dayId) => Data.getDays().find(d => d.id === dayId)?.label || '';
-
-    const rowHTML = (it) => {
-      const outstanding = it.cost - it.paidAmount;
-      const sub = it.status === 'partial'
-        ? `${it.currency} ${it.paidAmount.toLocaleString()} of ${it.currency} ${it.cost.toLocaleString()} paid`
-        : `${it.currency} ${it.cost.toLocaleString()}`;
-      return `
-        <div class="settlement-row payment-row" data-id="${it.id}" data-type="${it.type}" style="cursor:pointer">
-          <span style="min-width:0"><span class="badge badge-open" style="font-size:9px;margin-right:6px">${dayLabel(it.dayId)}</span>${it.name}</span>
-          <span style="color:var(--text-muted);flex-shrink:0">${sub}</span>
-        </div>`;
+    const statusPill = (status, it) => {
+      const cls = status==='paid' ? 'badge-booked' : status==='partial' ? 'badge-pending' : 'badge-open';
+      const lbl = status==='paid' ? '✓ Paid' : status==='partial' ? `${it.currency} ${it.paidAmount.toLocaleString()} of ${it.cost.toLocaleString()}` : 'Unpaid';
+      return `<span class="badge ${cls}" style="font-size:9px">${lbl}</span>`;
     };
 
-    wrap.innerHTML = `
-      <p style="display:flex;align-items:center;gap:6px;font-size:var(--text-sm);font-weight:500;margin-bottom:var(--s3)">${Icons.cash('icon-sm')}Payments</p>
+    const groupContent = (items) => () => {
+      const g = document.createDocumentFragment();
+      if (!items.length) {
+        const em = document.createElement('p');
+        em.style.cssText = 'font-size:var(--text-xs);color:var(--text-muted);padding:4px 0';
+        em.textContent = 'None';
+        g.appendChild(em);
+        return g;
+      }
+      items.forEach(it => {
+        const row = document.createElement('div');
+        row.className = 'settlement-row payment-row';
+        row.style.cursor = 'pointer';
+        row.innerHTML = `
+          <span style="min-width:0;display:flex;align-items:center;gap:6px">
+            <span class="badge badge-open" style="font-size:9px">${dayLabel(it.dayId)}</span>
+            <span>${it.name}</span>
+          </span>
+          <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <span style="color:var(--text-muted)">${it.currency} ${it.cost.toLocaleString()}</span>
+            ${statusPill(it.status, it)}
+          </span>`;
+        row.addEventListener('click', () => {
+          if (it.type === 'stop') {
+            const stop = Data.getStops().find(s => s.id === it.id);
+            const stopDay = Data.getDays().find(d => d.id === stop?.dayId);
+            if (stop) window.BottomSheet?.openStop(stop, stopDay);
+          } else {
+            const oDay = Data.getDays().find(d => d.id === it.dayId);
+            if (oDay) window.BottomSheet?.openOvernight(oDay);
+          }
+        });
+        g.appendChild(row);
+      });
+      return g;
+    };
 
-      <div style="display:flex;gap:var(--s3);margin-bottom:var(--s3)">
-        <div style="flex:1">
-          <p style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Paid</p>
-          <p style="font-size:18px;font-weight:500;color:var(--success-text)">${cur} ${Math.round(summary.totalPaid).toLocaleString()}</p>
-        </div>
-        <div style="flex:1">
-          <p style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Outstanding</p>
-          <p style="font-size:18px;font-weight:500;color:${summary.totalOutstanding>0?'var(--warning-text)':'var(--text-primary)'}">${cur} ${Math.round(summary.totalOutstanding).toLocaleString()}</p>
-        </div>
+    frag.appendChild(accordionSection('payUnpaid', 'Unpaid', `${groups.unpaid.length}`, groupContent(groups.unpaid)));
+    frag.appendChild(accordionSection('payPartial', 'Partially paid', `${groups.partial.length}`, groupContent(groups.partial)));
+    frag.appendChild(accordionSection('payPaid', '✓ Paid', `${groups.paid.length}`, groupContent(groups.paid)));
+
+    const totals = document.createElement('div');
+    totals.style.cssText = 'display:flex;gap:var(--s3);margin-top:var(--s3);padding-top:var(--s3);border-top:1px solid var(--border-subtle)';
+    totals.innerHTML = `
+      <div style="flex:1">
+        <p style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Paid</p>
+        <p style="font-size:16px;font-weight:500;color:var(--success-text)">${cur} ${Math.round(summary.totalPaid).toLocaleString()}</p>
       </div>
-      ${foreignCurrencies.length ? `<p style="font-size:10px;color:var(--text-muted);margin-bottom:var(--s3)">≈ converted to ${cur} using your saved exchange rates${summary.hasUnconvertible ? ' — <span style="color:var(--warning-text)">some currencies below are missing a rate</span>' : ''}</p>` : ''}
+      <div style="flex:1">
+        <p style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Outstanding</p>
+        <p style="font-size:16px;font-weight:500;color:${summary.totalOutstanding>0?'var(--warning-text)':'var(--text-primary)'}">${cur} ${Math.round(summary.totalOutstanding).toLocaleString()}</p>
+      </div>`;
+    frag.appendChild(totals);
 
-      ${groups.unpaid.length ? `<p class="bs-section-head" style="margin-top:var(--s2)">Unpaid</p>${groups.unpaid.map(rowHTML).join('')}` : ''}
-      ${groups.partial.length ? `<p class="bs-section-head" style="margin-top:var(--s2)">Partially paid</p>${groups.partial.map(rowHTML).join('')}` : ''}
-      ${groups.paid.length ? `<p class="bs-section-head" style="margin-top:var(--s2)">✓ Paid</p>${groups.paid.map(rowHTML).join('')}` : ''}
+    if (foreignCurrencies.length) {
+      const fxNote = document.createElement('p');
+      fxNote.style.cssText = 'font-size:10px;color:var(--text-muted);margin-top:6px';
+      fxNote.innerHTML = `≈ converted to ${cur} using your saved exchange rates${summary.hasUnconvertible ? ' — <span style="color:var(--warning-text)">some currencies below are missing a rate</span>' : ''}`;
+      frag.appendChild(fxNote);
 
-      ${foreignCurrencies.length ? `
-        <div style="margin-top:var(--s3);padding-top:var(--s3);border-top:1px solid var(--border-subtle)">
-          <p class="bs-section-head">Exchange rates</p>
-          <p style="font-size:10px;color:var(--text-muted);margin-bottom:var(--s2)">1 unit of the currency = how many ${cur}?</p>
-          ${foreignCurrencies.map(fc => `
-            <div style="display:flex;align-items:center;gap:var(--s2);margin-bottom:6px">
-              <span style="font-size:var(--text-sm);font-weight:500;width:44px;flex-shrink:0">${fc}</span>
-              <input class="bs-input fx-rate-input" data-currency="${fc}" type="number" step="0.0001" placeholder="e.g. 0.033" value="${rates[fc]??''}" style="flex:1">
-            </div>`).join('')}
-        </div>` : ''}
-    `;
+      const fxWrap = document.createElement('div');
+      fxWrap.style.cssText = 'margin-top:var(--s2)';
+      fxWrap.innerHTML = `
+        <p class="bs-section-head">Exchange rates</p>
+        <p style="font-size:10px;color:var(--text-muted);margin-bottom:var(--s2)">1 unit of the currency = how many ${cur}?</p>
+        ${foreignCurrencies.map(fc => `
+          <div style="display:flex;align-items:center;gap:var(--s2);margin-bottom:6px">
+            <span style="font-size:var(--text-sm);font-weight:500;width:44px;flex-shrink:0">${fc}</span>
+            <input class="bs-input fx-rate-input" data-currency="${fc}" type="number" step="0.0001" placeholder="e.g. 0.033" value="${rates[fc]??''}" style="flex:1">
+          </div>`).join('')}`;
+      frag.appendChild(fxWrap);
+    }
 
-    // Tap a payment row → open the underlying stop or overnight for editing
-    wrap.querySelectorAll('.payment-row').forEach(row => {
-      row.addEventListener('click', () => {
-        const { id, type } = row.dataset;
-        if (type === 'stop') {
-          const stop = Data.getStops().find(s => s.id === id);
-          const stopDay = Data.getDays().find(d => d.id === stop?.dayId);
-          if (stop) window.BottomSheet?.openStop(stop, stopDay);
-        } else {
-          const summaryItem = summary.items.find(i => i.id === id);
-          const oDay = Data.getDays().find(d => d.id === summaryItem?.dayId);
-          if (oDay) window.BottomSheet?.openOvernight(oDay);
-        }
+    setTimeout(() => {
+      document.querySelectorAll('.fx-rate-input').forEach(input => {
+        input.addEventListener('change', async () => {
+          const val = parseFloat(input.value);
+          await Data.setExchangeRate(input.dataset.currency, isNaN(val) ? null : val);
+          Toast.show(`${input.dataset.currency} rate saved`, 'success');
+          render();
+        });
       });
-    });
+    }, 0);
 
-    // Debounced-on-blur exchange rate save — simple text field, no combobox needed
-    wrap.querySelectorAll('.fx-rate-input').forEach(input => {
-      input.addEventListener('change', async () => {
-        const val = parseFloat(input.value);
-        await Data.setExchangeRate(input.dataset.currency, isNaN(val) ? null : val);
-        Toast.show(`${input.dataset.currency} rate saved`, 'success');
-        render();
-      });
-    });
-
-    return wrap;
+    return frag;
   }
 
   function renderBudget() {
@@ -436,6 +489,62 @@ const BookingsScreen = (() => {
     const totalUSD  = Data.getTotalSpentJPY(); // field name kept for compat, stores USD
     const budgetUSD = Config.BUDGET_MYR || 0;  // BUDGET_MYR stores total USD budget
     const pct       = Math.min(100, (totalUSD && budgetUSD) ? Math.round(totalUSD/budgetUSD*100) : 0);
+    const cur = Data.getTripCurrency();
+
+    /* ── Log expense — button + form, now the first thing on the tab ── */
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn btn-primary bs-full-btn';
+    addBtn.style.marginBottom = 'var(--s3)';
+    addBtn.textContent = '+ Log expense';
+    frag.appendChild(addBtn);
+
+    const addForm = document.createElement('div');
+    addForm.className = 'add-expense-form';
+    addForm.style.display = 'none';
+    const paidByChips = travelers.map((t,i) =>
+      `<button type="button" class="traveler-chip paid-chip ${i===0?'traveler-chip--active':''}" data-name="${t}">${t}</button>`
+    ).join('');
+    const splitChips = travelers.map(t =>
+      `<button type="button" class="traveler-chip split-chip traveler-chip--active" data-name="${t}">${t}</button>`
+    ).join('');
+    addForm.innerHTML = `
+      <p class="form-title">Log expense</p>
+      <select id="exp-day" class="bs-input"><option value="">Day…</option>${Data.getDays().map(d=>`<option value="${d.id}">${d.label} · ${formatShortDate(d.date)}</option>`).join('')}</select>
+      <select id="exp-cat" class="bs-input"><option value="">Category…</option>${EXPENSE_CATS.map(c=>`<option>${c}</option>`).join('')}</select>
+      <input id="exp-desc" class="bs-input" type="text" placeholder="Description">
+      <input id="exp-amt" class="bs-input" type="number" placeholder="Amount (${cur})">
+      ${travelers.length?`
+        <div class="bs-edit-group"><label class="bs-edit-label">Paid by</label><div class="split-chips" id="paid-by-chips">${paidByChips}</div></div>
+        <div class="bs-edit-group"><label class="bs-edit-label">Split between</label><div class="split-chips" id="split-chips">${splitChips}</div></div>`
+      :`<input id="exp-paid" class="bs-input" type="text" placeholder="Paid by">`}
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" id="exp-save" style="flex:1">Save</button>
+        <button class="btn btn-ghost" id="exp-cancel" style="flex:1">Cancel</button>
+      </div>`;
+    frag.appendChild(addForm);
+
+    addBtn.addEventListener('click', () => { addBtn.style.display='none'; addForm.style.display='flex'; });
+    addForm.querySelectorAll('.paid-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        addForm.querySelectorAll('.paid-chip').forEach(c=>c.classList.remove('traveler-chip--active'));
+        chip.classList.add('traveler-chip--active');
+      });
+    });
+    addForm.querySelectorAll('.split-chip').forEach(chip => {
+      chip.addEventListener('click', () => chip.classList.toggle('traveler-chip--active'));
+    });
+    const g = id => addForm.querySelector('#'+id)?.value?.trim()||'';
+    const saveBtn = addForm.querySelector('#exp-save');
+    saveBtn?.addEventListener('click', async () => {
+      if (!g('exp-day')||!g('exp-cat')||!g('exp-desc')||!g('exp-amt')) { Toast.show('Fill all fields','warning'); return; }
+      const paidBy = travelers.length ? addForm.querySelector('.paid-chip.traveler-chip--active')?.dataset.name||'' : g('exp-paid');
+      const splitBetween = travelers.length ? [...addForm.querySelectorAll('.split-chip.traveler-chip--active')].map(c=>c.dataset.name) : [];
+      saveBtn.disabled = true;
+      await Data.addExpense({ dayId:g('exp-day'), category:g('exp-cat'), description:g('exp-desc'), amountJPY:parseInt(g('exp-amt')), paidBy, splitBetween });
+      Toast.show('Expense logged','success');
+      render();
+    });
+    addForm.querySelector('#exp-cancel')?.addEventListener('click', () => { addForm.style.display='none'; addBtn.style.display='block'; });
 
     if (!travelers.length) {
       const notice = document.createElement('div');
@@ -448,7 +557,6 @@ const BookingsScreen = (() => {
     const summary = document.createElement('div');
     summary.className = 'settlement-card';
     summary.style.marginTop = 'var(--s3)';
-    const cur = Data.getTripCurrency();
     let summaryHTML = `
       <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s2);text-transform:uppercase;letter-spacing:.04em;font-weight:500">Total spent</p>
       <p style="font-size:22px;font-weight:500;color:var(--text-primary)">${cur} ${totalUSD.toLocaleString()}</p>
@@ -490,63 +598,52 @@ const BookingsScreen = (() => {
     summary.innerHTML = summaryHTML;
     frag.appendChild(summary);
 
-    frag.appendChild(renderPaymentsSummary());
+    /* ── Payments — split into itinerary-linked costs (stops/overnights)
+       and everything logged separately (the expense tracker above),
+       each its own collapsible section, same accordion pattern as
+       Reservations. ── */
+    const paymentsSummary = Data.getPaymentsSummary();
+    frag.appendChild(accordionSection('paymentsItinerary',
+      '📋 Itinerary payments',
+      `${paymentsSummary.items.filter(i=>i.status==='paid').length}/${paymentsSummary.items.length} paid`,
+      renderItineraryPaymentsGroups));
+    frag.appendChild(accordionSection('paymentsOther',
+      '🧾 Other expenses',
+      `${expenses.length} logged`,
+      renderExpenseLogContent));
 
-    const addBtn = document.createElement('button');
-    addBtn.className = 'btn btn-primary bs-full-btn';
-    addBtn.style.marginBottom = 'var(--s3)';
-    addBtn.textContent = '+ Log expense';
-    frag.appendChild(addBtn);
+    // Overall total — itinerary paid/outstanding + other expenses (which
+    // are, by nature of being logged after the fact, already "paid").
+    const overall = document.createElement('div');
+    overall.className = 'settlement-card';
+    overall.style.marginTop = 'var(--s3)';
+    const overallPaid = paymentsSummary.totalPaid + totalUSD;
+    const overallOutstanding = paymentsSummary.totalOutstanding;
+    overall.innerHTML = `
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s2);text-transform:uppercase;letter-spacing:.04em;font-weight:500">Overall total</p>
+      <div style="display:flex;gap:var(--s3)">
+        <div style="flex:1">
+          <p style="font-size:var(--text-xs);color:var(--text-muted)">Paid</p>
+          <p style="font-size:18px;font-weight:500;color:var(--success-text)">${cur} ${Math.round(overallPaid).toLocaleString()}</p>
+        </div>
+        <div style="flex:1">
+          <p style="font-size:var(--text-xs);color:var(--text-muted)">Outstanding</p>
+          <p style="font-size:18px;font-weight:500;color:${overallOutstanding>0?'var(--warning-text)':'var(--text-primary)'}">${cur} ${Math.round(overallOutstanding).toLocaleString()}</p>
+        </div>
+      </div>
+      <p style="font-size:10px;color:var(--text-muted);margin-top:6px">Itinerary bookings (paid + outstanding) plus everything logged in Other expenses</p>`;
+    frag.appendChild(overall);
 
-    const addForm = document.createElement('div');
-    addForm.className = 'add-expense-form';
-    addForm.style.display = 'none';
-    const pax = travelers.length || 1;
-    const paidByChips = travelers.map((t,i) =>
-      `<button type="button" class="traveler-chip paid-chip ${i===0?'traveler-chip--active':''}" data-name="${t}">${t}</button>`
-    ).join('');
-    const splitChips = travelers.map(t =>
-      `<button type="button" class="traveler-chip split-chip traveler-chip--active" data-name="${t}">${t}</button>`
-    ).join('');
-    addForm.innerHTML = `
-      <p class="form-title">Log expense</p>
-      <select id="exp-day" class="bs-input"><option value="">Day…</option>${Data.getDays().map(d=>`<option value="${d.id}">${d.label} · ${d.date}</option>`).join('')}</select>
-      <select id="exp-cat" class="bs-input"><option value="">Category…</option>${EXPENSE_CATS.map(c=>`<option>${c}</option>`).join('')}</select>
-      <input id="exp-desc" class="bs-input" type="text" placeholder="Description">
-      <input id="exp-amt" class="bs-input" type="number" placeholder="Amount (${Data.getTripCurrency()})">
-      ${travelers.length?`
-        <div class="bs-edit-group"><label class="bs-edit-label">Paid by</label><div class="split-chips" id="paid-by-chips">${paidByChips}</div></div>
-        <div class="bs-edit-group"><label class="bs-edit-label">Split between</label><div class="split-chips" id="split-chips">${splitChips}</div></div>`
-      :`<input id="exp-paid" class="bs-input" type="text" placeholder="Paid by">`}
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-primary" id="exp-save" style="flex:1">Save</button>
-        <button class="btn btn-ghost" id="exp-cancel" style="flex:1">Cancel</button>
-      </div>`;
-    frag.appendChild(addForm);
+    return frag;
+  }
 
-    // Wire add form
-    addBtn.addEventListener('click', () => { addBtn.style.display='none'; addForm.style.display='flex'; });
-    addForm.querySelectorAll('.paid-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        addForm.querySelectorAll('.paid-chip').forEach(c=>c.classList.remove('traveler-chip--active'));
-        chip.classList.add('traveler-chip--active');
-      });
-    });
-    addForm.querySelectorAll('.split-chip').forEach(chip => {
-      chip.addEventListener('click', () => chip.classList.toggle('traveler-chip--active'));
-    });
-    const g = id => addForm.querySelector('#'+id)?.value?.trim()||'';
-    const saveBtn = addForm.querySelector('#exp-save');
-    saveBtn?.addEventListener('click', async () => {
-      if (!g('exp-day')||!g('exp-cat')||!g('exp-desc')||!g('exp-amt')) { Toast.show('Fill all fields','warning'); return; }
-      const paidBy = travelers.length ? addForm.querySelector('.paid-chip.traveler-chip--active')?.dataset.name||'' : g('exp-paid');
-      const splitBetween = travelers.length ? [...addForm.querySelectorAll('.split-chip.traveler-chip--active')].map(c=>c.dataset.name) : [];
-      saveBtn.disabled = true;
-      await Data.addExpense({ dayId:g('exp-day'), category:g('exp-cat'), description:g('exp-desc'), amountJPY:parseInt(g('exp-amt')), paidBy, splitBetween });
-      Toast.show('Expense logged','success');
-      render();
-    });
-    addForm.querySelector('#exp-cancel')?.addEventListener('click', () => { addForm.style.display='none'; addBtn.style.display='block'; });
+  /* ── Expense log — day-grouped list with inline edit. Unchanged from
+     before, just extracted into its own function so it can live inside
+     the "Other expenses" accordion instead of always being visible. ── */
+  function renderExpenseLogContent() {
+    const frag = document.createDocumentFragment();
+    const expenses = Data.getExpenses();
+    const travelers = Data.getTravelers();
 
     if (!expenses.length) {
       frag.appendChild(Object.assign(document.createElement('div'),{className:'empty-state',innerHTML:'<p class="empty-title">No expenses yet</p>'}));
@@ -558,7 +655,7 @@ const BookingsScreen = (() => {
         const day = Data.getDays().find(d=>d.id===dayId);
         const sec = document.createElement('div');
         sec.className = 'expense-section';
-        sec.innerHTML = `<div class="expense-day-header"><span>${day?.label||dayId} · ${day?.date||''}</span><span>${cur} ${exps.reduce((s,e)=>s+e.amountJPY,0).toLocaleString()}</span></div>`;
+        sec.innerHTML = `<div class="expense-day-header"><span>${day?.label||dayId} · ${day?formatShortDate(day.date):''}</span><span>${cur} ${exps.reduce((s,e)=>s+e.amountJPY,0).toLocaleString()}</span></div>`;
         exps.forEach(exp => {
           const splitPax = Math.max(1, exp.splitBetween?.length||1);
           const perHead  = Math.round(exp.amountJPY/splitPax);
@@ -604,7 +701,7 @@ const BookingsScreen = (() => {
           // Inline edit form
           const editRow = document.createElement('div');
           editRow.style.cssText = 'display:none;flex-direction:column;gap:6px;width:100%;padding:8px 0 4px;border-top:1px solid var(--border-subtle);margin-top:6px';
-          const dayOpts = `<option value="">No specific day</option>` + Data.getDays().map(d=>`<option value="${d.id}" ${d.id===exp.dayId?'selected':''}>${d.label} · ${d.date}</option>`).join('');
+          const dayOpts = `<option value="">No specific day</option>` + Data.getDays().map(d=>`<option value="${d.id}" ${d.id===exp.dayId?'selected':''}>${d.label} · ${formatShortDate(d.date)}</option>`).join('');
           const catOpts = EXPENSE_CATS.map(c=>`<option ${c===exp.category?'selected':''}>${c}</option>`).join('');
           const paidChips = travelers.map(t=>`<button type="button" class="traveler-chip ee-paid-chip ${t===exp.paidBy?'traveler-chip--active':''}" data-name="${t}">${t}</button>`).join('');
           const splitChips = travelers.map(t=>`<button type="button" class="traveler-chip ee-split-chip ${exp.splitBetween?.includes(t)?'traveler-chip--active':''}" data-name="${t}">${t}</button>`).join('');
