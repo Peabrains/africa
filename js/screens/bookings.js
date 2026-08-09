@@ -52,7 +52,7 @@ const BookingsScreen = (() => {
   // to 2 decimal places only when the amount actually has a fraction —
   // whole numbers stay clean without a trailing ".00".
   function formatMoneyAligned(currency, amount) {
-    return `<span style="display:inline-flex;width:94px;flex-shrink:0">
+    return `<span style="display:inline-flex;width:94px;flex-shrink:0;font-size:var(--text-sm)">
       <span style="color:var(--text-muted);width:36px;flex-shrink:0">${currency}</span>
       <span style="color:var(--text-muted);flex:1;text-align:right;font-variant-numeric:tabular-nums">${fmtMoney(amount)}</span>
     </span>`;
@@ -451,6 +451,7 @@ const BookingsScreen = (() => {
           </div>
           ${it.status === 'partial' ? `
           <div style="display:flex;align-items:center;gap:6px;margin:4px 0 0 0">
+            <span class="badge badge-open" style="font-size:9px;visibility:hidden" aria-hidden="true">${dayLabel(it.dayId)}</span>
             <span style="font-size:9.5px;color:var(--text-muted);flex-shrink:0">Paid</span>
             <div style="flex:1;min-width:24px;height:4px;background:var(--surface-raised);border-radius:100px;overflow:hidden">
               <div style="width:${pct}%;height:100%;background:var(--warning-text)"></div>
