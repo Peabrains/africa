@@ -236,7 +236,20 @@ const LandingScreen = (() => {
         <div class="bs-edit-group"><label class="bs-edit-label">Start date</label><input id="nt-start" class="bs-input" type="date"></div>
         <div class="bs-edit-group"><label class="bs-edit-label">End date</label><input id="nt-end" class="bs-input" type="date"></div>
         <div class="bs-edit-group"><label class="bs-edit-label">Countries (comma-separated)</label><input id="nt-countries" class="bs-input" type="text" placeholder="e.g. Japan"></div>
-        <div class="bs-edit-group"><label class="bs-edit-label">Currency</label><input id="nt-currency" class="bs-input" type="text" placeholder="e.g. JPY, USD" maxlength="3"></div>
+        <div class="bs-edit-group">
+          <label class="bs-edit-label">Default currency</label>
+          <div style="position:relative">
+            <input id="nt-currency" class="bs-input bs-tz-sel" type="text" autocomplete="off" value="USD" placeholder="Search currency…">
+          </div>
+          <p style="font-size:10px;color:var(--text-muted);margin-top:3px">Used for every stop/booking unless you set a different currency on that item</p>
+        </div>
+        <div class="bs-edit-group">
+          <label class="bs-edit-label">Default timezone</label>
+          <div style="position:relative">
+            <input id="nt-timezone" class="bs-input bs-tz-sel" type="text" autocomplete="off" value="" placeholder="Search city or region…">
+          </div>
+          <p style="font-size:10px;color:var(--text-muted);margin-top:3px">Used for every new stop's time unless you set a different timezone on that stop</p>
+        </div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:var(--s4)">
           <button id="nt-create-btn" class="btn btn-primary" style="width:100%">Create trip</button>
           <button id="nt-cancel-btn" class="btn btn-ghost" style="width:100%">Cancel</button>
@@ -245,6 +258,19 @@ const LandingScreen = (() => {
     document.body.appendChild(overlay);
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
     overlay.querySelector('#nt-cancel-btn').addEventListener('click', () => overlay.remove());
+
+    // Reuse the exact same searchable, validated comboboxes the bottom
+    // sheet already uses for stop-level currency/timezone — one
+    // implementation, no duplicated matching/suggestion logic.
+    // Best-effort default: the browser's own timezone, set before wiring
+    // so the combobox's internal "last valid value" starts correct.
+    try {
+      const guess = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (guess) overlay.querySelector('#nt-timezone').value = guess;
+    } catch (e) { /* fall back to empty, user picks manually */ }
+    window.BottomSheet?.wireCurrencyCombobox?.(overlay.querySelector('#nt-currency'));
+    window.BottomSheet?.wireTzCombobox?.(overlay.querySelector('#nt-timezone'));
+
     overlay.querySelector('#nt-create-btn').addEventListener('click', async (e) => {
       const btn = e.target;
       const name = overlay.querySelector('#nt-name').value.trim();
@@ -260,6 +286,7 @@ const LandingScreen = (() => {
           endDate: overlay.querySelector('#nt-end').value,
           countries,
           currency: overlay.querySelector('#nt-currency').value.trim().toUpperCase() || 'USD',
+          defaultTimezone: overlay.querySelector('#nt-timezone').value.trim() || null,
         });
         overlay.remove();
         Toast.show('Trip created', 'success');
