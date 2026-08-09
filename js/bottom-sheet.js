@@ -10,7 +10,7 @@ const BottomSheet = (() => {
   // country never requires touching this file — just the zone name.
   const CURRENCY_TZ_IANA = { JPY: 'Asia/Tokyo', THB: 'Asia/Bangkok' };
   function defaultTripTz() {
-    return CURRENCY_TZ_IANA[Data.getTripCurrency?.()] || 'Africa/Nairobi';
+    return Data.getDefaultTimezone?.() || CURRENCY_TZ_IANA[Data.getTripCurrency?.()] || 'Africa/Nairobi';
   }
 
   // Bridge for stops saved before this change, which stored short
@@ -168,6 +168,17 @@ const BottomSheet = (() => {
     const month   = dt.toLocaleDateString('en-US', { month: 'short' });
     return `${weekday}, ${Number(d)} ${month} ${y}`;
   }
+  // Compact variant for dropdown option labels — same as itinerary.js's
+  // formatShortDate, "9 Aug" with no weekday/year, keeps <select> rows short.
+  function formatShortDate(iso) {
+    if (!iso) return '';
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+    if (!m) return iso;
+    const [, y, mo, d] = m;
+    const dt = new Date(Number(y), Number(mo) - 1, Number(d));
+    const month = dt.toLocaleDateString('en-US', { month: 'short' });
+    return `${Number(d)} ${month}`;
+  }
   // Full real timezone list, built once and cached — same source as
   // before, just no longer offered as a free-text datalist (which let
   // invalid values like "Asia/hanoi" get typed and silently saved).
@@ -185,8 +196,8 @@ const BottomSheet = (() => {
      of matches; tapping one selects it. If the field is left with text
      that isn't an exact, valid zone name, it snaps back to the last
      valid value on blur instead of silently saving something wrong. ── */
-  function wireTzCombobox(inputId) {
-    const input = body.querySelector('#'+inputId);
+  function wireTzCombobox(inputOrId) {
+    const input = typeof inputOrId === 'string' ? body.querySelector('#'+inputOrId) : inputOrId;
     if (!input || input.dataset.tzWired) return;
     input.dataset.tzWired = '1';
 
@@ -263,8 +274,8 @@ const BottomSheet = (() => {
      timezone combobox. Only an exact ISO code can ever be saved; typing
      filters by code or name, tapping a suggestion selects it, and
      leaving invalid text snaps back on blur. ── */
-  function wireCurrencyCombobox(inputId, onChange) {
-    const input = body.querySelector('#'+inputId);
+  function wireCurrencyCombobox(inputOrId, onChange) {
+    const input = typeof inputOrId === 'string' ? body.querySelector('#'+inputOrId) : inputOrId;
     if (!input || input.dataset.curWired) return;
     input.dataset.curWired = '1';
 
@@ -476,7 +487,7 @@ const BottomSheet = (() => {
     }
     return `
       <div class="bs-detail">
-        <div class="bs-tags">${day?`<span class="badge badge-open">${day.label}</span><span class="badge badge-open">${day.date}</span>`:''}<span class="badge ${statusCls[stop.booking.status]}">${statusLbl[stop.booking.status]}</span>${stop.booking?.cost?`<span class="badge ${paymentCls[stop.booking.payment?.status||'unpaid']}">${paymentLbl(stop.booking.payment, stop.booking.costCurrency||Data.getTripCurrency())}</span>`:''}</div>
+        <div class="bs-tags">${day?`<span class="badge badge-open">${day.label}</span><span class="badge badge-open">${formatDayDate(day.date)}</span>`:''}<span class="badge ${statusCls[stop.booking.status]}">${statusLbl[stop.booking.status]}</span>${stop.booking?.cost?`<span class="badge ${paymentCls[stop.booking.payment?.status||'unpaid']}">${paymentLbl(stop.booking.payment, stop.booking.costCurrency||Data.getTripCurrency())}</span>`:''}</div>
         <p class="bs-name">${stop.name}</p>
         <p class="bs-activity">${stop.activity||''}</p>
         ${transportBlock}
@@ -500,7 +511,7 @@ const BottomSheet = (() => {
 
   /* ─── Stop edit mode ─────────────────────────────────────── */
   function stopEditHTML(stop, day) {
-    const days = Data.getDays().map(d => ({ v:d.id, l:`${d.label} · ${d.date}` }));
+    const days = Data.getDays().map(d => ({ v:d.id, l:`${d.label} · ${formatShortDate(d.date)}` }));
     const transTypes = [{v:'plane',l:'Plane'},{v:'train',l:'Train'},{v:'bus',l:'Bus'},{v:'car',l:'Car'},{v:'taxi',l:'Taxi'},{v:'walk',l:'Walk'},{v:'boat',l:'Boat'},{v:'cable',l:'Cable car'}];
     const showTrain = ['train','plane','boat'].includes(stop.transportType||'');
     return `
@@ -599,12 +610,12 @@ const BottomSheet = (() => {
   /* ─── Add stop form ──────────────────────────────────────── */
   function addHTML(dayId) {
     const day = Data.getDays().find(d => d.id === dayId);
-    const days = Data.getDays().map(d => ({ v:d.id, l:`${d.label} · ${d.date}` }));
+    const days = Data.getDays().map(d => ({ v:d.id, l:`${d.label} · ${formatShortDate(d.date)}` }));
     const transTypes = [{v:'plane',l:'Plane'},{v:'train',l:'Train'},{v:'bus',l:'Bus'},{v:'car',l:'Car'},{v:'taxi',l:'Taxi'},{v:'walk',l:'Walk'},{v:'boat',l:'Boat'},{v:'cable',l:'Cable car'}];
     return `
       <div class="bs-detail">
         <p class="bs-name" style="margin-bottom:4px">Add stop</p>
-        <p class="bs-activity" style="margin-bottom:var(--s4)">${day?day.label+' · '+day.date:''}</p>
+        <p class="bs-activity" style="margin-bottom:var(--s4)">${day?day.label+' · '+formatDayDate(day.date):''}</p>
         ${select('Day','a-day',dayId,days)}
         ${field('Stop name *','a-name','','text','e.g. Kumano Hongu Taisha')}
         ${textarea('Activity','a-activity','','What happens here?')}
@@ -621,6 +632,15 @@ const BottomSheet = (() => {
           </label>
         </div>
         ${select('Category','a-category','',[{v:'transport',l:'Transport'},{v:'activity',l:'Activity'}])}
+        <p class="bs-section-head" style="margin-top:var(--s3)">Booking</p>
+        ${select('Status','a-status','',statusOpts)}
+        ${field('Reference','a-ref','','text','e.g. HTL-20270412')}
+        ${costWithCurrency('a-cost','a-cost-cur','','')}
+        ${paymentFieldsHTML('a', null)}
+        <div class="bs-edit-group">
+          <label class="bs-edit-label">Deadline</label>
+          <input id="a-deadline" type="date" class="bs-input">
+        </div>
         <div class="bs-actions" style="margin-top:var(--s4)">
           <button class="btn btn-primary bs-full-btn" id="bs-add-btn">Add stop</button>
           <button class="btn btn-ghost bs-full-btn" id="bs-addcancel-btn">Cancel</button>
@@ -941,6 +961,8 @@ const BottomSheet = (() => {
     updateTrainBlock(); // build correct initial content (hidden, since default type is 'walk')
     wireTimeInput('a-time');
     wireTzCombobox('a-tz');
+    wireCurrencyCombobox('a-cost-cur');
+    wirePaymentStatusToggle('a');
 
     body.querySelector('#bs-add-btn')?.addEventListener('click', async () => {
       const name = g('a-name');
@@ -967,6 +989,17 @@ const BottomSheet = (() => {
         ...(isPlane ? { flightNo: numberField, airline: g('a-airline') } : {}),
         needsBooking: body.querySelector('#a-needsbook')?.checked || false,
         category: g('a-category') || null,
+        booking: {
+          status:       g('a-status') || undefined,
+          ref:          g('a-ref') || undefined,
+          cost:         parseInt(g('a-cost'))||null,
+          costCurrency: body.querySelector('#a-cost-cur')?.value || Data.getTripCurrency?.() || 'USD',
+          deadline:     g('a-deadline')||null,
+          payment: {
+            status:     g('a-paystatus') || 'unpaid',
+            amountPaid: g('a-paystatus') === 'partial' ? (parseInt(g('a-paidamt'))||0) : null,
+          },
+        },
       });
       Toast.show(`${name} added`,'success'); close();
       window.ItineraryScreen?.refresh(); window.BookingsScreen?.refresh?.();
@@ -1015,7 +1048,7 @@ const BottomSheet = (() => {
     const storyText = story?.paragraphs?.join('\n\n') || '';
     return `
       <div class="bs-detail">
-        <div class="bs-tags"><span class="badge badge-open">${day.label}</span><span class="badge badge-open">${day.date}</span></div>
+        <div class="bs-tags"><span class="badge badge-open">${day.label}</span><span class="badge badge-open">${formatDayDate(day.date)}</span></div>
         <p class="bs-name" style="margin-bottom:var(--s4)">Edit day</p>
         ${field('Title','d-title',day.title||'','text','e.g. Full day Ngorongoro Crater')}
         ${field('Locality','d-locality',day.locality||'','text','e.g. Ngorongoro')}
@@ -1206,7 +1239,12 @@ const BottomSheet = (() => {
     wireAddDay();
   }
 
-  return { openStop, openOvernight, openAdd, openDay, openAddDay, close };
+  return {
+    openStop, openOvernight, openAdd, openDay, openAddDay, close,
+    // Exposed so other screens (e.g. trip creation) can reuse the same
+    // searchable, validated comboboxes instead of duplicating this logic.
+    wireTzCombobox, wireCurrencyCombobox, getAllZones, getAllCurrencies,
+  };
 })();
 
 window.BottomSheet = BottomSheet;
