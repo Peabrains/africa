@@ -137,8 +137,8 @@ const BottomSheet = (() => {
   }
 
   /* ─── Field builders ─────────────────────────────────────── */
-  function field(label, id, value, type='text', placeholder='') {
-    return `<div class="bs-edit-group"><label class="bs-edit-label" for="${id}">${label}</label><input id="${id}" class="bs-input" type="${type}" value="${(value||'').toString().replace(/"/g,'&quot;')}" placeholder="${placeholder}"></div>`;
+  function field(label, id, value, type='text', placeholder='', step=null) {
+    return `<div class="bs-edit-group"><label class="bs-edit-label" for="${id}">${label}</label><input id="${id}" class="bs-input" type="${type}" ${step?`step="${step}"`:''} value="${(value||'').toString().replace(/"/g,'&quot;')}" placeholder="${placeholder}"></div>`;
   }
   function textarea(label, id, value, placeholder='') {
     return `<div class="bs-edit-group"><label class="bs-edit-label" for="${id}">${label}</label><textarea id="${id}" class="bs-textarea" rows="2" placeholder="${placeholder}">${value||''}</textarea></div>`;
@@ -362,7 +362,7 @@ const BottomSheet = (() => {
     return `
       ${select('Payment status', `${prefix}-paystatus`, p.status || 'unpaid', paymentOpts)}
       <div id="${prefix}-paidamt-wrap" style="display:${p.status==='partial'?'block':'none'}">
-        ${field('Amount paid so far', `${prefix}-paidamt`, p.amountPaid||'', 'number', 'e.g. 5000')}
+        ${field('Amount paid so far', `${prefix}-paidamt`, p.amountPaid||'', 'number', 'e.g. 5000', '0.01')}
       </div>`;
   }
   // Toggle the "amount paid" field's visibility as the payment status
@@ -598,7 +598,7 @@ const BottomSheet = (() => {
           ${field('Drop-off cutoff time','o-lf-cutoff',lf.cutoff||'','text','e.g. 8:00am')}
           ${field('Pickup time','o-lf-pickup',lf.pickup||'','text','e.g. after 4:00pm')}
           ${field('Courier / service','o-lf-courier',lf.courier||'','text','e.g. Yamato Transport (Takkyubin)')}
-          ${field(`Cost (${Data.getTripCurrency?.() || 'USD'})`,'o-lf-cost',lf.cost||'','number','e.g. 2000')}
+          ${field(`Cost (${Data.getTripCurrency?.() || 'USD'})`,'o-lf-cost',lf.cost||'','number','e.g. 2000','0.01')}
           ${select('Status','o-lf-status',lf.status||'not_arranged',[{v:'not_arranged',l:'Not yet arranged'},{v:'arranged',l:'✓ Arranged'}])}
           ${field('Notes','o-lf-notes',lf.notes||'','text','optional')}
         </div>
