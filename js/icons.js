@@ -26,12 +26,12 @@ const Icons = {
   /* Transport */
   plane:       (c) => Icons._svg(`<path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z" ${S}/>`, c),
   train:       (c) => Icons._svg(`<rect x="4" y="3" width="16" height="16" rx="4" ${S}/><path d="M8 19l-1 2M16 19l1 2M4 12h16M9 3v9M15 3v9" ${S}/>`, c),
-  bus:         (c) => Icons._svg(`<path d="M5 3h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" ${S}/><path d="M3 9h18M9 18v2M15 18v2M8 13h.01M16 13h.01" ${S}/>`, c),
+  bus:         (c) => Icons._svg(`<rect x="3" y="4" width="18" height="13" rx="3" ${S}/><path d="M3 10h18" ${S}/><circle cx="7.5" cy="19" r="2" ${S}/><circle cx="16.5" cy="19" r="2" ${S}/>`, c),
   walk:        (c) => Icons._svg(`<path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z" ${S}/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z" ${S}/><path d="M16 17h4M4 13h4" ${S}/>`, c),
   boat:        (c) => Icons._svg(`<path d="M22 18H2a4 4 0 0 0 4 4h12a4 4 0 0 0 4-4Z" ${S}/><path d="M21 14 10 2 3 14h18Z" ${S}/><path d="M10 2v14" ${S}/>`, c),
   taxi:        (c) => Icons._svg(`<rect x="3" y="11" width="18" height="6" rx="2" ${S}/><path d="M5 11l1.5-4a2 2 0 0 1 2-1.5h7a2 2 0 0 1 2 1.5L19 11" ${S}/><circle cx="7.5" cy="17" r="1.5" ${S}/><circle cx="16.5" cy="17" r="1.5" ${S}/><rect x="9" y="3" width="6" height="2.5" rx=".5" ${S}/>`, c),
   car:         (c) => Icons._svg(`<path d="M5 17h14M5 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm14 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM5 17v-4l2-5a2 2 0 0 1 1.9-1.4h6.2A2 2 0 0 1 17 7.6l2 5.4v4" ${S}/><path d="M3 13h18" ${S}/>`, c),
-  cable:       (c) => Icons._svg(`<path d="M3 3h18M7 3v10a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3V3" ${S}/><circle cx="12" cy="20" r="2" ${S}/>`, c),
+  cable:       (c) => Icons._svg(`<path d="M3 4h18" ${S}/><path d="M12 4v3" ${S}/><rect x="7" y="9" width="10" height="9" rx="2" ${S}/><path d="M7 13.5h10" ${S}/>`, c),
   route:       (c) => Icons._svg(`<circle cx="6" cy="19" r="3" ${S}/><circle cx="18" cy="5" r="3" ${S}/><path d="M12 19h4.5a3.5 3.5 0 0 0 0-7h-8a3.5 3.5 0 0 1 0-7H12" ${S}/>`, c),
   mapPin:      (c) => Icons._svg(`<path d="M12 22s7-7.58 7-12a7 7 0 1 0-14 0c0 4.42 7 12 7 12z" ${S}/><circle cx="12" cy="10" r="2.5" ${S}/>`, c),
 
