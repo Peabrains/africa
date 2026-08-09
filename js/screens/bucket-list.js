@@ -191,7 +191,7 @@ const BucketListScreen = (() => {
   /* ── Inline edit form — same field set as Add, prefilled ────── */
   function editForm(item) {
     const existingCats = Data.getBucketCategories();
-    const allCats = Array.from(new Set([...Object.keys(CATEGORY_ICONS), ...existingCats, item.category].filter(Boolean)));
+    const allCats = Array.from(new Set([...Object.keys(CATEGORY_ICON_KEYS), ...existingCats, item.category].filter(Boolean)));
     let pendingEditCategory = item.category || allCats[0] || '';
 
     const wrap = document.createElement('div');
@@ -272,13 +272,14 @@ const BucketListScreen = (() => {
   /* ── Search bar — filters title, location, and link together ── */
   function renderSearchBar() {
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'padding:var(--s3) var(--s4) var(--s2);position:relative;background:var(--surface)';
+    wrap.style.cssText = 'padding:10px var(--s4) 8px;position:relative';
     wrap.innerHTML = `
       <div style="position:relative;display:flex;align-items:center">
-        <span style="position:absolute;left:12px;color:var(--text-muted);display:flex;pointer-events:none">${Icons.search('icon-sm')}</span>
-        <input id="bk-search" class="bs-input" type="text" placeholder="Search name, location, or link" value="${(searchQuery || '').replace(/"/g, '&quot;')}" style="padding-left:34px;padding-right:${searchQuery ? '34px' : '12px'}">
-        ${searchQuery ? `<button id="bk-search-clear" aria-label="Clear search" style="position:absolute;right:8px;background:none;border:none;color:var(--text-muted);display:flex;padding:4px">${Icons.x('icon-sm')}</button>` : ''}
+        <span style="position:absolute;left:11px;color:var(--text-muted);display:flex;pointer-events:none">${Icons.search('icon-sm')}</span>
+        <input id="bk-search" type="text" placeholder="Search name, location, or link" value="${(searchQuery || '').replace(/"/g, '&quot;')}" style="width:100%;box-sizing:border-box;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-md);height:34px;padding-left:32px;padding-right:${searchQuery ? '32px' : '10px'};font-size:12px;font-family:var(--font);color:var(--text-primary)">
+        ${searchQuery ? `<button id="bk-search-clear" aria-label="Clear search" style="position:absolute;right:6px;background:none;border:none;color:var(--text-muted);display:flex;padding:4px">${Icons.x('icon-sm')}</button>` : ''}
       </div>`;
+    wrap.querySelectorAll('.icon').forEach(i => { i.style.width = '13px'; i.style.height = '13px'; });
 
     wrap.querySelector('#bk-search').addEventListener('input', (e) => {
       searchQuery = e.target.value;
@@ -377,7 +378,7 @@ const BucketListScreen = (() => {
   /* ── Add item form ────────────────────────────────────────── */
   function renderAddForm() {
     const existingCats = Data.getBucketCategories();
-    const allCats = Array.from(new Set([...Object.keys(CATEGORY_ICONS), ...existingCats]));
+    const allCats = Array.from(new Set([...Object.keys(CATEGORY_ICON_KEYS), ...existingCats]));
 
     if (!addFormOpen) {
       const btn = document.createElement('button');
