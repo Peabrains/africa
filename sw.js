@@ -1,10 +1,10 @@
 /* ============================================================
    SERVICE WORKER — Africa Safari PWA (platform branch)
    Cache version bumped manually alongside APP_VERSION.
-   BUILD: 202608092010
+   BUILD: 202608092040
    ============================================================ */
-const CACHE   = 'africa-safari-lab-202608092010';
-const VERSION = '202608092010';
+const CACHE   = 'africa-safari-lab-202608092040';
+const VERSION = '202608092040';
 
 const PRECACHE = [
   './', './index.html', './css/tokens.css', './css/print.css',
@@ -72,8 +72,20 @@ self.addEventListener('fetch', e => {
   // whatever action triggered it, with no queue/retry possible since the
   // page never got a real rejection to catch — it got a browser-level
   // TypeError instead.
+  // Supabase — always network, never cached, never routed through the
+  // app-shell strategy below. Deliberately does NOT call respondWith():
+  // that requires a promise that RESOLVES to a Response even in the
+  // failure case, so wrapping the fetch in respondWith(fetch(...)) still
+  // crashes with the same "FetchEvent.respondWith received an error"
+  // browser-level error whenever the fetch itself rejects (a genuine
+  // network failure, not a SW bug) — it just showed a different inner
+  // message ("Load failed" instead of "Returned response is null").
+  // Not calling respondWith() at all tells the browser to handle this
+  // request exactly as if there were no service worker, so a real
+  // network failure comes back to the page as a normal fetch() rejection
+  // that Supabase's client and our own try/catch blocks already know how
+  // to handle gracefully — no browser-level crash possible either way.
   if (url.hostname.includes('supabase.co')) {
-    e.respondWith(fetch(e.request));
     return;
   }
 
