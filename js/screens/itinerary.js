@@ -247,6 +247,13 @@ const ItineraryScreen = (() => {
     const o = Data.getOvernight(day.id);
     if (!o?.name) return null;
     const statusCls = {booked:'badge-booked',pending:'badge-pending',urgent:'badge-urgent',open:'badge-open'};
+    // Payment is a separate axis from booking status — "is this
+    // reserved?" vs "has it been paid?" — see bottom-sheet.js.
+    const paymentCls = {paid:'badge-booked', partial:'badge-pending', unpaid:'badge-open'};
+    const payStatus = o.payment_status || 'unpaid';
+    const paymentLbl = payStatus === 'paid' ? '✓ Paid'
+      : payStatus === 'partial' ? `Partial · ${o.cost_currency||Data.getTripCurrency()} ${(o.amount_paid||0).toLocaleString()}`
+      : 'Unpaid';
     const card = document.createElement('div');
     card.className = 'overnight-card';
     card.innerHTML = `
@@ -259,9 +266,12 @@ const ItineraryScreen = (() => {
             ${o.address ? `<p class="overnight-addr">${o.address}</p>` : ''}
           </div>
         </div>
-        <span class="badge ${statusCls[o.status]||'badge-open'}">${
-          o.status==='booked'?'✓ Booked':o.status==='urgent'?'⚡ Urgent':o.status==='pending'?'Pending':'Open'
-        }</span>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+          <span class="badge ${statusCls[o.status]||'badge-open'}">${
+            o.status==='booked'?'✓ Booked':o.status==='urgent'?'⚡ Urgent':o.status==='pending'?'Pending':'Open'
+          }</span>
+          ${o.cost ? `<span class="badge ${paymentCls[payStatus]}" style="font-size:9px">${paymentLbl}</span>` : ''}
+        </div>
       </div>`;
     card.addEventListener('click', () => BottomSheet.openOvernight(day));
     return card;
