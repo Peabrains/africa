@@ -332,6 +332,103 @@ const BookingsScreen = (() => {
   }
 
   /* ═══ BUDGET ════════════════════════════════════════════ */
+  /* ── PAYMENTS SUMMARY — separate from the expense/settlement tracker
+     above. That one splits shared costs between travelers; this one
+     answers "of everything we've booked, what's actually been paid?" ── */
+  function renderPaymentsSummary() {
+    const summary = Data.getPaymentsSummary();
+    const wrap = document.createElement('div');
+    wrap.className = 'settlement-card';
+    wrap.style.marginTop = 'var(--s3)';
+
+    if (!summary.items.length) {
+      wrap.innerHTML = `
+        <p style="display:flex;align-items:center;gap:6px;font-size:var(--text-sm);font-weight:500;margin-bottom:4px">${Icons.cash('icon-sm')}Payments</p>
+        <p style="font-size:var(--text-xs);color:var(--text-muted)">No stop or accommodation has a cost set yet — add one on a stop or overnight card to track it here.</p>`;
+      return wrap;
+    }
+
+    const cur = summary.tripCurrency;
+    const foreignCurrencies = [...new Set(summary.items.map(i => i.currency).filter(c => c !== cur))];
+    const rates = Data.getExchangeRates();
+
+    const groups = { unpaid: [], partial: [], paid: [] };
+    summary.items.forEach(it => groups[it.status]?.push(it));
+
+    const dayLabel = (dayId) => Data.getDays().find(d => d.id === dayId)?.label || '';
+
+    const rowHTML = (it) => {
+      const outstanding = it.cost - it.paidAmount;
+      const sub = it.status === 'partial'
+        ? `${it.currency} ${it.paidAmount.toLocaleString()} of ${it.currency} ${it.cost.toLocaleString()} paid`
+        : `${it.currency} ${it.cost.toLocaleString()}`;
+      return `
+        <div class="settlement-row payment-row" data-id="${it.id}" data-type="${it.type}" style="cursor:pointer">
+          <span style="min-width:0"><span class="badge badge-open" style="font-size:9px;margin-right:6px">${dayLabel(it.dayId)}</span>${it.name}</span>
+          <span style="color:var(--text-muted);flex-shrink:0">${sub}</span>
+        </div>`;
+    };
+
+    wrap.innerHTML = `
+      <p style="display:flex;align-items:center;gap:6px;font-size:var(--text-sm);font-weight:500;margin-bottom:var(--s3)">${Icons.cash('icon-sm')}Payments</p>
+
+      <div style="display:flex;gap:var(--s3);margin-bottom:var(--s3)">
+        <div style="flex:1">
+          <p style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Paid</p>
+          <p style="font-size:18px;font-weight:500;color:var(--success-text)">${cur} ${Math.round(summary.totalPaid).toLocaleString()}</p>
+        </div>
+        <div style="flex:1">
+          <p style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Outstanding</p>
+          <p style="font-size:18px;font-weight:500;color:${summary.totalOutstanding>0?'var(--warning-text)':'var(--text-primary)'}">${cur} ${Math.round(summary.totalOutstanding).toLocaleString()}</p>
+        </div>
+      </div>
+      ${foreignCurrencies.length ? `<p style="font-size:10px;color:var(--text-muted);margin-bottom:var(--s3)">≈ converted to ${cur} using your saved exchange rates${summary.hasUnconvertible ? ' — <span style="color:var(--warning-text)">some currencies below are missing a rate</span>' : ''}</p>` : ''}
+
+      ${groups.unpaid.length ? `<p class="bs-section-head" style="margin-top:var(--s2)">Unpaid</p>${groups.unpaid.map(rowHTML).join('')}` : ''}
+      ${groups.partial.length ? `<p class="bs-section-head" style="margin-top:var(--s2)">Partially paid</p>${groups.partial.map(rowHTML).join('')}` : ''}
+      ${groups.paid.length ? `<p class="bs-section-head" style="margin-top:var(--s2)">✓ Paid</p>${groups.paid.map(rowHTML).join('')}` : ''}
+
+      ${foreignCurrencies.length ? `
+        <div style="margin-top:var(--s3);padding-top:var(--s3);border-top:1px solid var(--border-subtle)">
+          <p class="bs-section-head">Exchange rates</p>
+          <p style="font-size:10px;color:var(--text-muted);margin-bottom:var(--s2)">1 unit of the currency = how many ${cur}?</p>
+          ${foreignCurrencies.map(fc => `
+            <div style="display:flex;align-items:center;gap:var(--s2);margin-bottom:6px">
+              <span style="font-size:var(--text-sm);font-weight:500;width:44px;flex-shrink:0">${fc}</span>
+              <input class="bs-input fx-rate-input" data-currency="${fc}" type="number" step="0.0001" placeholder="e.g. 0.033" value="${rates[fc]??''}" style="flex:1">
+            </div>`).join('')}
+        </div>` : ''}
+    `;
+
+    // Tap a payment row → open the underlying stop or overnight for editing
+    wrap.querySelectorAll('.payment-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const { id, type } = row.dataset;
+        if (type === 'stop') {
+          const stop = Data.getStops().find(s => s.id === id);
+          const stopDay = Data.getDays().find(d => d.id === stop?.dayId);
+          if (stop) window.BottomSheet?.openStop(stop, stopDay);
+        } else {
+          const summaryItem = summary.items.find(i => i.id === id);
+          const oDay = Data.getDays().find(d => d.id === summaryItem?.dayId);
+          if (oDay) window.BottomSheet?.openOvernight(oDay);
+        }
+      });
+    });
+
+    // Debounced-on-blur exchange rate save — simple text field, no combobox needed
+    wrap.querySelectorAll('.fx-rate-input').forEach(input => {
+      input.addEventListener('change', async () => {
+        const val = parseFloat(input.value);
+        await Data.setExchangeRate(input.dataset.currency, isNaN(val) ? null : val);
+        Toast.show(`${input.dataset.currency} rate saved`, 'success');
+        render();
+      });
+    });
+
+    return wrap;
+  }
+
   function renderBudget() {
     const frag = document.createDocumentFragment();
     const travelers = Data.getTravelers();
@@ -392,6 +489,8 @@ const BookingsScreen = (() => {
     }
     summary.innerHTML = summaryHTML;
     frag.appendChild(summary);
+
+    frag.appendChild(renderPaymentsSummary());
 
     const addBtn = document.createElement('button');
     addBtn.className = 'btn btn-primary bs-full-btn';
