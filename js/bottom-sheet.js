@@ -1162,7 +1162,10 @@ const BottomSheet = (() => {
           const parts = [];
           if (contents.stops > 0) parts.push(`${contents.stops} stop${contents.stops>1?'s':''}`);
           if (contents.hasOvernight) parts.push('an overnight booking');
-          if (contents.expenseCount > 0) parts.push(`${contents.expenseCount} expense${contents.expenseCount>1?'s':''} ($${Math.round(contents.expenseTotal)})`);
+          if (contents.expenseCount > 0) {
+            const total = (contents.expenseTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+            parts.push(`${contents.expenseCount} expense${contents.expenseCount>1?'s':''} (${Data.getTripCurrency?.()||'$'} ${total})`);
+          }
           if (contents.hasStory) parts.push('a story');
           if (warningEl) {
             warningEl.style.display = 'block';
