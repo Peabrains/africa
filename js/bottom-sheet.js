@@ -491,7 +491,7 @@ const BottomSheet = (() => {
     }
     return `
       <div class="bs-detail">
-        <div class="bs-tags">${day?`<span class="badge badge-open">${day.label}</span><span class="badge badge-open">${formatDayDate(day.date)}</span>`:''}<span class="badge ${statusCls[stop.booking.status]}">${statusLbl[stop.booking.status]}</span>${stop.booking?.cost?`<span class="badge ${paymentCls[stop.booking.payment?.status||'unpaid']}">${paymentLbl(stop.booking.payment, stop.booking.costCurrency||Data.getTripCurrency())}</span>`:''}</div>
+        <div class="bs-tags">${day?`<span class="badge badge-open">${day.label}</span><span class="badge badge-open">${formatDayDate(day.date)}</span>`:''}${stop.booking.status?`<span class="badge ${statusCls[stop.booking.status]}">${statusLbl[stop.booking.status]}</span>`:''}${stop.booking?.cost?`<span class="badge ${paymentCls[stop.booking.payment?.status||'unpaid']}">${paymentLbl(stop.booking.payment, stop.booking.costCurrency||Data.getTripCurrency())}</span>`:''}</div>
         <p class="bs-name">${stop.name}</p>
         <p class="bs-activity">${stop.activity||''}</p>
         ${transportBlock}
