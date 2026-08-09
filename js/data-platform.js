@@ -2319,6 +2319,23 @@ const Data = (() => {
     }
   }
 
+  // Total trip budget — was previously Config.BUDGET_MYR, a plain
+  // in-memory constant left over from before this app was multi-trip.
+  // It was never written to Supabase at all: editing it in Settings only
+  // changed a session-local variable, so it silently reset to whatever
+  // config.js hardcoded on every reload or trip switch. Moved to the
+  // trip's own settings, same pattern as exchangeRates/defaultTimezone.
+  function getBudgetTotal() { return CURRENT_TRIP?.settings?.budgetTotal ?? 0; }
+  async function setBudgetTotal(amount) {
+    if (!CURRENT_TRIP) return;
+    const newSettings = { ...(CURRENT_TRIP.settings || {}), budgetTotal: amount };
+    CURRENT_TRIP.settings = newSettings;
+    if (navigator.onLine) {
+      const { error } = await SB.from('trips').update({ settings: newSettings }).eq('id', CURRENT_TRIP.id);
+      if (error) { console.error('[Data] setBudgetTotal error:', error); throw error; }
+    }
+  }
+
   /* ── EXCHANGE RATES (manual, per-trip) ───────────────────────
      Deliberately not a live FX API — nothing here is transactional,
      it's a reference total on the Payments summary, so a rate you set
@@ -2471,7 +2488,7 @@ const Data = (() => {
     applyTripTheme,
     // Trips
     getTrips, getCurrentTrip, switchTrip, createTrip, updateTripDetails, getTripCurrency, deleteTrip,
-    getDefaultTimezone, setDefaultTimezone,
+    getDefaultTimezone, setDefaultTimezone, getBudgetTotal, setBudgetTotal,
     getExchangeRates, setExchangeRate, convertToTripCurrency, getPaymentsSummary,
     getTripMembers, inviteMember, removeMember,
     // Trip info
