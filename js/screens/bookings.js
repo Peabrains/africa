@@ -432,12 +432,8 @@ const BookingsScreen = (() => {
       return g;
     };
 
-    frag.appendChild(accordionSection('payUnpaid', 'Unpaid', `${groups.unpaid.length}`, groupContent(groups.unpaid)));
-    frag.appendChild(accordionSection('payPartial', 'Partially paid', `${groups.partial.length}`, groupContent(groups.partial)));
-    frag.appendChild(accordionSection('payPaid', '✓ Paid', `${groups.paid.length}`, groupContent(groups.paid)));
-
     const totals = document.createElement('div');
-    totals.style.cssText = 'display:flex;gap:var(--s3);margin-top:var(--s3);padding-top:var(--s3);border-top:1px solid var(--border-subtle)';
+    totals.style.cssText = 'display:flex;gap:var(--s3);margin-bottom:var(--s3);padding-bottom:var(--s3);border-bottom:1px solid var(--border-subtle)';
     totals.innerHTML = `
       <div style="flex:1">
         <p style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Paid</p>
@@ -448,6 +444,10 @@ const BookingsScreen = (() => {
         <p style="font-size:16px;font-weight:500;color:${summary.totalOutstanding>0?'var(--warning-text)':'var(--text-primary)'}">${cur} ${Math.round(summary.totalOutstanding).toLocaleString()}</p>
       </div>`;
     frag.appendChild(totals);
+
+    frag.appendChild(accordionSection('payUnpaid', 'Unpaid', `${groups.unpaid.length}`, groupContent(groups.unpaid)));
+    frag.appendChild(accordionSection('payPartial', 'Partially paid', `${groups.partial.length}`, groupContent(groups.partial)));
+    frag.appendChild(accordionSection('payPaid', '✓ Paid', `${groups.paid.length}`, groupContent(groups.paid)));
 
     if (foreignCurrencies.length) {
       const fxNote = document.createElement('p');
@@ -653,20 +653,21 @@ const BookingsScreen = (() => {
           const loggedAt = exp.createdAt ? new Date(exp.createdAt).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
           const row = document.createElement('div');
           row.className = 'expense-row';
-          row.style.flexWrap = 'wrap';
+          row.style.cssText = 'display:flex;flex-direction:column;gap:4px;padding:12px var(--s4);border-bottom:1px solid var(--border-subtle)';
           row.innerHTML = `
-            <span class="expense-cat">${exp.category}</span>
-            <div class="expense-info">
-              <p class="expense-desc">${exp.description}</p>
-              <p class="expense-split-line">${exp.paidBy?exp.paidBy+' paid':''} ${exp.splitBetween?.length?'· '+exp.splitBetween.join('+'):''} · ${cur} ${perHead.toLocaleString()} pp</p>
-              ${loggedAt?`<p class="expense-split-line" style="opacity:.7">Logged ${loggedAt}</p>`:''}
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s3)">
+              <div style="display:flex;align-items:center;gap:6px;min-width:0">
+                <span class="badge badge-open" style="font-size:9px;flex-shrink:0">${exp.category}</span>
+                <span style="font-size:var(--text-sm);font-weight:500;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${exp.description}</span>
+              </div>
+              <span style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);flex-shrink:0">${cur} ${exp.amountJPY.toLocaleString()}</span>
             </div>
-            <div style="text-align:right;flex-shrink:0">
-              <p class="expense-amt">${cur} ${exp.amountJPY.toLocaleString()}</p>
-              <p class="expense-per">${cur} ${perHead.toLocaleString()} pp</p>
-            </div>
-            <button class="expense-edit" style="background:none;border:1.5px solid var(--border);border-radius:var(--r-sm);padding:3px 9px;font-size:var(--text-xs);cursor:pointer;font-family:var(--font);color:var(--text-secondary);flex-shrink:0">Edit</button>
-            <button class="expense-del">×</button>`;
+            <p style="font-size:var(--text-xs);color:var(--text-muted)">${exp.paidBy?exp.paidBy+' paid':''}${exp.splitBetween?.length?' · split '+exp.splitBetween.join(' + '):''}${splitPax>1?' · '+cur+' '+perHead.toLocaleString()+' pp':''}</p>
+            ${loggedAt?`<p style="font-size:10px;color:var(--text-muted);opacity:.7">Logged ${loggedAt}</p>`:''}
+            <div style="display:flex;gap:8px;margin-top:2px">
+              <button class="expense-edit" style="background:none;border:1.5px solid var(--border);border-radius:var(--r-sm);padding:3px 10px;font-size:var(--text-xs);cursor:pointer;font-family:var(--font);color:var(--text-secondary)">Edit</button>
+              <button class="expense-del" style="background:none;border:1.5px solid var(--border);border-radius:var(--r-sm);width:26px;height:26px;color:var(--text-muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font)">×</button>
+            </div>`;
           let expDelArmed = false, expDelTimer = null;
           const expDelBtn = row.querySelector('.expense-del');
           expDelBtn.addEventListener('click', async e => {
