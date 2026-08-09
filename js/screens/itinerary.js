@@ -282,20 +282,13 @@ const ItineraryScreen = (() => {
             ${o.address ? `<p class="overnight-addr">${o.address}</p>` : ''}
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-          <button class="overnight-show-btn" aria-label="Show to driver or front desk" style="width:30px;height:30px;border-radius:50%;background:var(--surface-raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);flex-shrink:0">${Icons.card('icon-sm')}</button>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-            <span class="badge ${statusCls[o.status]||'badge-open'}">${
-              o.status==='booked'?'✓ Booked':o.status==='urgent'?'⚡ Urgent':o.status==='pending'?'Pending':'Open'
-            }</span>
-            ${o.cost ? `<span class="badge ${paymentCls[payStatus]}" style="font-size:9px">${paymentLbl}</span>` : ''}
-          </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+          <span class="badge ${statusCls[o.status]||'badge-open'}">${
+            o.status==='booked'?'✓ Booked':o.status==='urgent'?'⚡ Urgent':o.status==='pending'?'Pending':'Open'
+          }</span>
+          ${o.cost ? `<span class="badge ${paymentCls[payStatus]}" style="font-size:9px">${paymentLbl}</span>` : ''}
         </div>
       </div>`;
-    card.querySelector('.overnight-show-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      window.BottomSheet?.showAccommodationCard?.({ name: o.name, address: o.address, ref: o.ref });
-    });
     card.addEventListener('click', () => BottomSheet.openOvernight(day));
     return card;
   }
@@ -417,9 +410,17 @@ const ItineraryScreen = (() => {
 
     const header = document.createElement('div');
     header.style.cssText = 'padding:var(--s4) var(--s4) var(--s2);border-bottom:1.5px solid var(--border)';
+    // "Wildsenses Holidays" is the tour operator for the Africa trip
+    // specifically (booked as a package) — not a universal brand across
+    // every trip in this app. Same gating as sos.js's hasContact flag,
+    // which is also only true for this one trip ID.
+    const isAfricaTrip = Data.getCurrentTrip?.()?.id === '83891de6-44ee-4ec2-bb95-6726cbd8c370';
+    const subtitle = isAfricaTrip
+      ? `Wildsenses Holidays · ${Data.getCurrentTrip?.()?.name || ''}`
+      : (Data.getCurrentTrip?.()?.name || '');
     header.innerHTML = `
       <p style="font-size:var(--text-lg);font-weight:500;color:var(--text-primary)">Info</p>
-      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">Wildsenses Holidays · ${Data.getCurrentTrip?.()?.name || ''}</p>`;
+      ${subtitle ? `<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">${subtitle}</p>` : ''}`;
     wrap.appendChild(header);
 
     // Inclusions
