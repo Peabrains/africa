@@ -154,6 +154,20 @@ const BottomSheet = (() => {
       return timeZone;
     }
   }
+  // Same date formatting as itinerary.js's formatDayDate — duplicated
+  // here rather than shared, same reasoning as tzAbbr above: it's a
+  // tiny, fully self-contained function. Turns "2026-12-27" into
+  // "Sun, 27 Dec 2026" instead of showing the raw ISO string.
+  function formatDayDate(iso) {
+    if (!iso) return '';
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+    if (!m) return iso;
+    const [, y, mo, d] = m;
+    const dt = new Date(Number(y), Number(mo) - 1, Number(d));
+    const weekday = dt.toLocaleDateString('en-US', { weekday: 'short' });
+    const month   = dt.toLocaleDateString('en-US', { month: 'short' });
+    return `${weekday}, ${Number(d)} ${month} ${y}`;
+  }
   // Full real timezone list, built once and cached — same source as
   // before, just no longer offered as a free-text datalist (which let
   // invalid values like "Asia/hanoi" get typed and silently saved).
@@ -218,6 +232,138 @@ const BottomSheet = (() => {
           lastValid = input.value;
         }
       }, 150); // let a suggestion's mousedown register before blur fires
+    });
+  }
+
+  // Full real currency list, same approach as getAllZones — built once,
+  // sourced from the browser's own Intl data so it's never a hand-
+  // maintained list going stale. Paired with a display name so the
+  // combobox can match "taiwan" → TWD, not just the 3-letter code.
+  let _currencyCache = null;
+  function getAllCurrencies() {
+    if (_currencyCache) return _currencyCache;
+    let codes;
+    try {
+      codes = (typeof Intl.supportedValuesOf === 'function')
+        ? Intl.supportedValuesOf('currency').map(c => c.toUpperCase())
+        : ['USD','EUR','GBP','JPY','TWD','THB','MYR','SGD','CNY','HKD','KRW','AUD','CAD'];
+    } catch (e) {
+      codes = ['USD','EUR','GBP','JPY','TWD','THB','MYR','SGD','CNY','HKD','KRW','AUD','CAD'];
+    }
+    let names = {};
+    try {
+      const dn = new Intl.DisplayNames(['en'], { type: 'currency' });
+      codes.forEach(c => { names[c] = dn.of(c) || c; });
+    } catch (e) { /* DisplayNames not supported — fall back to bare codes */ }
+    _currencyCache = codes.map(c => ({ code: c, name: names[c] || c }));
+    return _currencyCache;
+  }
+
+  /* ── Currency combobox — same searchable/validated pattern as the
+     timezone combobox. Only an exact ISO code can ever be saved; typing
+     filters by code or name, tapping a suggestion selects it, and
+     leaving invalid text snaps back on blur. ── */
+  function wireCurrencyCombobox(inputId, onChange) {
+    const input = body.querySelector('#'+inputId);
+    if (!input || input.dataset.curWired) return;
+    input.dataset.curWired = '1';
+
+    const listEl = document.createElement('div');
+    listEl.className = 'bs-tz-suggestions';
+    input.insertAdjacentElement('afterend', listEl);
+
+    let lastValid = input.value;
+    const currencies = getAllCurrencies();
+    const codes = currencies.map(c => c.code);
+
+    function renderSuggestions() {
+      const q = input.value.trim().toLowerCase();
+      if (!q) { listEl.style.display = 'none'; return; }
+      const matches = currencies.filter(c =>
+        c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)
+      ).slice(0, 8);
+      if (!matches.length) {
+        listEl.innerHTML = '<div class="bs-tz-suggestion bs-tz-suggestion--empty">No matching currency</div>';
+      } else {
+        listEl.innerHTML = matches.map(c =>
+          `<div class="bs-tz-suggestion" data-code="${c.code}">${c.code} — ${c.name}</div>`).join('');
+      }
+      listEl.style.display = 'block';
+    }
+
+    input.addEventListener('input', renderSuggestions);
+    input.addEventListener('focus', renderSuggestions);
+
+    listEl.addEventListener('mousedown', (e) => {
+      const item = e.target.closest('.bs-tz-suggestion[data-code]');
+      if (!item) return;
+      input.value = item.dataset.code;
+      lastValid = item.dataset.code;
+      listEl.style.display = 'none';
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      if (onChange) onChange(item.dataset.code);
+    });
+
+    input.addEventListener('blur', () => {
+      setTimeout(() => {
+        listEl.style.display = 'none';
+        if (!codes.includes(input.value.toUpperCase())) {
+          input.value = lastValid;
+        } else {
+          input.value = input.value.toUpperCase();
+          lastValid = input.value;
+        }
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        if (onChange) onChange(input.value);
+      }, 150);
+    });
+  }
+
+  // Cost + its own currency, side by side — the currency defaults to
+  // the trip's currency but can be overridden per stop/overnight, since
+  // a single trip routinely mixes currencies (e.g. a flight paid in USD,
+  // a homestay paid in local currency on arrival).
+  function costWithCurrency(costId, curId, costVal, curVal) {
+    const cur = curVal || Data.getTripCurrency?.() || 'USD';
+    return `<div class="bs-edit-group">
+      <label class="bs-edit-label" for="${costId}">Cost</label>
+      <div class="bs-time-row">
+        <input id="${costId}" class="bs-input" type="number" value="${costVal||''}" placeholder="e.g. 18000" style="flex:1.4">
+        <div style="position:relative;flex:1;min-width:0">
+          <input id="${curId}" class="bs-input bs-tz-sel" type="text" autocomplete="off" value="${cur}" placeholder="Currency…">
+        </div>
+      </div></div>`;
+  }
+
+  /* ── Payment status — a separate axis from booking status. Booking
+     status answers "is this reserved/confirmed?"; payment status answers
+     "has this actually been paid?" A stop can be booked and unpaid, or
+     open and already deposited — the two shouldn't be conflated. ── */
+  const paymentOpts = [{v:'unpaid',l:'Unpaid'},{v:'partial',l:'Partially paid'},{v:'paid',l:'✓ Paid'}];
+  const paymentCls  = {paid:'badge-booked', partial:'badge-pending', unpaid:'badge-open'};
+  function paymentLbl(payment, cur) {
+    if (!payment || payment.status === 'paid') return payment?.status === 'paid' ? '✓ Paid' : 'Unpaid';
+    if (payment.status === 'partial') return `Partial · ${cur} ${(payment.amountPaid||0).toLocaleString()} paid`;
+    return 'Unpaid';
+  }
+  function paymentFieldsHTML(prefix, payment) {
+    const p = payment || {};
+    return `
+      ${select('Payment status', `${prefix}-paystatus`, p.status || 'unpaid', paymentOpts)}
+      <div id="${prefix}-paidamt-wrap" style="display:${p.status==='partial'?'block':'none'}">
+        ${field('Amount paid so far', `${prefix}-paidamt`, p.amountPaid||'', 'number', 'e.g. 5000')}
+      </div>`;
+  }
+  // Toggle the "amount paid" field's visibility as the payment status
+  // select changes, same show/hide pattern already used for luggage
+  // forwarding's conditional fields.
+  function wirePaymentStatusToggle(prefix) {
+    const sel = body.querySelector(`#${prefix}-paystatus`);
+    const wrap = body.querySelector(`#${prefix}-paidamt-wrap`);
+    if (!sel || !wrap || sel.dataset.wired) return;
+    sel.dataset.wired = '1';
+    sel.addEventListener('change', () => {
+      wrap.style.display = sel.value === 'partial' ? 'block' : 'none';
     });
   }
 
@@ -330,14 +476,14 @@ const BottomSheet = (() => {
     }
     return `
       <div class="bs-detail">
-        <div class="bs-tags">${day?`<span class="badge badge-open">${day.label}</span><span class="badge badge-open">${day.date}</span>`:''}<span class="badge ${statusCls[stop.booking.status]}">${statusLbl[stop.booking.status]}</span></div>
+        <div class="bs-tags">${day?`<span class="badge badge-open">${day.label}</span><span class="badge badge-open">${day.date}</span>`:''}<span class="badge ${statusCls[stop.booking.status]}">${statusLbl[stop.booking.status]}</span>${stop.booking?.cost?`<span class="badge ${paymentCls[stop.booking.payment?.status||'unpaid']}">${paymentLbl(stop.booking.payment, stop.booking.costCurrency||Data.getTripCurrency())}</span>`:''}</div>
         <p class="bs-name">${stop.name}</p>
         <p class="bs-activity">${stop.activity||''}</p>
         ${transportBlock}
         <div class="bs-rows">
           ${detailRow(Icons.clock, stop.time ? `${stop.time}${stop.timeZone?' '+tzAbbr(resolveTz(stop.timeZone)):''}` : '')}
           ${detailRow(Icons.card, stop.booking?.ref ? 'Ref: '+stop.booking.ref : '')}
-          ${detailRow(Icons.yen, stop.booking?.cost ? Data.getTripCurrency()+' '+stop.booking.cost.toLocaleString() : '')}
+          ${detailRow(Icons.cash, stop.booking?.cost ? (stop.booking.costCurrency||Data.getTripCurrency())+' '+stop.booking.cost.toLocaleString() : '')}
           ${detailRow(Icons.info, stop.notes, 'style="color:var(--accent)"')}
         </div>
         <!-- no stamp section for Africa -->
@@ -383,7 +529,8 @@ const BottomSheet = (() => {
         <p class="bs-section-head">Booking</p>
         ${select('Status','e-status',stop.booking.status,statusOpts)}
         ${field('Reference','e-ref',stop.booking.ref||'','text','e.g. HTL-20270412')}
-        ${field('Cost (\u00a5)','e-cost',stop.booking.cost||'','number','e.g. 18000')}
+        ${costWithCurrency('e-cost','e-cost-cur',stop.booking.cost,stop.booking.costCurrency)}
+        ${paymentFieldsHTML('e', stop.booking.payment)}
         <div class="bs-edit-group">
           <label class="bs-edit-label">Deadline</label>
           <div style="display:flex;align-items:center;gap:var(--s2)">
@@ -416,12 +563,14 @@ const BottomSheet = (() => {
     const lf = o.luggage_forwarding || {};
     return `
       <div class="bs-detail">
-        <div class="bs-tags"><span class="badge badge-open">${day.label}</span><span class="badge badge-open">${day.date}</span></div>
+        <div class="bs-tags"><span class="badge badge-open">${day.label}</span><span class="badge badge-open">${formatDayDate(day.date)}</span></div>
         <p class="bs-name" style="margin-bottom:var(--s4)">${Icons.moon('icon-sm')} Overnight stay</p>
         ${field('Accommodation name','o-name',o.name||'','text','e.g. Kiri-no-Sato Takahara Lodge')}
+        ${field('Address','o-address',o.address||'','text','e.g. 15 Takahara, Tanabe, Wakayama')}
         ${select('Booking status','o-status',o.status||'open',statusOpts)}
         ${field('Booking reference','o-ref',o.ref||'','text','e.g. HTL-20270412')}
-        ${field(`Cost (${Data.getTripCurrency?.() || 'USD'})`,'o-cost',o.cost||'','number','e.g. 18000')}
+        ${costWithCurrency('o-cost','o-cost-cur',o.cost,o.cost_currency)}
+        ${paymentFieldsHTML('o', { status: o.payment_status, amountPaid: o.amount_paid })}
         ${field('Book by (deadline)','o-deadline',o.deadline||'','date')}
 
         <label style="display:flex;align-items:center;gap:8px;margin:var(--s4) 0 var(--s2);cursor:pointer">
@@ -623,6 +772,8 @@ const BottomSheet = (() => {
     wireTimeInput('e-arrive');
     wireTzCombobox('e-tz');
     wireTzCombobox('e-arrivetz');
+    wireCurrencyCombobox('e-cost-cur');
+    wirePaymentStatusToggle('e');
     body.querySelector('#e-deadline-clear')?.addEventListener('click', () => {
       const input = body.querySelector('#e-deadline');
       if (input) input.value = '';
@@ -662,7 +813,18 @@ const BottomSheet = (() => {
           trainNumber:    numberField,
           duration:       body.querySelector('#e-duration')?.value || stop.trainDetail?.duration || '',
         } : stop.trainDetail,
-        booking: { ...stop.booking, status:g('e-status'), ref:g('e-ref'), cost:parseInt(g('e-cost'))||null, deadline:g('e-deadline')||null },
+        booking: {
+          ...stop.booking,
+          status:       g('e-status'),
+          ref:          g('e-ref'),
+          cost:         parseInt(g('e-cost'))||null,
+          costCurrency: body.querySelector('#e-cost-cur')?.value || Data.getTripCurrency?.() || 'USD',
+          deadline:     g('e-deadline')||null,
+          payment: {
+            status:     g('e-paystatus') || 'unpaid',
+            amountPaid: g('e-paystatus') === 'partial' ? (parseInt(g('e-paidamt'))||0) : null,
+          },
+        },
       };
       try {
         await Data.updateStop(stop.id, patch);
@@ -685,9 +847,22 @@ const BottomSheet = (() => {
     lfToggle?.addEventListener('change', () => {
       lfFields.style.display = lfToggle.checked ? 'flex' : 'none';
     });
+    wireCurrencyCombobox('o-cost-cur');
+    wirePaymentStatusToggle('o');
 
     body.querySelector('#o-save-btn')?.addEventListener('click', async () => {
-      const patch = { name:g('o-name'), status:g('o-status')||'open', ref:g('o-ref'), cost:parseInt(g('o-cost'))||null, deadline:g('o-deadline')||null };
+      const paystatus = g('o-paystatus') || 'unpaid';
+      const patch = {
+        name:            g('o-name'),
+        address:         g('o-address'),
+        status:          g('o-status')||'open',
+        ref:             g('o-ref'),
+        cost:            parseInt(g('o-cost'))||null,
+        cost_currency:   body.querySelector('#o-cost-cur')?.value || Data.getTripCurrency?.() || 'USD',
+        payment_status:  paystatus,
+        amount_paid:     paystatus === 'partial' ? (parseInt(g('o-paidamt'))||0) : null,
+        deadline:        g('o-deadline')||null,
+      };
       patch.luggage_forwarding = lfToggle?.checked ? {
         enabled:  true,
         from:     g('o-lf-from'),
