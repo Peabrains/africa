@@ -661,39 +661,62 @@ const BookingsScreen = (() => {
           const splitPax = Math.max(1, exp.splitBetween?.length||1);
           const perHead  = Math.round(exp.amountJPY/splitPax);
           const loggedAt = exp.createdAt ? new Date(exp.createdAt).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+          const catColor = EXPENSE_CAT_COLORS[exp.category] || 'var(--text-muted)';
+          const initial = n => (n||'?').trim().charAt(0).toUpperCase();
+
           const row = document.createElement('div');
           row.className = 'expense-row';
-          row.style.cssText = 'display:flex;flex-direction:column;gap:4px;padding:12px var(--s4);border-bottom:1px solid var(--border-subtle)';
+          row.style.cssText = 'position:relative;padding:12px var(--s4);border-bottom:1px solid var(--border-subtle)';
           row.innerHTML = `
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s3)">
-              <div style="display:flex;align-items:center;gap:6px;min-width:0">
-                <span class="badge badge-open" style="font-size:9px;flex-shrink:0">${exp.category}</span>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s2)">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0">
+                <span style="width:8px;height:8px;border-radius:50%;background:${catColor};flex-shrink:0"></span>
                 <span style="font-size:var(--text-sm);font-weight:500;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${exp.description}</span>
               </div>
-              <span style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);flex-shrink:0">${cur} ${exp.amountJPY.toLocaleString()}</span>
+              <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                <span style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary)">${cur} ${exp.amountJPY.toLocaleString()}</span>
+                <button class="expense-more" style="width:24px;height:24px;border-radius:50%;background:none;border:none;color:var(--text-muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font);line-height:1">⋮</button>
+              </div>
             </div>
-            <p style="font-size:var(--text-xs);color:var(--text-muted)">${exp.paidBy?exp.paidBy+' paid':''}${exp.splitBetween?.length?' · split '+exp.splitBetween.join(' + '):''}${splitPax>1?' · '+cur+' '+perHead.toLocaleString()+' pp':''}</p>
-            ${loggedAt?`<p style="font-size:10px;color:var(--text-muted);opacity:.7">Logged ${loggedAt}</p>`:''}
-            <div style="display:flex;gap:8px;margin-top:2px">
-              <button class="expense-edit" style="background:none;border:1.5px solid var(--border);border-radius:var(--r-sm);padding:3px 10px;font-size:var(--text-xs);cursor:pointer;font-family:var(--font);color:var(--text-secondary)">Edit</button>
-              <button class="expense-del" style="background:none;border:1.5px solid var(--border);border-radius:var(--r-sm);width:26px;height:26px;color:var(--text-muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font)">×</button>
+            <p style="font-size:10.5px;color:var(--text-muted);margin:3px 0 0 15px">${exp.category}${loggedAt?` · Logged ${loggedAt}`:''}</p>
+            ${(exp.paidBy || exp.splitBetween?.length) ? `
+            <div style="display:flex;align-items:center;gap:10px;margin:8px 0 0 15px">
+              ${exp.paidBy ? `
+                <div style="display:flex;align-items:center;gap:5px">
+                  <span style="font-size:10px;color:var(--text-muted)">Paid</span>
+                  <div style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0;background:${travelerColor(exp.paidBy)}">${initial(exp.paidBy)}</div>
+                </div>` : ''}
+              ${exp.splitBetween?.length ? `
+                <div style="display:flex;align-items:center;gap:5px">
+                  <span style="font-size:10px;color:var(--text-muted)">Split</span>
+                  <div style="display:flex">
+                    ${exp.splitBetween.map((name,i) => `<div style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0;border:2px solid var(--surface);background:${travelerColor(name)};${i>0?'margin-left:-7px':''}">${initial(name)}</div>`).join('')}
+                  </div>
+                  ${splitPax>1?`<span style="font-size:10.5px;color:var(--text-muted);margin-left:2px">${cur} ${perHead.toLocaleString()} pp</span>`:''}
+                </div>` : ''}
+            </div>` : ''}
+            <div class="expense-more-menu" style="display:none;position:absolute;top:38px;right:var(--s4);background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-md);box-shadow:0 4px 14px rgba(0,0,0,.12);z-index:5;overflow:hidden;min-width:110px">
+              <button class="expense-edit" style="width:100%;text-align:left;padding:9px 14px;font-size:var(--text-sm);background:none;border:none;font-family:var(--font);color:var(--text-primary);cursor:pointer">✏️ Edit</button>
+              <button class="expense-del" style="width:100%;text-align:left;padding:9px 14px;font-size:var(--text-sm);background:none;border:none;border-top:1px solid var(--border-subtle);font-family:var(--font);color:#B91C1C;cursor:pointer">🗑 Delete</button>
             </div>`;
+
+          const moreBtn  = row.querySelector('.expense-more');
+          const moreMenu = row.querySelector('.expense-more-menu');
+          moreBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            document.querySelectorAll('.expense-more-menu').forEach(m => { if (m !== moreMenu) m.style.display = 'none'; });
+            moreMenu.style.display = moreMenu.style.display === 'none' ? 'block' : 'none';
+          });
+          document.addEventListener('click', () => { moreMenu.style.display = 'none'; });
+
           let expDelArmed = false, expDelTimer = null;
           const expDelBtn = row.querySelector('.expense-del');
           expDelBtn.addEventListener('click', async e => {
             e.stopPropagation();
             if (!expDelArmed) {
               expDelArmed = true;
-              expDelBtn.textContent = '✓';
-              expDelBtn.style.background = 'var(--danger-text)';
-              expDelBtn.style.color = '#fff';
-              expDelBtn.title = 'Tap again to confirm delete';
-              expDelTimer = setTimeout(() => {
-                expDelArmed = false;
-                expDelBtn.textContent = '×';
-                expDelBtn.style.background = '';
-                expDelBtn.style.color = '';
-              }, 3000);
+              expDelBtn.textContent = '✓ Tap again to confirm';
+              expDelTimer = setTimeout(() => { expDelArmed = false; expDelBtn.textContent = '🗑 Delete'; }, 3000);
               return;
             }
             clearTimeout(expDelTimer);
@@ -702,7 +725,7 @@ const BookingsScreen = (() => {
 
           // Inline edit form
           const editRow = document.createElement('div');
-          editRow.style.cssText = 'display:none;flex-direction:column;gap:6px;width:100%;padding:8px 0 4px;border-top:1px solid var(--border-subtle);margin-top:6px';
+          editRow.style.cssText = 'display:none;flex-direction:column;gap:6px;width:100%;padding:8px 0 4px;border-top:1px solid var(--border-subtle);margin-top:10px';
           const dayOpts = `<option value="">No specific day</option>` + Data.getDays().map(d=>`<option value="${d.id}" ${d.id===exp.dayId?'selected':''}>${d.label} · ${formatShortDate(d.date)}</option>`).join('');
           const catOpts = EXPENSE_CATS.map(c=>`<option ${c===exp.category?'selected':''}>${c}</option>`).join('');
           const paidChips = travelers.map(t=>`<button type="button" class="traveler-chip ee-paid-chip ${t===exp.paidBy?'traveler-chip--active':''}" data-name="${t}">${t}</button>`).join('');
@@ -723,6 +746,7 @@ const BookingsScreen = (() => {
 
           row.querySelector('.expense-edit').addEventListener('click', e => {
             e.stopPropagation();
+            moreMenu.style.display = 'none';
             editRow.style.display = editRow.style.display === 'none' ? 'flex' : 'none';
           });
           editRow.querySelectorAll('.ee-paid-chip').forEach(chip => {
@@ -754,6 +778,13 @@ const BookingsScreen = (() => {
     }
     return frag;
   }
+
+  /* Category dot colors for the expense row — reused nowhere else, kept
+     local to this function's neighborhood rather than a new global. */
+  const EXPENSE_CAT_COLORS = {
+    Food: '#C84B35', Transport: '#2A7A4B', Accommodation: '#7B4EA0',
+    Activities: '#0E7C7B', Shopping: '#D9A441', Other: '#9C9690',
+  };
 
   /* ═══ PACKING ════════════════════════════════════════════ */
   const TRAVELER_COLORS = ['#7A5C2E','#2A7A4B','#7B4EA0','#0E7C7B','#C1440E'];
