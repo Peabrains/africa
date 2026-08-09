@@ -22,22 +22,7 @@ const ItineraryScreen = (() => {
     }
   }
 
-  /* ── Segment → country label + colour ───────────────────────── */
-  /* Auto-generate a consistent color per locality name — same locality
-     always gets the same color, any new locality just works, no manual
-     per-trip color list to maintain ever again. 'transit' stays neutral. */
-  const AUTO_PALETTE = ['#C1440E','#2A7A4B','#7B4EA0','#0E7C7B','#E8A23D','#2E86AB','#C1447E','#B8860B','#4C6B8A','#8E6C4A'];
-  function colorForKey(key) {
-    if (!key || key.toLowerCase() === 'transit') return '#9C9080';
-    let hash = 0;
-    for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
-    return AUTO_PALETTE[hash % AUTO_PALETTE.length];
-  }
-  function segColor(stop) {
-    const day = Data.getDays().find(d => d.id === stop.dayId);
-    return colorForKey(day?.locality || stop.segment);
-  }
-  /* Divider shown once when locality changes ─────────────────── */
+  /* ── Divider shown once when locality changes ──────────────── */
   function nightsAtLocality(days, startIdx) {
     const locality = days[startIdx].locality;
     let count = 0;
@@ -291,7 +276,7 @@ const ItineraryScreen = (() => {
     card.className = 'lf-card';
     card.innerHTML = `
       <div class="lf-left">
-        <span class="lf-icon">🧳</span>
+        <span class="lf-icon">${Icons.kit('icon-sm')}</span>
         <div class="lf-text">
           <p class="lf-label">Luggage forwarding</p>
           <p class="lf-detail">${lf.to ? 'To ' + lf.to : 'Forwarding arranged'}${lf.cutoff ? ' · by ' + lf.cutoff : ''}</p>
@@ -370,7 +355,6 @@ const ItineraryScreen = (() => {
   function stopRow(stop, isLast) {
     const day = Data.getDays().find(d => d.id === stop.dayId);
     const iconKey = stop.transportType || 'walk';
-    const segColorVal = segColor(stop);
     const isPlane = stop.transportType === 'plane';
 
     const row = document.createElement('div');
@@ -381,7 +365,7 @@ const ItineraryScreen = (() => {
         <span class="tl-time-tz">${tzAbbr(stop.timeZone)}</span>
       </div>
       <div class="tl-connector">
-        <div class="tl-icon-circle" style="border-color:${segColorVal};color:${segColorVal}">
+        <div class="tl-icon-circle">
           ${Icons[iconKey] ? Icons[iconKey]('icon-sm') : Icons.walk('icon-sm')}
         </div>
         ${!isLast ? '<div class="tl-line"></div>' : ''}
