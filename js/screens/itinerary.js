@@ -396,7 +396,7 @@ const ItineraryScreen = (() => {
     header.style.cssText = 'padding:var(--s4) var(--s4) var(--s2);border-bottom:1.5px solid var(--border)';
     header.innerHTML = `
       <p style="font-size:var(--text-lg);font-weight:500;color:var(--text-primary)">Info</p>
-      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">Wildsenses Holidays · East Africa Safari & Mountain Gorilla</p>`;
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">Wildsenses Holidays · ${Data.getCurrentTrip?.()?.name || ''}</p>`;
     wrap.appendChild(header);
 
     // Inclusions
