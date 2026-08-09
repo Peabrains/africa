@@ -44,6 +44,190 @@ const Data = (() => {
     journal:  'sb_journal',
   };
 
+  /* ── Offline write queue ─────────────────────────────────────
+     Every mutation applies to local state immediately (optimistic),
+     then tries Supabase right away if online. If that attempt fails
+     — because we're offline, or a request fails mid-flight even
+     while nominally online — the change is queued in IndexedDB
+     instead of being silently dropped. flushQueue() replays queued
+     changes in order (oldest first) on reconnect and before any
+     full data refresh, so a refresh never overwrites local changes
+     that haven't made it to the server yet.
+
+     Covers stops, overnight, expenses, packing, bucket items, and
+     custom links. Photo uploads (Dex/Food/Stamps/Journal catches)
+     are NOT yet covered — they need a different queue-payload shape
+     since they carry binary data, not just row fields.
+
+     If a row was itself created offline (temporary 'local_'/'bk_'
+     id) and then edited again before ever syncing, the edit's
+     target id gets remapped to the real server id once the insert
+     ahead of it in the queue resolves — see remapIds(). ────────── */
+  function enqueue(type, payload) {
+    return DB.queueChange({ type, payload });
+  }
+
+  async function getPendingCount() {
+    try { return (await DB.loadQueue()).length; } catch (_) { return 0; }
+  }
+
+  function remapIds(payload, map) {
+    if (!payload) return payload;
+    const out = { ...payload };
+    if (out.id && map[out.id])    out.id    = map[out.id];
+    if (out.dayId && map[out.dayId]) out.dayId = map[out.dayId];
+    return out;
+  }
+
+  let _flushing = false;
+  async function flushQueue() {
+    if (_flushing || !navigator.onLine) {
+      return { flushed: 0, remaining: await getPendingCount() };
+    }
+    _flushing = true;
+    let flushed = 0;
+    const localIdMap = {};
+    try {
+      const queue = (await DB.loadQueue()).sort((a, b) => a.id - b.id);
+      for (const entry of queue) {
+        const remapped = remapIds(entry.payload, localIdMap);
+        try {
+          const result = await replayQueueEntry(entry.type, remapped);
+          if (result?.localId && result?.realId) localIdMap[result.localId] = result.realId;
+          await DB.dequeueChange(entry.id);
+          flushed++;
+        } catch (e) {
+          console.warn('[Data] flushQueue stopped at', entry.type, '—', e.message || e);
+          break; // preserve order — leave this entry and everything after it queued
+        }
+      }
+    } finally {
+      _flushing = false;
+    }
+    return { flushed, remaining: await getPendingCount() };
+  }
+
+  async function replayQueueEntry(type, p) {
+    switch (type) {
+      case 'addStop': {
+        const { localId, ...row } = p;
+        const { data, error } = await SB.from('stops').insert(row).select().single();
+        if (error) throw error;
+        const idx = STOPS.findIndex(s => s.id === localId);
+        if (idx >= 0) STOPS[idx] = data; else STOPS.push(data);
+        await DB.setMeta(CACHE_KEYS.stops, STOPS);
+        return { localId, realId: data.id };
+      }
+      case 'updateStop': {
+        const { error } = await SB.from('stops').update(p.patch).eq('id', p.id);
+        if (error) throw error;
+        return null;
+      }
+      case 'deleteStop': {
+        const { error } = await SB.from('stops').delete().eq('id', p.id);
+        if (error) throw error;
+        return null;
+      }
+      case 'insertOvernight': {
+        const { dayId, localId, row } = p;
+        const { data, error } = await SB.from('overnights').insert(row).select().single();
+        if (error) throw error;
+        if (OVERNIGHTS[dayId]?.id === localId) OVERNIGHTS[dayId] = data;
+        await DB.setMeta(CACHE_KEYS.overnight, OVERNIGHTS);
+        return { localId, realId: data.id };
+      }
+      case 'updateOvernight': {
+        const { error } = await SB.from('overnights').update(p.patch).eq('id', p.id);
+        if (error) throw error;
+        return null;
+      }
+      case 'deleteOvernight': {
+        const { error } = await SB.from('overnights').delete().eq('id', p.id);
+        if (error) throw error;
+        return null;
+      }
+      case 'addExpense': {
+        const { localId, row } = p;
+        const { data, error } = await SB.from('expenses').insert(row).select().single();
+        if (error) throw error;
+        EXPENSES = EXPENSES.filter(e => e.id !== localId);
+        EXPENSES.push(data);
+        await DB.setMeta(CACHE_KEYS.expenses, EXPENSES);
+        return { localId, realId: data.id };
+      }
+      case 'updateExpense': {
+        const { error } = await SB.from('expenses').update(p.patch).eq('id', p.id);
+        if (error) throw error;
+        return null;
+      }
+      case 'deleteExpense': {
+        const { error } = await SB.from('expenses').delete().eq('id', p.id);
+        if (error) throw error;
+        return null;
+      }
+      case 'addPacking': {
+        const { localId, row } = p;
+        const { data, error } = await SB.from('packing_items').insert(row).select().single();
+        if (error) throw error;
+        PACKING = PACKING.filter(i => i.id !== localId);
+        PACKING.push(data);
+        await DB.setMeta(CACHE_KEYS.packing, PACKING);
+        return { localId, realId: data.id };
+      }
+      case 'updatePacking': {
+        const { error } = await SB.from('packing_items').update(p.patch).eq('id', p.id);
+        if (error) throw error;
+        return null;
+      }
+      case 'deletePacking': {
+        const { error } = await SB.from('packing_items').delete().eq('id', p.id);
+        if (error) throw error;
+        return null;
+      }
+      case 'addBucketItem': {
+        const { localId, row } = p;
+        const { data, error } = await SB.from('bucket_items').insert(row).select().single();
+        if (error) throw error;
+        const idx = BUCKET_ITEMS.findIndex(i => i.id === localId);
+        if (idx >= 0) BUCKET_ITEMS[idx] = data; else BUCKET_ITEMS.push(data);
+        await DB.saveBucket(BUCKET_ITEMS);
+        return { localId, realId: data.id };
+      }
+      case 'updateBucketItem': {
+        const { error } = await SB.from('bucket_items').update(p.patch).eq('id', p.id);
+        if (error) throw error;
+        return null;
+      }
+      case 'deleteBucketItem': {
+        const { error } = await SB.from('bucket_items').delete().eq('id', p.id);
+        if (error) throw error;
+        return null;
+      }
+      case 'addCustomLink': {
+        const { localId, row } = p;
+        const { data, error } = await SB.from('custom_links').insert(row).select().single();
+        if (error) throw error;
+        CUSTOM_LINKS = CUSTOM_LINKS.filter(l => l.id !== localId);
+        CUSTOM_LINKS.push(data);
+        await DB.setMeta(CACHE_KEYS.links, CUSTOM_LINKS);
+        return { localId, realId: data.id };
+      }
+      case 'updateCustomLink': {
+        const { error } = await SB.from('custom_links').update(p.patch).eq('id', p.id);
+        if (error) throw error;
+        return null;
+      }
+      case 'deleteCustomLink': {
+        const { error } = await SB.from('custom_links').delete().eq('id', p.id);
+        if (error) throw error;
+        return null;
+      }
+      default:
+        console.warn('[Data] flushQueue: unknown entry type', type);
+        return null;
+    }
+  }
+
   /* ── Load all trips for the current user ─────────────────── */
   async function loadTrips() {
     try {
@@ -90,6 +274,13 @@ const Data = (() => {
   /* ── Load full data for a specific trip ──────────────────── */
   async function loadTripData(tripId) {
     const online = navigator.onLine;
+
+    // Flush any offline-queued changes FIRST — a fresh pull below replaces
+    // local state wholesale, so anything still only-local at that point
+    // would otherwise be silently lost.
+    if (online) {
+      try { await flushQueue(); } catch (e) { console.warn('[Data] pre-refresh flushQueue failed:', e.message || e); }
+    }
 
     if (online) {
       try {
@@ -405,17 +596,28 @@ const Data = (() => {
     };
 
     if (navigator.onLine) {
-      const { data, error } = await SB.from('stops').insert(newStop).select().single();
-      if (error) throw error;
-      STOPS.push(data);
-      await resortStopsForDay(stop.dayId);
-      return data;
+      try {
+        const { data, error } = await SB.from('stops').insert(newStop).select().single();
+        if (error) throw error;
+        STOPS.push(data);
+        await resortStopsForDay(stop.dayId);
+        return data;
+      } catch (e) {
+        console.warn('[Data] addStop server write failed, queued for retry:', e.message || e);
+        const localId = 'local_' + Date.now();
+        const localStop = { ...newStop, id: localId };
+        STOPS.push(localStop);
+        await resortStopsForDay(stop.dayId);
+        await enqueue('addStop', { localId, ...newStop });
+        return localStop;
+      }
     } else {
-      // Queue for later sync
-      newStop.id = 'local_' + Date.now();
-      STOPS.push(newStop);
+      const localId = 'local_' + Date.now();
+      const localStop = { ...newStop, id: localId };
+      STOPS.push(localStop);
       await resortStopsForDay(stop.dayId);
-      return newStop;
+      await enqueue('addStop', { localId, ...newStop });
+      return localStop;
     }
   }
 
@@ -482,8 +684,15 @@ const Data = (() => {
     Object.assign(STOPS[idx], dbPatch);
 
     if (navigator.onLine) {
-      const { error } = await SB.from('stops').update(dbPatch).eq('id', id);
-      if (error) { console.error('[Data] updateStop error:', error); throw error; }
+      try {
+        const { error } = await SB.from('stops').update(dbPatch).eq('id', id);
+        if (error) throw error;
+      } catch (e) {
+        console.warn('[Data] updateStop server write failed, queued for retry:', e.message || e);
+        await enqueue('updateStop', { id, patch: dbPatch });
+      }
+    } else {
+      await enqueue('updateStop', { id, patch: dbPatch });
     }
 
     if ('time' in dbPatch || 'day_id' in dbPatch) {
@@ -496,7 +705,15 @@ const Data = (() => {
   async function deleteStop(id) {
     STOPS = STOPS.filter(s => s.id !== id);
     if (navigator.onLine) {
-      await SB.from('stops').delete().eq('id', id);
+      try {
+        const { error } = await SB.from('stops').delete().eq('id', id);
+        if (error) throw error;
+      } catch (e) {
+        console.warn('[Data] deleteStop server write failed, queued for retry:', e.message || e);
+        await enqueue('deleteStop', { id });
+      }
+    } else {
+      await enqueue('deleteStop', { id });
     }
     await DB.setMeta(CACHE_KEYS.stops, STOPS);
   }
@@ -555,31 +772,41 @@ const Data = (() => {
     if (existing) {
       Object.assign(existing, changes);
       if (navigator.onLine) {
-        let { error } = await SB.from('overnights').update(changes).eq('id', existing.id);
-        if (error && /deadline/.test(error.message || '')) {
-          const { deadline, ...withoutDeadline } = changes;
-          ({ error } = await SB.from('overnights').update(withoutDeadline).eq('id', existing.id));
+        try {
+          let { error } = await SB.from('overnights').update(changes).eq('id', existing.id);
+          if (error && /deadline/.test(error.message || '')) {
+            const { deadline, ...withoutDeadline } = changes;
+            ({ error } = await SB.from('overnights').update(withoutDeadline).eq('id', existing.id));
+          }
+          if (error) throw error;
+        } catch (e) {
+          console.warn('[Data] updateOvernight server write failed, queued for retry:', e.message || e);
+          await enqueue('updateOvernight', { id: existing.id, patch: changes });
         }
-        if (error) console.error('[Data] updateOvernight error:', error);
+      } else {
+        await enqueue('updateOvernight', { id: existing.id, patch: changes });
       }
     } else {
       // No overnight row for this day yet — create one (e.g. first time
       // adding accommodation via the "+ Add overnight" button).
       const newRow = { trip_id: CURRENT_TRIP.id, day_id: dayId, ...changes };
-      OVERNIGHTS[dayId] = newRow; // optimistic local state so it shows immediately
+      const localId = 'local_' + Date.now();
+      OVERNIGHTS[dayId] = { ...newRow, id: localId }; // optimistic local state so it shows immediately
       if (navigator.onLine) {
-        let { data, error } = await SB.from('overnights').insert(newRow).select().single();
-        if (error && /deadline/.test(error.message || '')) {
-          const { deadline, ...withoutDeadline } = newRow;
-          ({ data, error } = await SB.from('overnights').insert(withoutDeadline).select().single());
-        }
-        if (!error && data) {
+        try {
+          let { data, error } = await SB.from('overnights').insert(newRow).select().single();
+          if (error && /deadline/.test(error.message || '')) {
+            const { deadline, ...withoutDeadline } = newRow;
+            ({ data, error } = await SB.from('overnights').insert(withoutDeadline).select().single());
+          }
+          if (error) throw error;
           OVERNIGHTS[dayId] = data;
-        } else if (error) {
-          console.error('[Data] updateOvernight (insert) error:', error);
+        } catch (e) {
+          console.warn('[Data] updateOvernight (insert) server write failed, queued for retry:', e.message || e);
+          await enqueue('insertOvernight', { dayId, localId, row: newRow });
         }
       } else {
-        OVERNIGHTS[dayId].id = 'local_' + Date.now();
+        await enqueue('insertOvernight', { dayId, localId, row: newRow });
       }
     }
 
@@ -590,9 +817,18 @@ const Data = (() => {
     const o = OVERNIGHTS[dayId];
     if (!o) return;
     delete OVERNIGHTS[dayId];
-    if (navigator.onLine && o.id) {
-      const { error } = await SB.from('overnights').delete().eq('id', o.id);
-      if (error) console.error('[Data] deleteOvernight error:', error);
+    if (o.id) {
+      if (navigator.onLine) {
+        try {
+          const { error } = await SB.from('overnights').delete().eq('id', o.id);
+          if (error) throw error;
+        } catch (e) {
+          console.warn('[Data] deleteOvernight server write failed, queued for retry:', e.message || e);
+          await enqueue('deleteOvernight', { id: o.id });
+        }
+      } else {
+        await enqueue('deleteOvernight', { id: o.id });
+      }
     }
     await DB.setMeta(CACHE_KEYS.overnight, OVERNIGHTS);
   }
@@ -844,22 +1080,26 @@ const Data = (() => {
       created_by:    (await SB.auth.getUser()).data.user?.id,
     };
 
-    EXPENSES.push({ ...newExp, id: 'local_' + Date.now() });
+    const localId = 'local_' + Date.now();
+    EXPENSES.push({ ...newExp, id: localId });
 
     if (navigator.onLine) {
-      let { data, error } = await SB.from('expenses').insert(newExp).select().single();
-      if (error && /day_id/.test(error.message || '')) {
-        // Schema patch not run yet — retry without day_id, day_label still carries the day
-        const { day_id, ...withoutDayId } = newExp;
-        ({ data, error } = await SB.from('expenses').insert(withoutDayId).select().single());
-      }
-      if (!error && data) {
-        // Replace local entry with real one
-        EXPENSES = EXPENSES.filter(e => !e.id.startsWith('local_'));
+      try {
+        let { data, error } = await SB.from('expenses').insert(newExp).select().single();
+        if (error && /day_id/.test(error.message || '')) {
+          // Schema patch not run yet — retry without day_id, day_label still carries the day
+          const { day_id, ...withoutDayId } = newExp;
+          ({ data, error } = await SB.from('expenses').insert(withoutDayId).select().single());
+        }
+        if (error) throw error;
+        EXPENSES = EXPENSES.filter(e => e.id !== localId);
         EXPENSES.push(data);
-      } else if (error) {
-        console.error('[Data] addExpense error:', error);
+      } catch (e) {
+        console.warn('[Data] addExpense server write failed, queued for retry:', e.message || e);
+        await enqueue('addExpense', { localId, row: newExp });
       }
+    } else {
+      await enqueue('addExpense', { localId, row: newExp });
     }
     await DB.setMeta(CACHE_KEYS.expenses, EXPENSES);
     return newExp;
@@ -880,8 +1120,15 @@ const Data = (() => {
     }
     Object.assign(EXPENSES[idx], patch);
     if (navigator.onLine) {
-      const { error } = await SB.from('expenses').update(patch).eq('id', id);
-      if (error) console.error('[Data] updateExpense error:', error);
+      try {
+        const { error } = await SB.from('expenses').update(patch).eq('id', id);
+        if (error) throw error;
+      } catch (e) {
+        console.warn('[Data] updateExpense server write failed, queued for retry:', e.message || e);
+        await enqueue('updateExpense', { id, patch });
+      }
+    } else {
+      await enqueue('updateExpense', { id, patch });
     }
     await DB.setMeta(CACHE_KEYS.expenses, EXPENSES);
   }
@@ -889,7 +1136,15 @@ const Data = (() => {
   async function deleteExpense(id) {
     EXPENSES = EXPENSES.filter(e => e.id !== id);
     if (navigator.onLine) {
-      await SB.from('expenses').delete().eq('id', id);
+      try {
+        const { error } = await SB.from('expenses').delete().eq('id', id);
+        if (error) throw error;
+      } catch (e) {
+        console.warn('[Data] deleteExpense server write failed, queued for retry:', e.message || e);
+        await enqueue('deleteExpense', { id });
+      }
+    } else {
+      await enqueue('deleteExpense', { id });
     }
     await DB.setMeta(CACHE_KEYS.expenses, EXPENSES);
   }
@@ -923,8 +1178,15 @@ const Data = (() => {
     item.checked_by_names = next;
 
     if (navigator.onLine) {
-      const { error } = await SB.from('packing_items').update({ checked_by_names: next }).eq('id', id);
-      if (error) console.error('[Data] togglePackingFor error:', error);
+      try {
+        const { error } = await SB.from('packing_items').update({ checked_by_names: next }).eq('id', id);
+        if (error) throw error;
+      } catch (e) {
+        console.warn('[Data] togglePackingFor server write failed, queued for retry:', e.message || e);
+        await enqueue('updatePacking', { id, patch: { checked_by_names: next } });
+      }
+    } else {
+      await enqueue('updatePacking', { id, patch: { checked_by_names: next } });
     }
     await DB.setMeta(CACHE_KEYS.packing, PACKING);
   }
@@ -941,7 +1203,15 @@ const Data = (() => {
     const item = PACKING.find(p => p.id === id);
     if (item) item.checked = checked;
     if (navigator.onLine) {
-      await SB.from('packing_items').update({ checked }).eq('id', id);
+      try {
+        const { error } = await SB.from('packing_items').update({ checked }).eq('id', id);
+        if (error) throw error;
+      } catch (e) {
+        console.warn('[Data] togglePacking server write failed, queued for retry:', e.message || e);
+        await enqueue('updatePacking', { id, patch: { checked } });
+      }
+    } else {
+      await enqueue('updatePacking', { id, patch: { checked } });
     }
     await DB.setMeta(CACHE_KEYS.packing, PACKING);
   }
@@ -956,14 +1226,21 @@ const Data = (() => {
       checked_by_names: {},
       sort_order: PACKING.filter(p => p.category === cat).length,
     };
-    PACKING.push({ ...newItem, id: 'local_' + Date.now() });
+    const localId = 'local_' + Date.now();
+    PACKING.push({ ...newItem, id: localId });
 
     if (navigator.onLine) {
-      const { data, error } = await SB.from('packing_items').insert(newItem).select().single();
-      if (!error && data) {
-        PACKING = PACKING.filter(p => !p.id.startsWith('local_'));
+      try {
+        const { data, error } = await SB.from('packing_items').insert(newItem).select().single();
+        if (error) throw error;
+        PACKING = PACKING.filter(p => p.id !== localId);
         PACKING.push(data);
+      } catch (e) {
+        console.warn('[Data] addPackingItem server write failed, queued for retry:', e.message || e);
+        await enqueue('addPacking', { localId, row: newItem });
       }
+    } else {
+      await enqueue('addPacking', { localId, row: newItem });
     }
     await DB.setMeta(CACHE_KEYS.packing, PACKING);
   }
@@ -977,8 +1254,15 @@ const Data = (() => {
     if ('essential' in changes) patch.essential = changes.essential;
     Object.assign(item, patch);
     if (navigator.onLine) {
-      const { error } = await SB.from('packing_items').update(patch).eq('id', id);
-      if (error) console.error('[Data] updatePackingItem error:', error);
+      try {
+        const { error } = await SB.from('packing_items').update(patch).eq('id', id);
+        if (error) throw error;
+      } catch (e) {
+        console.warn('[Data] updatePackingItem server write failed, queued for retry:', e.message || e);
+        await enqueue('updatePacking', { id, patch });
+      }
+    } else {
+      await enqueue('updatePacking', { id, patch });
     }
     await DB.setMeta(CACHE_KEYS.packing, PACKING);
   }
@@ -986,7 +1270,15 @@ const Data = (() => {
   async function deletePacking(id) {
     PACKING = PACKING.filter(p => p.id !== id);
     if (navigator.onLine) {
-      await SB.from('packing_items').delete().eq('id', id);
+      try {
+        const { error } = await SB.from('packing_items').delete().eq('id', id);
+        if (error) throw error;
+      } catch (e) {
+        console.warn('[Data] deletePacking server write failed, queued for retry:', e.message || e);
+        await enqueue('deletePacking', { id });
+      }
+    } else {
+      await enqueue('deletePacking', { id });
     }
     await DB.setMeta(CACHE_KEYS.packing, PACKING);
   }
@@ -1163,19 +1455,28 @@ const Data = (() => {
     };
 
     // Optimistic local id — replaced with the real one once Supabase confirms.
-    let item = { ...entry, id: 'bk_' + Date.now(), created_at: new Date().toISOString() };
+    const localId = 'bk_' + Date.now();
+    let item = { ...entry, id: localId, created_at: new Date().toISOString() };
     BUCKET_ITEMS.push(item);
 
     if (navigator.onLine) {
-      const user = (await SB.auth.getUser()).data.user;
-      const { data, error } = await SB.from('bucket_items')
-        .insert({ ...entry, created_by: user?.id })
-        .select().single();
-      if (!error && data) {
-        const idx = BUCKET_ITEMS.findIndex(i => i.id === item.id);
+      try {
+        const user = (await SB.auth.getUser()).data.user;
+        const { data, error } = await SB.from('bucket_items')
+          .insert({ ...entry, created_by: user?.id })
+          .select().single();
+        if (error) throw error;
+        const idx = BUCKET_ITEMS.findIndex(i => i.id === localId);
         if (idx >= 0) BUCKET_ITEMS[idx] = data;
         item = data;
+      } catch (e) {
+        console.warn('[Data] addBucketItem server write failed, queued for retry:', e.message || e);
+        const user = (await SB.auth.getUser()).data.user;
+        await enqueue('addBucketItem', { localId, row: { ...entry, created_by: user?.id } });
       }
+    } else {
+      const user = (await SB.auth.getUser()).data.user;
+      await enqueue('addBucketItem', { localId, row: { ...entry, created_by: user?.id } });
     }
     await DB.saveBucket(BUCKET_ITEMS);
     return item;
@@ -1194,8 +1495,15 @@ const Data = (() => {
     await DB.saveBucket(BUCKET_ITEMS);
 
     if (navigator.onLine) {
-      const { error } = await SB.from('bucket_items').update(patch).eq('id', id);
-      if (error) { console.error('[Data] updateBucketItem error:', error); throw error; }
+      try {
+        const { error } = await SB.from('bucket_items').update(patch).eq('id', id);
+        if (error) throw error;
+      } catch (e) {
+        console.warn('[Data] updateBucketItem server write failed, queued for retry:', e.message || e);
+        await enqueue('updateBucketItem', { id, patch });
+      }
+    } else {
+      await enqueue('updateBucketItem', { id, patch });
     }
   }
 
@@ -1205,7 +1513,15 @@ const Data = (() => {
     await DB.saveBucket(BUCKET_ITEMS);
 
     if (navigator.onLine) {
-      await SB.from('bucket_items').delete().eq('id', id);
+      try {
+        const { error } = await SB.from('bucket_items').delete().eq('id', id);
+        if (error) throw error;
+      } catch (e) {
+        console.warn('[Data] deleteBucketItem server write failed, queued for retry:', e.message || e);
+        await enqueue('deleteBucketItem', { id });
+      }
+    } else {
+      await enqueue('deleteBucketItem', { id });
     }
     // Clean up any attached photo — local cache and Storage.
     if (item?.photo_storage_path) {
@@ -1222,7 +1538,15 @@ const Data = (() => {
     item.done = !item.done;
     await DB.saveBucket(BUCKET_ITEMS);
     if (navigator.onLine) {
-      await SB.from('bucket_items').update({ done: item.done }).eq('id', id);
+      try {
+        const { error } = await SB.from('bucket_items').update({ done: item.done }).eq('id', id);
+        if (error) throw error;
+      } catch (e) {
+        console.warn('[Data] toggleBucketDone server write failed, queued for retry:', e.message || e);
+        await enqueue('updateBucketItem', { id, patch: { done: item.done } });
+      }
+    } else {
+      await enqueue('updateBucketItem', { id, patch: { done: item.done } });
     }
     return item.done;
   }
@@ -1742,24 +2066,31 @@ const Data = (() => {
       day_id:     dayId || null,
       section:    section || null,
     };
-    CUSTOM_LINKS.push({ ...newLink, id: 'local_' + Date.now() });
+    const localId = 'local_' + Date.now();
+    CUSTOM_LINKS.push({ ...newLink, id: localId });
     if (navigator.onLine) {
-      const user = (await SB.auth.getUser()).data.user;
-      let payload = { ...newLink, created_by: user?.id };
-      let { data, error } = await SB.from('custom_links').insert(payload).select().single();
-      // Retry without newer columns if the schema patch hasn't been run yet
-      while (error && /(day_id|section)/.test(error.message || '')) {
-        const missing = /day_id/.test(error.message) ? 'day_id' : 'section';
-        const { [missing]: _, ...rest } = payload;
-        payload = rest;
-        ({ data, error } = await SB.from('custom_links').insert(payload).select().single());
-      }
-      if (!error && data) {
-        CUSTOM_LINKS = CUSTOM_LINKS.filter(l => !l.id.startsWith('local_'));
+      try {
+        const user = (await SB.auth.getUser()).data.user;
+        let payload = { ...newLink, created_by: user?.id };
+        let { data, error } = await SB.from('custom_links').insert(payload).select().single();
+        // Retry without newer columns if the schema patch hasn't been run yet
+        while (error && /(day_id|section)/.test(error.message || '')) {
+          const missing = /day_id/.test(error.message) ? 'day_id' : 'section';
+          const { [missing]: _, ...rest } = payload;
+          payload = rest;
+          ({ data, error } = await SB.from('custom_links').insert(payload).select().single());
+        }
+        if (error) throw error;
+        CUSTOM_LINKS = CUSTOM_LINKS.filter(l => l.id !== localId);
         CUSTOM_LINKS.push(data);
-      } else if (error) {
-        console.error('[Data] addCustomLink error:', error);
+      } catch (e) {
+        console.warn('[Data] addCustomLink server write failed, queued for retry:', e.message || e);
+        const user = (await SB.auth.getUser()).data.user;
+        await enqueue('addCustomLink', { localId, row: { ...newLink, created_by: user?.id } });
       }
+    } else {
+      const user = (await SB.auth.getUser()).data.user;
+      await enqueue('addCustomLink', { localId, row: { ...newLink, created_by: user?.id } });
     }
     await DB.setMeta(CACHE_KEYS.links, CUSTOM_LINKS);
   }
@@ -1774,15 +2105,32 @@ const Data = (() => {
     if (section !== undefined) patch.section = section || null;
     Object.assign(CUSTOM_LINKS[idx], patch);
     if (navigator.onLine) {
-      const { error } = await SB.from('custom_links').update(patch).eq('id', id);
-      if (error) console.error('[Data] updateCustomLink error:', error);
+      try {
+        const { error } = await SB.from('custom_links').update(patch).eq('id', id);
+        if (error) throw error;
+      } catch (e) {
+        console.warn('[Data] updateCustomLink server write failed, queued for retry:', e.message || e);
+        await enqueue('updateCustomLink', { id, patch });
+      }
+    } else {
+      await enqueue('updateCustomLink', { id, patch });
     }
     await DB.setMeta(CACHE_KEYS.links, CUSTOM_LINKS);
   }
 
   async function deleteCustomLink(id) {
     CUSTOM_LINKS = CUSTOM_LINKS.filter(l => l.id !== id);
-    if (navigator.onLine) await SB.from('custom_links').delete().eq('id', id);
+    if (navigator.onLine) {
+      try {
+        const { error } = await SB.from('custom_links').delete().eq('id', id);
+        if (error) throw error;
+      } catch (e) {
+        console.warn('[Data] deleteCustomLink server write failed, queued for retry:', e.message || e);
+        await enqueue('deleteCustomLink', { id });
+      }
+    } else {
+      await enqueue('deleteCustomLink', { id });
+    }
     await DB.setMeta(CACHE_KEYS.links, CUSTOM_LINKS);
   }
 
@@ -1962,6 +2310,8 @@ const Data = (() => {
 
   return {
     init, loadTrips,
+    // Offline write queue
+    flushQueue, getPendingCount,
     // Days
     getDays, updateDay, updateStory, deleteStory, addDay, deleteDay, getDayContents,
     getVisitedCountries, toggleVisitedCountry,
