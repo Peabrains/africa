@@ -450,12 +450,15 @@ const BookingsScreen = (() => {
             </span>
           </div>
           ${it.status === 'partial' ? `
-          <div style="display:flex;align-items:center;gap:6px;margin:3px 0 0 46px">
+          <div style="display:flex;align-items:center;gap:6px;margin:4px 0 0 0">
             <span style="font-size:9.5px;color:var(--text-muted);flex-shrink:0">Paid</span>
-            <div style="flex:1;min-width:24px;max-width:100px;height:4px;background:var(--surface-raised);border-radius:100px;overflow:hidden">
+            <div style="flex:1;min-width:24px;height:4px;background:var(--surface-raised);border-radius:100px;overflow:hidden">
               <div style="width:${pct}%;height:100%;background:var(--warning-text)"></div>
             </div>
-            <span style="font-size:10px;color:var(--text-muted);flex-shrink:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.currency} ${fmtMoney(it.paidAmount)}</span>
+            <span style="font-size:9.5px;color:var(--text-muted);flex-shrink:0">${Math.round(pct)}%</span>
+            <span style="display:flex;align-items:center;flex-shrink:0">
+              ${formatMoneyAligned(it.currency, it.paidAmount)}
+            </span>
           </div>` : ''}`;
         wrap.addEventListener('click', () => {
           if (it.type === 'stop') {
@@ -692,15 +695,23 @@ const BookingsScreen = (() => {
       const catSummary = document.createElement('div');
       catSummary.style.cssText = 'padding:10px var(--s4) 12px;border-bottom:1px solid var(--border-subtle)';
       catSummary.innerHTML = `
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
-          ${Object.entries(byCat).map(([cat, amt]) => `
-            <span style="display:inline-flex;align-items:center;gap:5px;background:var(--surface-raised);border-radius:100px;padding:4px 10px 4px 8px;font-size:11px">
-              <span style="width:7px;height:7px;border-radius:50%;background:${EXPENSE_CAT_COLORS[cat]||'var(--text-muted)'};flex-shrink:0"></span>
-              <span style="color:var(--text-secondary)">${cat}</span>
-              <span style="font-weight:600;color:var(--text-primary)">${cur} ${fmtMoney(amt)}</span>
-            </span>`).join('')}
+        <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:10px">
+          ${Object.entries(byCat).map(([cat, amt]) => {
+            const pct = grandTotal ? Math.round(amt / grandTotal * 100) : 0;
+            return `
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-secondary);min-width:0">
+                <span style="width:8px;height:8px;border-radius:50%;background:${EXPENSE_CAT_COLORS[cat]||'var(--text-muted)'};flex-shrink:0"></span>
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cat}</span>
+              </span>
+              <span style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+                <span style="font-size:11px;color:var(--text-muted);width:28px;text-align:right">${pct}%</span>
+                ${formatMoneyAligned(cur, amt)}
+              </span>
+            </div>`;
+          }).join('')}
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;border-top:1px solid var(--border-subtle)">
           <span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Total</span>
           <span style="font-size:16px;font-weight:600;color:var(--text-primary)">${cur} ${fmtMoney(grandTotal)}</span>
         </div>`;
