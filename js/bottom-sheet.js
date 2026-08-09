@@ -428,7 +428,9 @@ const BottomSheet = (() => {
       ${field('Platform','e-platform',td.platform||'','text','e.g. Platform 2')}
       ` : ''}
       ${field(isPlane?'Departure airport':'Origin','e-origin',td.origin||'','text',isPlane?'e.g. NBO':'e.g. Shin-Osaka')}
+      ${isPlane ? field('Departure terminal','e-depterminal',td.depTerminal||'','text','e.g. 1 (shown until AeroDataBox verifies)') : ''}
       ${field(isPlane?'Arrival airport':'Destination','e-destination',td.destination||'','text',isPlane?'e.g. JRO':'e.g. Kii-Tanabe')}
+      ${isPlane ? field('Arrival terminal','e-arrterminal',td.arrTerminal||'','text','e.g. 2 (shown until AeroDataBox verifies)') : ''}
       ${field('Arrive time','e-arrive',/^\d{2}:\d{2}$/.test(td.arriveTime||'')?td.arriveTime:'','time')}
       <div class="bs-edit-group" style="position:relative">
         <label class="bs-edit-label" for="e-arrivetz">Arrival timezone</label>
@@ -458,7 +460,9 @@ const BottomSheet = (() => {
       </div>
       ` : ''}
       ${field(isPlane?'Departure airport':'Origin (boarding station)','a-origin',td.origin||'','text',isPlane?'e.g. NBO':'e.g. Shin-Osaka')}
+      ${isPlane ? field('Departure terminal','a-depterminal',td.depTerminal||'','text','e.g. 1 (shown until AeroDataBox verifies)') : ''}
       ${field(isPlane?'Arrival airport':'Destination (alighting)','a-destination',td.destination||'','text',isPlane?'e.g. JRO':'e.g. Kii-Tanabe')}
+      ${isPlane ? field('Arrival terminal','a-arrterminal',td.arrTerminal||'','text','e.g. 2 (shown until AeroDataBox verifies)') : ''}
       ${field('Arrive time','a-arrive',td.arriveTime||'','time')}
       <div class="bs-edit-group" style="position:relative">
         <label class="bs-edit-label" for="a-arrivetz">Arrival timezone</label>
@@ -827,6 +831,10 @@ const BottomSheet = (() => {
             seatReservation: body.querySelector('#e-seatres')?.checked || false,
             jrPass:          body.querySelector('#e-jrpass')?.checked !== false,
           }),
+          ...(isPlane ? {
+            depTerminal: g('e-depterminal'),
+            arrTerminal: g('e-arrterminal'),
+          } : {}),
           origin:         g('e-origin'),
           destination:    g('e-destination'),
           arriveTime:     body.querySelector('#e-arrive')?.value || '',
@@ -1005,6 +1013,10 @@ const BottomSheet = (() => {
       const numberField = g('a-trainno');
       const trainDetail = hasTrainDetail ? {
         ...(isPlane ? {} : { seatReservation: body.querySelector('#a-seatres')?.checked || false }),
+        ...(isPlane ? {
+          depTerminal: g('a-depterminal'),
+          arrTerminal: g('a-arrterminal'),
+        } : {}),
         origin:      g('a-origin'),
         destination: g('a-destination'),
         arriveTime:  body.querySelector('#a-arrive')?.value || '',
@@ -1276,6 +1288,9 @@ const BottomSheet = (() => {
     // Exposed so other screens (e.g. trip creation) can reuse the same
     // searchable, validated comboboxes instead of duplicating this logic.
     wireTzCombobox, wireCurrencyCombobox, getAllZones, getAllCurrencies,
+    // Exposed so the compact itinerary overnight card can open the
+    // driver/front-desk popup directly, without first opening the edit sheet.
+    showAccommodationCard,
   };
 })();
 
