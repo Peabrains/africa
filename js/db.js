@@ -145,8 +145,8 @@ const DB = (() => {
     clearDexPhotos: () => clear('dexPhotos'),
 
     /* Bucket List — items + one photo per item */
-    loadBucket: () => getMeta('bucketItems').then(v => v || []),
-    saveBucket: (items) => setMeta('bucketItems', items),
+    loadBucket: (key = 'bucketItems') => getMeta(key).then(v => v || []),
+    saveBucket: (items, key = 'bucketItems') => setMeta(key, items),
     saveBucketPhoto: (photoId, dataUrl) => put('bucketPhotos', { id: photoId, dataUrl, savedAt: Date.now() }),
     loadBucketPhoto: (photoId) => open().then(() => new Promise((res, rej) => {
       const req = tx('bucketPhotos').get(photoId);
