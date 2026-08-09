@@ -517,7 +517,9 @@ const Data = (() => {
         status: fd?.status || (s.is_booked ? 'booked' : ''),
         ref:    fd?.ref || '',
         cost:   fd?.cost ?? null,
+        costCurrency: fd?.costCurrency || null,
         deadline: fd?.deadline || null,
+        payment: fd?.payment || null,
       },
       // flight detail fields itinerary.js uses
       ...(fd ? {
@@ -604,7 +606,9 @@ const Data = (() => {
         ...(stop.airline           ? { airline: stop.airline } : {}),
         ...(stop.booking?.ref      ? { ref: stop.booking.ref } : {}),
         ...(stop.booking?.cost     != null ? { cost: stop.booking.cost } : {}),
+        ...(stop.booking?.costCurrency ? { costCurrency: stop.booking.costCurrency } : {}),
         ...(stop.booking?.deadline ? { deadline: stop.booking.deadline } : {}),
+        ...(stop.booking?.payment  ? { payment: stop.booking.payment } : {}),
       } : null,
     };
 
@@ -669,7 +673,10 @@ const Data = (() => {
         if ('status'   in changes.booking) merged.status   = changes.booking.status || undefined;
         if ('ref'      in changes.booking) { if (changes.booking.ref)      merged.ref      = changes.booking.ref;      else delete merged.ref; }
         if ('cost'     in changes.booking) { if (changes.booking.cost != null) merged.cost = changes.booking.cost;     else delete merged.cost; }
+        if ('costCurrency' in changes.booking) { if (changes.booking.costCurrency) merged.costCurrency = changes.booking.costCurrency; else delete merged.costCurrency; }
         if ('deadline' in changes.booking) { if (changes.booking.deadline) merged.deadline = changes.booking.deadline; else delete merged.deadline; }
+        // Payment is independent of booking status — see bottom-sheet.js note.
+        if ('payment'  in changes.booking) { if (changes.booking.payment)  merged.payment  = changes.booking.payment;  else delete merged.payment; }
       }
       if ('trainDetail' in changes) {
         if (changes.trainDetail) merged.trainDetail = changes.trainDetail;
@@ -2296,6 +2303,95 @@ const Data = (() => {
   }
   function getTripCurrency() { return CURRENT_TRIP?.currency || 'USD'; }
 
+  /* ── EXCHANGE RATES (manual, per-trip) ───────────────────────
+     Deliberately not a live FX API — nothing here is transactional,
+     it's a reference total on the Payments summary, so a rate you set
+     once and can edit any time is simpler and has one less external
+     dependency to babysit (same reasoning as EXCHANGE_RATE_JPY already
+     used for the flight-price watch). Rate = how many units of the
+     trip's default currency one unit of the foreign currency is worth. */
+  function getExchangeRates() { return CURRENT_TRIP?.settings?.exchangeRates || {}; }
+  async function setExchangeRate(currencyCode, rateToTripCurrency) {
+    if (!CURRENT_TRIP) return;
+    const rates = { ...(CURRENT_TRIP.settings?.exchangeRates || {}) };
+    if (rateToTripCurrency == null || isNaN(rateToTripCurrency)) delete rates[currencyCode];
+    else rates[currencyCode] = rateToTripCurrency;
+    const newSettings = { ...(CURRENT_TRIP.settings || {}), exchangeRates: rates };
+    CURRENT_TRIP.settings = newSettings;
+    if (navigator.onLine) {
+      const { error } = await SB.from('trips').update({ settings: newSettings }).eq('id', CURRENT_TRIP.id);
+      if (error) { console.error('[Data] setExchangeRate error:', error); throw error; }
+    }
+  }
+  // Converts an amount in `currency` to the trip's default currency.
+  // Same currency as trip default → passthrough, rate 1. Otherwise uses
+  // the manual rate table; returns null (not 0) when no rate is set yet,
+  // so the UI can distinguish "worth zero" from "can't convert this".
+  function convertToTripCurrency(amount, currency) {
+    const tripCur = getTripCurrency();
+    if (!currency || currency === tripCur) return amount;
+    const rate = getExchangeRates()[currency];
+    if (rate == null) return null;
+    return amount * rate;
+  }
+
+  /* ── PAYMENTS SUMMARY ─────────────────────────────────────────
+     Pulls every stop + overnight that has a cost set, groups by
+     payment status, and totals paid/outstanding — converting to the
+     trip's default currency where the entry's own currency differs. */
+  function getPaymentsSummary() {
+    const tripCur = getTripCurrency();
+    const items = [];
+
+    STOPS.map(normaliseStop).forEach(s => {
+      if (!s.booking?.cost) return;
+      const cur = s.booking.costCurrency || tripCur;
+      const payment = s.booking.payment || { status: 'unpaid' };
+      const paidAmt = payment.status === 'paid' ? s.booking.cost
+                    : payment.status === 'partial' ? (payment.amountPaid || 0)
+                    : 0;
+      items.push({
+        id: s.id, name: s.name, type: 'stop', dayId: s.dayId,
+        cost: s.booking.cost, currency: cur,
+        status: payment.status || 'unpaid', paidAmount: paidAmt,
+      });
+    });
+
+    Object.entries(OVERNIGHTS).forEach(([dayId, o]) => {
+      if (!o.cost) return;
+      const cur = o.cost_currency || tripCur;
+      const status = o.payment_status || 'unpaid';
+      const paidAmt = status === 'paid' ? o.cost : status === 'partial' ? (o.amount_paid || 0) : 0;
+      items.push({
+        id: o.id, name: o.name, type: 'overnight', dayId,
+        cost: o.cost, currency: cur,
+        status, paidAmount: paidAmt,
+      });
+    });
+
+    let totalPaidConverted = 0, totalOutstandingConverted = 0;
+    let hasUnconvertible = false;
+    items.forEach(it => {
+      const outstanding = it.cost - it.paidAmount;
+      const paidC = convertToTripCurrency(it.paidAmount, it.currency);
+      const outC  = convertToTripCurrency(outstanding, it.currency);
+      if (paidC == null || outC == null) { hasUnconvertible = true; return; }
+      totalPaidConverted += paidC;
+      totalOutstandingConverted += outC;
+    });
+
+    const dayIds = DAYS.map(d => d.id);
+    items.sort((a, b) => dayIds.indexOf(a.dayId) - dayIds.indexOf(b.dayId));
+
+    return {
+      items,
+      tripCurrency: tripCur,
+      totalPaid: totalPaidConverted,
+      totalOutstanding: totalOutstandingConverted,
+      hasUnconvertible, // true if some item's currency has no exchange rate set yet
+    };
+  }
+
   async function updateTripDetails(changes) {
     if (!CURRENT_TRIP) return;
     const patch = {};
@@ -2359,6 +2455,7 @@ const Data = (() => {
     applyTripTheme,
     // Trips
     getTrips, getCurrentTrip, switchTrip, createTrip, updateTripDetails, getTripCurrency, deleteTrip,
+    getExchangeRates, setExchangeRate, convertToTripCurrency, getPaymentsSummary,
     getTripMembers, inviteMember, removeMember,
     // Trip info
     getTripName, setTripName,
