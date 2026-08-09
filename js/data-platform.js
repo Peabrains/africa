@@ -500,7 +500,7 @@ const Data = (() => {
       dayId:         s.day_id,
       segment:       parentDay?.segment || null,   // country/segment lives on the day, not the stop
       locality:      parentDay?.locality || null,  // for auto-color grouping on the map
-      timeZone:      s.timezone || CURRENCY_TZ[CURRENT_TRIP?.currency] || 'EAT',
+      timeZone:      s.timezone || CURRENT_TRIP?.settings?.defaultTimezone || CURRENCY_TZ[CURRENT_TRIP?.currency] || 'EAT',
       transportType: s.transport_type || 'walk',
       needsBooking:  s.needs_booking || false,
       isBooked:      s.is_booked || false,
@@ -593,17 +593,18 @@ const Data = (() => {
       name:           stop.name,
       activity:       stop.activity || '',
       time:           stop.time || '',
-      timezone:       stop.timeZone || CURRENCY_TZ[CURRENT_TRIP?.currency] || 'EAT',
+      timezone:       stop.timeZone || CURRENT_TRIP?.settings?.defaultTimezone || CURRENCY_TZ[CURRENT_TRIP?.currency] || 'EAT',
       transport:      stop.transport || '',
       transport_type: stop.transportType || 'walk',
       notes:          stop.notes || '',
       needs_booking:  stop.needsBooking || false,
       is_booked:      stop.booking?.status === 'booked' || false,
       category:       stop.category || null,
-      flight_detail:  (stop.trainDetail || stop.flightNo || stop.airline || stop.booking?.ref || stop.booking?.cost || stop.booking?.deadline) ? {
+      flight_detail:  (stop.trainDetail || stop.flightNo || stop.airline || stop.booking?.ref || stop.booking?.cost || stop.booking?.deadline || stop.booking?.status || stop.booking?.payment) ? {
         ...(stop.trainDetail ? { trainDetail: stop.trainDetail } : {}),
         ...(stop.flightNo          ? { flight_no: stop.flightNo } : {}),
         ...(stop.airline           ? { airline: stop.airline } : {}),
+        ...(stop.booking?.status   ? { status: stop.booking.status } : {}),
         ...(stop.booking?.ref      ? { ref: stop.booking.ref } : {}),
         ...(stop.booking?.cost     != null ? { cost: stop.booking.cost } : {}),
         ...(stop.booking?.costCurrency ? { costCurrency: stop.booking.costCurrency } : {}),
@@ -2190,7 +2191,7 @@ const Data = (() => {
     return getJrPassLegs().filter(l => l.dayId === dayId);
   }
 
-  async function createTrip({ name, startDate, endDate, countries, coverEmoji, currency }) {
+  async function createTrip({ name, startDate, endDate, countries, coverEmoji, currency, defaultTimezone }) {
     const user = (await SB.auth.getUser()).data.user;
     if (!user) throw new Error('Not signed in');
     const { data, error } = await SB.from('trips').insert({
@@ -2202,6 +2203,7 @@ const Data = (() => {
       currency: currency || 'USD',
       status: 'upcoming',
       owner_id: user.id,
+      settings: defaultTimezone ? { defaultTimezone } : {},
     }).select().single();
     if (error) throw error;
     TRIPS.push(data);
@@ -2302,6 +2304,20 @@ const Data = (() => {
     }
   }
   function getTripCurrency() { return CURRENT_TRIP?.currency || 'USD'; }
+  // Set once at trip creation (see createTrip), used as the default for
+  // every new stop/day instead of guessing from currency (which breaks
+  // for any country whose currency isn't already in a hardcoded map —
+  // see CURRENCY_TZ / CURRENCY_TZ_IANA, which only ever covered JPY/THB).
+  function getDefaultTimezone() { return CURRENT_TRIP?.settings?.defaultTimezone || null; }
+  async function setDefaultTimezone(tz) {
+    if (!CURRENT_TRIP) return;
+    const newSettings = { ...(CURRENT_TRIP.settings || {}), defaultTimezone: tz };
+    CURRENT_TRIP.settings = newSettings;
+    if (navigator.onLine) {
+      const { error } = await SB.from('trips').update({ settings: newSettings }).eq('id', CURRENT_TRIP.id);
+      if (error) { console.error('[Data] setDefaultTimezone error:', error); throw error; }
+    }
+  }
 
   /* ── EXCHANGE RATES (manual, per-trip) ───────────────────────
      Deliberately not a live FX API — nothing here is transactional,
@@ -2455,6 +2471,7 @@ const Data = (() => {
     applyTripTheme,
     // Trips
     getTrips, getCurrentTrip, switchTrip, createTrip, updateTripDetails, getTripCurrency, deleteTrip,
+    getDefaultTimezone, setDefaultTimezone,
     getExchangeRates, setExchangeRate, convertToTripCurrency, getPaymentsSummary,
     getTripMembers, inviteMember, removeMember,
     // Trip info
