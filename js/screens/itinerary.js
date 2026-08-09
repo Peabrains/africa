@@ -122,12 +122,24 @@ const ItineraryScreen = (() => {
     const delayed = delayedDep || delayedArr;
 
     const depShown = verified ? (sched.dep_revised_local || sched.dep_scheduled_local) : (stop.time || '—');
-    const arrShown = verified ? (sched.arr_revised_local || sched.arr_scheduled_local) : null;
+    // Was hardcoded to null whenever unverified, even though the edit
+    // form has always had an "Arrive time" field (trainDetail.arriveTime)
+    // — meaning anything typed there before AeroDataBox verification
+    // silently never showed anywhere. Now falls back to it, same as
+    // depShown already falls back to stop.time.
+    const arrShown = verified ? (sched.arr_revised_local || sched.arr_scheduled_local) : (stop.trainDetail?.arriveTime || null);
 
     const originLabel = friendlyAirportLabel(stop.origin, verified ? sched.dep_airport_name : null);
     const destLabel    = friendlyAirportLabel(stop.destination, verified ? sched.arr_airport_name : null);
     const origCode = (verified && sched.dep_iata) || stop.origin || '—';
     const destCode = (verified && sched.arr_iata) || stop.destination || '—';
+
+    // Terminal: prefer AeroDataBox's verified value, otherwise fall back
+    // to whatever was manually typed in the edit form (depTerminal/
+    // arrTerminal on trainDetail) — previously there was no fallback
+    // at all, so a manually-entered terminal never appeared pre-verification.
+    const depTerminal = (verified && sched.dep_terminal) || stop.trainDetail?.depTerminal || null;
+    const arrTerminal = (verified && sched.arr_terminal) || stop.trainDetail?.arrTerminal || null;
 
     let badge = '';
     if (state === 'A') badge = `<span class="flight-card-badge flight-card-badge--warn">Not yet verified</span>`;
@@ -135,7 +147,11 @@ const ItineraryScreen = (() => {
     else if (delayed) badge = `<span class="flight-card-badge flight-card-badge--danger">⚠ Delayed</span>`;
 
     const day = Data.getDays().find(d => d.id === stop.dayId);
-    const dateLabel = day ? formatDayDate(day.date) : '';
+    // Compact date, same format as the Reservations tab's cards
+    // (Transport/Activity/Accommodation) — this card previously used
+    // the longer "Sat, 26 Dec 2026" form, which read as a different,
+    // unstandardized format next to those.
+    const dateLabel = day ? formatShortDate(day.date) : '';
     const timeLabel = verified ? `${depShown}–${arrShown || '—'}` : (stop.time || '—');
     const subtitle = [dateLabel, timeLabel].filter(Boolean).join(' · ');
 
@@ -152,7 +168,7 @@ const ItineraryScreen = (() => {
         <div class="flight-card-codes">
           <div class="flight-card-code-block">
             <div class="flight-card-code ${verified ? 'flight-card-code--verified' : ''}">${origCode}</div>
-            <div class="flight-card-terminal">${verified && sched.dep_terminal ? `Terminal ${sched.dep_terminal}` : 'Terminal TBA'}</div>
+            <div class="flight-card-terminal">${depTerminal ? `Terminal ${depTerminal}` : 'Terminal TBA'}</div>
           </div>
           <div class="flight-card-arrow">
             <span class="flight-card-flightno">${stop.flightNo || '—'}</span>
@@ -160,7 +176,7 @@ const ItineraryScreen = (() => {
           </div>
           <div class="flight-card-code-block flight-card-code-block--right">
             <div class="flight-card-code ${verified ? 'flight-card-code--verified' : ''}">${destCode}</div>
-            <div class="flight-card-terminal">${verified && sched.arr_terminal ? `Terminal ${sched.arr_terminal}` : 'Terminal TBA'}</div>
+            <div class="flight-card-terminal">${arrTerminal ? `Terminal ${arrTerminal}` : 'Terminal TBA'}</div>
           </div>
         </div>
         <div class="flight-card-times">
@@ -174,7 +190,7 @@ const ItineraryScreen = (() => {
           <div class="flight-card-times-col flight-card-times-col--right">
             <div class="flight-card-times-label">ARRIVES</div>
             <div class="flight-card-times-val ${delayedArr ? 'flight-card-times-val--delayed' : ''}">
-              ${verified ? `${delayedArr ? `<span class="flight-card-times-old">${sched.arr_scheduled_local}</span>` : ''}${arrShown}` : '—'}
+              ${verified ? `${delayedArr ? `<span class="flight-card-times-old">${sched.arr_scheduled_local}</span>` : ''}${arrShown}` : (arrShown || '—')}
             </div>
           </div>
         </div>
@@ -266,13 +282,20 @@ const ItineraryScreen = (() => {
             ${o.address ? `<p class="overnight-addr">${o.address}</p>` : ''}
           </div>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
-          <span class="badge ${statusCls[o.status]||'badge-open'}">${
-            o.status==='booked'?'✓ Booked':o.status==='urgent'?'⚡ Urgent':o.status==='pending'?'Pending':'Open'
-          }</span>
-          ${o.cost ? `<span class="badge ${paymentCls[payStatus]}" style="font-size:9px">${paymentLbl}</span>` : ''}
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <button class="overnight-show-btn" aria-label="Show to driver or front desk" style="width:30px;height:30px;border-radius:50%;background:var(--surface-raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);flex-shrink:0">${Icons.card('icon-sm')}</button>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            <span class="badge ${statusCls[o.status]||'badge-open'}">${
+              o.status==='booked'?'✓ Booked':o.status==='urgent'?'⚡ Urgent':o.status==='pending'?'Pending':'Open'
+            }</span>
+            ${o.cost ? `<span class="badge ${paymentCls[payStatus]}" style="font-size:9px">${paymentLbl}</span>` : ''}
+          </div>
         </div>
       </div>`;
+    card.querySelector('.overnight-show-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.BottomSheet?.showAccommodationCard?.({ name: o.name, address: o.address, ref: o.ref });
+    });
     card.addEventListener('click', () => BottomSheet.openOvernight(day));
     return card;
   }
