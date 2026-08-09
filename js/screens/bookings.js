@@ -303,7 +303,7 @@ const BookingsScreen = (() => {
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">
                 <span class="badge badge-open" style="font-size:9px;padding:1px 5px">${day?.label||''}</span>
-                <span style="font-size:var(--text-xs);color:var(--text-muted)">${day?.date||''}</span>
+                <span style="font-size:var(--text-xs);color:var(--text-muted)">${day?formatShortDate(day.date):''}</span>
               </div>
               <p style="font-weight:500;font-size:var(--text-sm);color:var(--text-primary)">${stop.name}</p>
               ${stop.trainDetail?.service?`<p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">${stop.trainDetail.service}</p>`:''}
@@ -347,7 +347,7 @@ const BookingsScreen = (() => {
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">
               <span class="badge badge-open" style="font-size:9px;padding:1px 5px">${day?.label||''}</span>
-              <span style="font-size:var(--text-xs);color:var(--text-muted)">${day?.date||''}</span>
+              <span style="font-size:var(--text-xs);color:var(--text-muted)">${day?formatShortDate(day.date):''}</span>
             </div>
             <p style="font-weight:500;font-size:var(--text-sm);color:var(--text-primary)">${stop.name}</p>
             <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:1px">${stop.activity||''}</p>
@@ -488,12 +488,12 @@ const BookingsScreen = (() => {
     const expenses  = Data.getExpenses();
     const totalUSD  = Data.getTotalSpentJPY(); // field name kept for compat, stores USD
     const budgetUSD = Config.BUDGET_MYR || 0;  // BUDGET_MYR stores total USD budget
-    const pct       = Math.min(100, (totalUSD && budgetUSD) ? Math.round(totalUSD/budgetUSD*100) : 0);
     const cur = Data.getTripCurrency();
 
     /* ── Log expense — button + form, now the first thing on the tab ── */
     const addBtn = document.createElement('button');
     addBtn.className = 'btn btn-primary bs-full-btn';
+    addBtn.style.marginTop = 'var(--s3)';
     addBtn.style.marginBottom = 'var(--s3)';
     addBtn.textContent = '+ Log expense';
     frag.appendChild(addBtn);
@@ -546,6 +546,18 @@ const BookingsScreen = (() => {
     });
     addForm.querySelector('#exp-cancel')?.addEventListener('click', () => { addForm.style.display='none'; addBtn.style.display='block'; });
 
+    /* ── Payments — computed early since the summary card above needs
+       it too (itinerary costs are part of "what's actually been paid",
+       not just what's logged in the expense tracker). ── */
+    const paymentsSummary = Data.getPaymentsSummary();
+    // "Total spent" = real money out the door: logged expenses (always
+    // already paid) + whatever's been paid on itinerary bookings so far.
+    // Outstanding itinerary bookings are shown separately, not counted
+    // as "spent" yet since the money hasn't actually moved.
+    const totalSpent = totalUSD + paymentsSummary.totalPaid;
+    const totalOutstanding = paymentsSummary.totalOutstanding;
+    const pctOfBudget = Math.min(100, (totalSpent && budgetUSD) ? Math.round(totalSpent/budgetUSD*100) : 0);
+
     if (!travelers.length) {
       const notice = document.createElement('div');
       notice.className = 'settlement-card';
@@ -559,10 +571,11 @@ const BookingsScreen = (() => {
     summary.style.marginTop = 'var(--s3)';
     let summaryHTML = `
       <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s2);text-transform:uppercase;letter-spacing:.04em;font-weight:500">Total spent</p>
-      <p style="font-size:22px;font-weight:500;color:var(--text-primary)">${cur} ${totalUSD.toLocaleString()}</p>
+      <p style="font-size:22px;font-weight:500;color:var(--text-primary)">${cur} ${Math.round(totalSpent).toLocaleString()}</p>
+      ${totalOutstanding>0?`<p style="font-size:var(--text-xs);color:var(--warning-text);margin-bottom:2px">+ ${cur} ${Math.round(totalOutstanding).toLocaleString()} outstanding on itinerary bookings</p>`:''}
       <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:6px">Budget: ${cur} ${budgetUSD.toLocaleString()}</p>
-      <div class="budget-bar"><div class="budget-fill" style="width:${pct}%;background:${pct>90?'var(--danger-text)':pct>70?'var(--warning-text)':'var(--accent)'}"></div></div>
-      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">${cur} ${Math.max(0,budgetUSD-totalUSD).toLocaleString()} remaining</p>`;
+      <div class="budget-bar"><div class="budget-fill" style="width:${pctOfBudget}%;background:${pctOfBudget>90?'var(--danger-text)':pctOfBudget>70?'var(--warning-text)':'var(--accent)'}"></div></div>
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">${cur} ${Math.max(0,budgetUSD-totalSpent).toLocaleString()} remaining</p>`;
 
     if (travelers.length && expenses.length) {
       const paid = {}; const share = {};
@@ -575,6 +588,7 @@ const BookingsScreen = (() => {
         }
       });
       summaryHTML += `<div style="margin-top:var(--s3);padding-top:var(--s3);border-top:1px solid var(--border-subtle)">`;
+      summaryHTML += `<p style="font-size:10px;color:var(--text-muted);margin-bottom:var(--s2)">Split below covers logged expenses only — itinerary bookings aren't split between travelers yet</p>`;
       travelers.forEach(t => {
         summaryHTML += `<div class="settlement-row"><span style="font-weight:500">${t}</span><span style="color:var(--text-muted)">paid ${cur} ${(paid[t]||0).toLocaleString()} · share ${cur} ${Math.round(share[t]||0).toLocaleString()}</span></div>`;
       });
@@ -602,7 +616,6 @@ const BookingsScreen = (() => {
        and everything logged separately (the expense tracker above),
        each its own collapsible section, same accordion pattern as
        Reservations. ── */
-    const paymentsSummary = Data.getPaymentsSummary();
     frag.appendChild(accordionSection('paymentsItinerary',
       '📋 Itinerary payments',
       `${paymentsSummary.items.filter(i=>i.status==='paid').length}/${paymentsSummary.items.length} paid`,
@@ -611,28 +624,6 @@ const BookingsScreen = (() => {
       '🧾 Other expenses',
       `${expenses.length} logged`,
       renderExpenseLogContent));
-
-    // Overall total — itinerary paid/outstanding + other expenses (which
-    // are, by nature of being logged after the fact, already "paid").
-    const overall = document.createElement('div');
-    overall.className = 'settlement-card';
-    overall.style.marginTop = 'var(--s3)';
-    const overallPaid = paymentsSummary.totalPaid + totalUSD;
-    const overallOutstanding = paymentsSummary.totalOutstanding;
-    overall.innerHTML = `
-      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s2);text-transform:uppercase;letter-spacing:.04em;font-weight:500">Overall total</p>
-      <div style="display:flex;gap:var(--s3)">
-        <div style="flex:1">
-          <p style="font-size:var(--text-xs);color:var(--text-muted)">Paid</p>
-          <p style="font-size:18px;font-weight:500;color:var(--success-text)">${cur} ${Math.round(overallPaid).toLocaleString()}</p>
-        </div>
-        <div style="flex:1">
-          <p style="font-size:var(--text-xs);color:var(--text-muted)">Outstanding</p>
-          <p style="font-size:18px;font-weight:500;color:${overallOutstanding>0?'var(--warning-text)':'var(--text-primary)'}">${cur} ${Math.round(overallOutstanding).toLocaleString()}</p>
-        </div>
-      </div>
-      <p style="font-size:10px;color:var(--text-muted);margin-top:6px">Itinerary bookings (paid + outstanding) plus everything logged in Other expenses</p>`;
-    frag.appendChild(overall);
 
     return frag;
   }
@@ -1031,9 +1022,20 @@ const BookingsScreen = (() => {
       <div class="bs-edit-group"><label class="bs-edit-label">Start date</label><input id="trip-start-input" class="bs-input" type="date" value="${ct?.start_date || ''}"></div>
       <div class="bs-edit-group"><label class="bs-edit-label">End date</label><input id="trip-end-input" class="bs-input" type="date" value="${ct?.end_date || ''}"></div>
       <div class="bs-edit-group"><label class="bs-edit-label">Countries (comma-separated)</label><input id="trip-countries-input" class="bs-input" type="text" value="${(ct?.countries || []).join(', ')}"></div>
-      <div class="bs-edit-group"><label class="bs-edit-label">Currency</label><input id="trip-currency-input" class="bs-input" type="text" value="${ct?.currency || 'USD'}" maxlength="3"></div>
+      <div class="bs-edit-group">
+        <label class="bs-edit-label">Default currency</label>
+        <div style="position:relative"><input id="trip-currency-input" class="bs-input bs-tz-sel" type="text" autocomplete="off" value="${ct?.currency || 'USD'}" placeholder="Search currency…"></div>
+        <p style="font-size:10px;color:var(--text-muted);margin-top:3px">Used for every stop/booking unless overridden on that item</p>
+      </div>
+      <div class="bs-edit-group">
+        <label class="bs-edit-label">Default timezone</label>
+        <div style="position:relative"><input id="trip-timezone-input" class="bs-input bs-tz-sel" type="text" autocomplete="off" value="${Data.getDefaultTimezone?.() || ''}" placeholder="Search city or region…"></div>
+        <p style="font-size:10px;color:var(--text-muted);margin-top:3px">Used for every new stop's time unless overridden on that stop</p>
+      </div>
       <button class="btn btn-primary" id="trip-name-save-btn" style="width:100%;margin-top:var(--s2)">Save trip details</button>`;
     frag.appendChild(tripSection);
+    window.BottomSheet?.wireCurrencyCombobox?.(tripSection.querySelector('#trip-currency-input'));
+    window.BottomSheet?.wireTzCombobox?.(tripSection.querySelector('#trip-timezone-input'));
 
     const resetSection = document.createElement('div');
     resetSection.className = 'settings-section';
@@ -1080,6 +1082,8 @@ const BookingsScreen = (() => {
           countries,
           currency: tripSection.querySelector('#trip-currency-input')?.value?.trim().toUpperCase() || 'USD',
         });
+        const tz = tripSection.querySelector('#trip-timezone-input')?.value?.trim();
+        if (tz) await Data.setDefaultTimezone?.(tz);
         Toast.show('Trip details updated','success');
         render();
       } catch (e) {
