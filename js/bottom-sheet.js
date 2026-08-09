@@ -339,7 +339,7 @@ const BottomSheet = (() => {
     return `<div class="bs-edit-group">
       <label class="bs-edit-label" for="${costId}">Cost</label>
       <div class="bs-time-row">
-        <input id="${costId}" class="bs-input" type="number" value="${costVal||''}" placeholder="e.g. 18000" style="flex:1.4">
+        <input id="${costId}" class="bs-input" type="number" step="0.01" value="${costVal||''}" placeholder="e.g. 18000" style="flex:1.4">
         <div style="position:relative;flex:1;min-width:0">
           <input id="${curId}" class="bs-input bs-tz-sel" type="text" autocomplete="off" value="${cur}" placeholder="Currency…">
         </div>
@@ -845,12 +845,12 @@ const BottomSheet = (() => {
           ...stop.booking,
           status:       g('e-status'),
           ref:          g('e-ref'),
-          cost:         parseInt(g('e-cost'))||null,
+          cost:         parseFloat(g('e-cost'))||null,
           costCurrency: body.querySelector('#e-cost-cur')?.value || Data.getTripCurrency?.() || 'USD',
           deadline:     g('e-deadline')||null,
           payment: {
             status:     g('e-paystatus') || 'unpaid',
-            amountPaid: g('e-paystatus') === 'partial' ? (parseInt(g('e-paidamt'))||0) : null,
+            amountPaid: g('e-paystatus') === 'partial' ? (parseFloat(g('e-paidamt'))||0) : null,
           },
         },
       };
@@ -908,10 +908,10 @@ const BottomSheet = (() => {
         address:         g('o-address'),
         status:          g('o-status')||'open',
         ref:             g('o-ref'),
-        cost:            parseInt(g('o-cost'))||null,
+        cost:            parseFloat(g('o-cost'))||null,
         cost_currency:   body.querySelector('#o-cost-cur')?.value || Data.getTripCurrency?.() || 'USD',
         payment_status:  paystatus,
-        amount_paid:     paystatus === 'partial' ? (parseInt(g('o-paidamt'))||0) : null,
+        amount_paid:     paystatus === 'partial' ? (parseFloat(g('o-paidamt'))||0) : null,
         deadline:        g('o-deadline')||null,
       };
       patch.luggage_forwarding = lfToggle?.checked ? {
@@ -921,7 +921,7 @@ const BottomSheet = (() => {
         cutoff:   g('o-lf-cutoff'),
         pickup:   g('o-lf-pickup'),
         courier:  g('o-lf-courier'),
-        cost:     parseInt(g('o-lf-cost'))||null,
+        cost:     parseFloat(g('o-lf-cost'))||null,
         status:   g('o-lf-status') || 'not_arranged',
         notes:    g('o-lf-notes'),
       } : null;
@@ -1027,12 +1027,12 @@ const BottomSheet = (() => {
         booking: {
           status:       g('a-status') || undefined,
           ref:          g('a-ref') || undefined,
-          cost:         parseInt(g('a-cost'))||null,
+          cost:         parseFloat(g('a-cost'))||null,
           costCurrency: body.querySelector('#a-cost-cur')?.value || Data.getTripCurrency?.() || 'USD',
           deadline:     g('a-deadline')||null,
           payment: {
             status:     g('a-paystatus') || 'unpaid',
-            amountPaid: g('a-paystatus') === 'partial' ? (parseInt(g('a-paidamt'))||0) : null,
+            amountPaid: g('a-paystatus') === 'partial' ? (parseFloat(g('a-paidamt'))||0) : null,
           },
         },
       });
