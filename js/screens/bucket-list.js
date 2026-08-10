@@ -327,10 +327,53 @@ const BucketListScreen = (() => {
   function updateCategoryBadge(category) {
     const badge = root?.querySelector(`[data-cat-count="${category}"]`);
     if (!badge) return;
+    const [prevDone, prevTotal] = (badge.textContent || '0/0').split('/').map(Number);
+    const wasComplete = prevTotal > 0 && prevDone === prevTotal;
+
     const q = searchQuery.trim().toLowerCase();
     const inCat = Data.getBucketItems().filter(i => matchesQuery(i, q) && (i.category || 'Other') === category);
     const doneCount = inCat.filter(i => i.done).length;
-    badge.textContent = `${doneCount}/${inCat.length}`;
+    const total = inCat.length;
+    badge.textContent = `${doneCount}/${total}`;
+
+    const justCompleted = total > 0 && doneCount === total && !wasComplete;
+    if (justCompleted) celebrateCategoryComplete(category);
+  }
+
+  // Generic on purpose — reuses categoryIconHTML (same icon the header
+  // already shows) and the category's own name, so this works unmodified
+  // for any category on any trip. No trip-specific art.
+  function celebrateCategoryComplete(category) {
+    const section = root?.querySelector(`[data-cat-section="${category}"]`);
+    if (!section) return;
+
+    const fx = document.createElement('div');
+    fx.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:5';
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:absolute;inset:0;background:rgba(28,26,24,.1);animation:bk-cat-fade .35s ease-in 1.15s forwards';
+
+    const ripple = document.createElement('div');
+    ripple.style.cssText = 'position:absolute;left:50%;top:50%;width:70px;height:70px;border-radius:50%;border:2px solid var(--accent);animation:bk-cat-ripple .55s ease-out forwards';
+
+    const medallion = document.createElement('div');
+    medallion.style.cssText = 'position:absolute;left:50%;top:50%;width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.97);border:3px solid var(--accent);color:var(--accent);display:flex;align-items:center;justify-content:center;animation:bk-cat-medallion-in .48s cubic-bezier(.34,1.56,.64,1) forwards';
+    const iconInner = document.createElement('div');
+    iconInner.style.cssText = 'width:28px;height:28px';
+    iconInner.innerHTML = categoryIconHTML(category, 'icon-lg');
+    medallion.appendChild(iconInner);
+
+    const label = document.createElement('div');
+    label.style.cssText = 'position:absolute;left:50%;top:calc(50% + 46px);transform:translateX(-50%);text-align:center;opacity:0;animation:bk-cat-text-in .3s ease-out .3s forwards';
+    label.innerHTML = `<div style="font-size:14px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.03em">${category}</div><div style="font-size:10px;font-weight:600;color:var(--text-muted);margin-top:1px">Complete</div>`;
+
+    overlay.appendChild(ripple);
+    overlay.appendChild(medallion);
+    overlay.appendChild(label);
+    fx.appendChild(overlay);
+    section.appendChild(fx);
+
+    setTimeout(() => fx.remove(), 1600);
   }
 
   async function handleToggle(id) {
@@ -472,8 +515,12 @@ const BucketListScreen = (() => {
         if (chevron) chevron.style.transform = `rotate(${nowCollapsed ? '-90deg' : '0deg'})`;
       });
 
-      wrap.appendChild(head);
-      wrap.appendChild(body);
+      const section = document.createElement('div');
+      section.style.position = 'relative';
+      section.dataset.catSection = cat;
+      section.appendChild(head);
+      section.appendChild(body);
+      wrap.appendChild(section);
     });
 
     return wrap;
