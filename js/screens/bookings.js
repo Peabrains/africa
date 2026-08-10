@@ -45,6 +45,20 @@ const BookingsScreen = (() => {
     return (n || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   }
 
+  // "Also show in my currency" — quiet secondary line under a total,
+  // only rendered when the user has a currency preference set AND a
+  // live rate is already cached for the given from-currency. If the
+  // rate hasn't resolved yet (or the fetch failed), this renders
+  // nothing rather than a stale guess — the Budget tab dispatcher
+  // re-renders once the rate comes in, so it appears a beat later.
+  function approxCurrencyLine(amount, fromCurrency, size='13px', margin='margin-top:1px') {
+    const userCur = Data.getUserCurrency?.();
+    if (!userCur || userCur === fromCurrency) return '';
+    const rate = Data.getCachedLiveRate?.(fromCurrency, userCur);
+    if (!rate) return '';
+    return `<p style="font-size:${size};color:var(--text-muted);${margin}">≈ ${userCur} ${fmtMoney(amount*rate)}</p>`;
+  }
+
   // Currency code fixed-width + left-aligned, amount right-aligned with
   // tabular-nums (equal-width digits) — so "TWD" starts at the same X
   // position on every row and the numbers line up on their digits like
@@ -616,6 +630,7 @@ const BookingsScreen = (() => {
     let summaryHTML = `
       <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s2);text-transform:uppercase;letter-spacing:.04em;font-weight:500">Total spent</p>
       <p style="font-size:22px;font-weight:500;color:var(--text-primary)">${cur} ${fmtMoney(totalSpent)}</p>
+      ${approxCurrencyLine(totalSpent, cur, '13px', 'margin-bottom:4px')}
       ${totalOutstanding>0?`<p style="font-size:var(--text-xs);color:var(--warning-text);margin-bottom:2px">+ ${cur} ${fmtMoney(totalOutstanding)} outstanding on itinerary bookings</p>`:''}
       <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:6px">Budget: ${cur} ${fmtMoney(budgetUSD)}</p>
       <div class="budget-bar"><div class="budget-fill" style="width:${pctOfBudget}%;background:${pctOfBudget>90?'var(--danger-text)':pctOfBudget>70?'var(--warning-text)':'var(--accent)'}"></div></div>
@@ -714,7 +729,10 @@ const BookingsScreen = (() => {
         </div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;border-top:1px solid var(--border-subtle)">
           <span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Total</span>
-          <span style="font-size:16px;font-weight:600;color:var(--text-primary)">${cur} ${fmtMoney(grandTotal)}</span>
+          <span style="text-align:right">
+            <span style="display:block;font-size:16px;font-weight:600;color:var(--text-primary)">${cur} ${fmtMoney(grandTotal)}</span>
+            ${approxCurrencyLine(grandTotal, cur, '10.5px', 'margin-top:0')}
+          </span>
         </div>`;
       frag.appendChild(catSummary);
 
@@ -1057,6 +1075,28 @@ const BookingsScreen = (() => {
     tSection.appendChild(addRow);
     frag.appendChild(tSection);
 
+    /* ── Your currency (personal preference, not trip-specific) ── */
+    const yourCurSection = document.createElement('div');
+    yourCurSection.className = 'settings-section';
+    const savedUserCur = Data.getUserCurrency?.() || '';
+    yourCurSection.innerHTML = `
+      <p class="settings-section-title">Your currency</p>
+      <div class="bs-edit-group">
+        <label class="bs-edit-label">Also show totals in</label>
+        <input id="your-currency-input" class="bs-input bs-tz-sel" type="text" autocomplete="off" value="${savedUserCur}" placeholder="Search currency…">
+        <p style="font-size:10.5px;color:var(--text-muted);margin-top:4px">Applies across every trip — Budget totals will show both the trip's own currency and this one side by side. Leave blank to turn this off.</p>
+        <p style="font-size:9.5px;color:var(--text-muted);margin-top:6px;opacity:.6">Rates by <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener" style="color:inherit">exchangerate-api.com</a>, updated daily</p>
+      </div>
+      <button class="btn btn-primary" id="your-currency-save-btn" style="width:100%;margin-top:var(--s2)">Save</button>`;
+    frag.appendChild(yourCurSection);
+    window.BottomSheet?.wireCurrencyCombobox?.(yourCurSection.querySelector('#your-currency-input'));
+    yourCurSection.querySelector('#your-currency-save-btn')?.addEventListener('click', () => {
+      const val = yourCurSection.querySelector('#your-currency-input')?.value?.trim().toUpperCase() || '';
+      Data.setUserCurrency?.(val || null);
+      Toast.show(val ? `Now also showing totals in ${val}` : 'Turned off', 'success');
+      render();
+    });
+
     /* ── Trip members (invite flow) ──────────────────────────── */
     const membersSection = document.createElement('div');
     membersSection.className = 'settings-section';
@@ -1245,7 +1285,14 @@ const BookingsScreen = (() => {
     const content = document.createElement('div');
     content.style.padding = '0 var(--s3)';
     if      (activeTab==='reservations') content.appendChild(renderReservations());
-    else if (activeTab==='budget')       content.appendChild(renderBudget());
+    else if (activeTab==='budget') {
+      content.appendChild(renderBudget());
+      const userCur = Data.getUserCurrency?.();
+      const tripCur = Data.getTripCurrency();
+      if (userCur && userCur !== tripCur && !Data.hasTriedLiveRate?.(tripCur, userCur)) {
+        Data.fetchLiveRate?.(tripCur, userCur).then(rate => { if (rate) render(); });
+      }
+    }
     else if (activeTab==='packing')      content.appendChild(renderPacking());
     else                                 content.appendChild(renderSettings());
     root.appendChild(content);
