@@ -149,3 +149,21 @@ button { font-family:var(--font); cursor:pointer; }
 .icon-md { width:20px; height:20px; }
 .icon-lg { width:24px; height:24px; }
 svg { fill:none; }
+
+/* ─── Bucket list — stamp animation ─────────────────────────── */
+@keyframes bk-stamp-slam {
+  0%   { transform:scale(2.2) rotate(-30deg); opacity:0; }
+  60%  { transform:scale(0.9) rotate(-10deg); opacity:1; }
+  80%  { transform:scale(1.08) rotate(-14deg); }
+  100% { transform:scale(1) rotate(-12deg); }
+}
+@keyframes bk-stamp-ripple {
+  0%   { transform:scale(0.3); opacity:.5; }
+  100% { transform:scale(2.2); opacity:0; }
+}
+.bk-stamp-in { animation:bk-stamp-slam .38s cubic-bezier(.34,1.56,.64,1) forwards; }
+.bk-stamp-ripple {
+  position:absolute; width:36px; height:36px; border-radius:50%;
+  border:2px solid var(--accent); animation:bk-stamp-ripple .5s ease-out forwards;
+  pointer-events:none;
+}
