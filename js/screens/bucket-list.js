@@ -60,32 +60,43 @@ const BucketListScreen = (() => {
     const el = document.createElement('div');
     el.id = `bk-thumb-${item.id}`;
     el.dataset.hasPhoto = hasPhoto ? '1' : '0';
+    el.dataset.done = item.done ? '1' : '0';
     el.style.cssText = `
       width:56px;height:56px;border-radius:12px;flex-shrink:0;position:relative;
       display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;
       border:2px solid ${item.done ? 'var(--accent)' : 'var(--border)'};
       background:${item.done ? 'var(--accent)' : 'var(--surface)'};
-      color:#fff;overflow:hidden;
+      color:#fff;overflow:visible;
     `;
     if (hasPhoto) {
       el.style.background = 'var(--surface-raised)';
       el.style.borderColor = item.done ? 'var(--accent)' : 'var(--border)';
-      el.innerHTML = `<div id="bk-thumb-img-${item.id}" style="width:100%;height:100%;background-size:cover;background-position:center"></div>`;
-      if (item.done) el.appendChild(doneStamp());
+      el.innerHTML = `<div id="bk-thumb-img-${item.id}" style="width:100%;height:100%;border-radius:10px;overflow:hidden;background-size:cover;background-position:center"></div>`;
+      if (item.done) el.appendChild(doneStamp(false));
       loadThumbImage(item.id);
     } else {
-      el.innerHTML = item.done ? Icons.check('icon-sm') : '';
-      if (item.done) el.querySelector('.icon').style.cssText = 'width:22px;height:22px';
+      if (item.done) el.appendChild(doneStamp(false));
       if (!item.done) { el.style.borderStyle = 'dashed'; el.innerHTML = Icons.plus('icon-sm'); el.querySelector('.icon').style.cssText = 'width:20px;height:20px'; el.style.color = 'var(--text-muted)'; }
     }
     return el;
   }
 
-  function doneStamp() {
+  // animate=true plays the stamp-slam + ink-ripple; false renders the
+  // resting state (used on initial paint, where nothing should animate).
+  function doneStamp(animate) {
     const stamp = document.createElement('div');
     stamp.className = 'bk-stamp';
-    stamp.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;pointer-events:none';
-    stamp.innerHTML = `<span style="transform:rotate(-12deg);border:2px solid var(--accent);color:var(--accent);background:rgba(255,255,255,.92);font-size:9px;font-weight:600;letter-spacing:.03em;padding:2px 6px;border-radius:4px;text-transform:uppercase">Done</span>`;
+    stamp.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;pointer-events:none;overflow:visible';
+    if (animate) {
+      const ripple = document.createElement('div');
+      ripple.className = 'bk-stamp-ripple';
+      stamp.appendChild(ripple);
+    }
+    const badge = document.createElement('span');
+    badge.className = animate ? 'bk-stamp-in' : '';
+    badge.style.cssText = 'border:2px solid var(--accent);color:var(--accent);background:rgba(255,255,255,.92);font-size:9px;font-weight:600;letter-spacing:.03em;padding:2px 6px;border-radius:4px;text-transform:uppercase;' + (animate ? '' : 'transform:rotate(-12deg);');
+    badge.textContent = 'Done';
+    stamp.appendChild(badge);
     return stamp;
   }
 
@@ -284,18 +295,27 @@ const BucketListScreen = (() => {
     const titleEl = root?.querySelector(`#bk-title-${item.id}`);
     if (!thumbEl || !titleEl) return false;
 
+    const wasDone = thumbEl.dataset.done === '1';
+    const becameDone = !wasDone && item.done;
+    thumbEl.dataset.done = item.done ? '1' : '0';
+
     thumbEl.style.borderColor = item.done ? 'var(--accent)' : 'var(--border)';
+    const existingStamp = thumbEl.querySelector('.bk-stamp');
     if (thumbEl.dataset.hasPhoto === '1') {
-      const existingStamp = thumbEl.querySelector('.bk-stamp');
-      if (item.done && !existingStamp) thumbEl.appendChild(doneStamp());
+      if (item.done && !existingStamp) thumbEl.appendChild(doneStamp(becameDone));
       if (!item.done && existingStamp) existingStamp.remove();
     } else {
       thumbEl.style.background = item.done ? 'var(--accent)' : 'var(--surface)';
       thumbEl.style.borderStyle = item.done ? 'solid' : 'dashed';
-      thumbEl.innerHTML = item.done ? Icons.check('icon-sm') : Icons.plus('icon-sm');
-      const iconEl = thumbEl.querySelector('.icon');
-      if (item.done) { iconEl.style.cssText = 'width:22px;height:22px'; thumbEl.style.color = '#fff'; }
-      else { iconEl.style.cssText = 'width:20px;height:20px'; thumbEl.style.color = 'var(--text-muted)'; }
+      if (!item.done) {
+        thumbEl.innerHTML = Icons.plus('icon-sm');
+        const iconEl = thumbEl.querySelector('.icon');
+        iconEl.style.cssText = 'width:20px;height:20px';
+        thumbEl.style.color = 'var(--text-muted)';
+      } else if (!existingStamp) {
+        thumbEl.innerHTML = '';
+        thumbEl.appendChild(doneStamp(becameDone));
+      }
     }
 
     titleEl.style.fontWeight = item.done ? '400' : '500';
