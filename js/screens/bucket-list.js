@@ -89,18 +89,8 @@ const BucketListScreen = (() => {
     return stamp;
   }
 
-  // Cache — once a photo's data URL has been fetched for this screen
-  // session, reuse it. Without this, re-deriving the thumb's visual
-  // state (e.g. after toggling done) has no way to redraw the photo
-  // without hitting IndexedDB again.
-  const photoUrlCache = new Map();
-
   async function loadThumbImage(id) {
-    let dataUrl = photoUrlCache.get(id);
-    if (dataUrl === undefined) {
-      dataUrl = await Data.getBucketPhoto(id);
-      photoUrlCache.set(id, dataUrl);
-    }
+    const dataUrl = await Data.getBucketPhoto(id);
     const target = root?.querySelector(`#bk-thumb-img-${id}`);
     if (target && dataUrl) target.style.backgroundImage = `url(${dataUrl})`;
   }
