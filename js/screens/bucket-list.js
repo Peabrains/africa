@@ -22,6 +22,7 @@ const BucketListScreen = (() => {
   let editingItemId = null;   // id of item currently showing its inline edit form, or null
 
   let searchQuery = '';
+  const collapsedCategories = new Set(); // category names currently collapsed
 
   const CATEGORY_ICON_KEYS = {
     'Food':       'bowl',
@@ -38,6 +39,7 @@ const BucketListScreen = (() => {
   function renderHeader() {
     const p = Data.getBucketProgress();
     const wrap = document.createElement('div');
+    wrap.id = 'bk-header';
     wrap.style.cssText = 'padding:var(--s4);border-bottom:1.5px solid var(--border);background:var(--surface)';
 
     const pct = p.total ? Math.round((p.done / p.total) * 100) : 0;
@@ -57,27 +59,27 @@ const BucketListScreen = (() => {
     const hasPhoto = !!item.photo_storage_path;
     const el = document.createElement('div');
     el.style.cssText = `
-      width:30px;height:30px;border-radius:8px;flex-shrink:0;position:relative;
+      width:56px;height:56px;border-radius:12px;flex-shrink:0;position:relative;
       display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;
       border:2px solid ${item.done ? 'var(--accent)' : 'var(--border)'};
       background:${item.done ? 'var(--accent)' : 'var(--surface)'};
-      color:#fff;
+      color:#fff;overflow:hidden;
     `;
     if (hasPhoto) {
       el.style.background = 'var(--surface-raised)';
-      el.innerHTML = `<div id="bk-thumb-img-${item.id}" style="width:100%;height:100%;border-radius:6px;background-size:cover;background-position:center"></div>`;
+      el.style.borderColor = item.done ? 'var(--accent)' : 'var(--border)';
+      el.innerHTML = `<div id="bk-thumb-img-${item.id}" style="width:100%;height:100%;background-size:cover;background-position:center"></div>`;
       if (item.done) {
-        const badge = document.createElement('span');
-        badge.style.cssText = 'position:absolute;bottom:-3px;right:-3px;width:14px;height:14px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--surface)';
-        badge.innerHTML = Icons.check('icon-sm');
-        badge.querySelector('.icon').style.cssText = 'width:9px;height:9px';
-        el.appendChild(badge);
+        const stamp = document.createElement('div');
+        stamp.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;pointer-events:none';
+        stamp.innerHTML = `<span style="transform:rotate(-12deg);border:2px solid var(--accent);color:var(--accent);background:rgba(255,255,255,.92);font-size:9px;font-weight:600;letter-spacing:.03em;padding:2px 6px;border-radius:4px;text-transform:uppercase">Done</span>`;
+        el.appendChild(stamp);
       }
       loadThumbImage(item.id);
     } else {
       el.innerHTML = item.done ? Icons.check('icon-sm') : '';
-      if (item.done) el.querySelector('.icon').style.cssText = 'width:14px;height:14px';
-      if (!item.done) { el.style.borderStyle = 'dashed'; el.innerHTML = Icons.plus('icon-sm'); el.querySelector('.icon').style.cssText = 'width:13px;height:13px'; el.style.color = 'var(--text-muted)'; }
+      if (item.done) el.querySelector('.icon').style.cssText = 'width:22px;height:22px';
+      if (!item.done) { el.style.borderStyle = 'dashed'; el.innerHTML = Icons.plus('icon-sm'); el.querySelector('.icon').style.cssText = 'width:20px;height:20px'; el.style.color = 'var(--text-muted)'; }
     }
     return el;
   }
@@ -93,6 +95,7 @@ const BucketListScreen = (() => {
     if (item.id === editingItemId) return editForm(item);
 
     const row = document.createElement('div');
+    row.dataset.itemId = item.id;
     row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px var(--s4);border-bottom:1px solid var(--border-subtle)';
 
     const t = thumb(item);
@@ -264,9 +267,22 @@ const BucketListScreen = (() => {
     return wrap;
   }
 
+  // Updates just the one row that changed, plus the header progress count.
+  // A full render() here would tear down and rebuild every row — including
+  // ones with photos, forcing every photo to reload off a single tap.
   async function handleToggle(id) {
     await Data.toggleBucketDone(id);
-    render();
+    const item = Data.getBucketItems().find(i => i.id === id);
+    if (!item) { render(); return; }
+
+    const oldRow = root?.querySelector(`[data-item-id="${id}"]`);
+    if (oldRow) {
+      const newRow = itemRow(item);
+      oldRow.replaceWith(newRow);
+    }
+
+    const oldHeader = root?.querySelector('#bk-header');
+    if (oldHeader) oldHeader.replaceWith(renderHeader());
   }
 
   /* ── Search bar — filters title, location, and link together ── */
@@ -365,11 +381,36 @@ const BucketListScreen = (() => {
     });
 
     Object.keys(byCategory).forEach(cat => {
-      const head = document.createElement('p');
-      head.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;padding:8px var(--s4) 6px';
-      head.innerHTML = `${categoryIconHTML(cat)}${cat}`;
+      const catItems = byCategory[cat];
+      const isCollapsed = collapsedCategories.has(cat);
+      const doneCount = catItems.filter(i => i.done).length;
+
+      const head = document.createElement('button');
+      head.type = 'button';
+      head.style.cssText = 'width:100%;display:flex;align-items:center;gap:6px;background:none;border:none;padding:8px var(--s4) 6px;cursor:pointer;font-family:var(--font)';
+      head.innerHTML = `
+        <span style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em">${categoryIconHTML(cat)}${cat}</span>
+        <span style="font-size:10px;color:var(--text-muted);font-weight:500">${doneCount}/${catItems.length}</span>
+        <span style="flex:1"></span>
+        <span id="bk-chevron-${cat}" style="display:flex;color:var(--text-muted);transition:transform .2s;transform:rotate(${isCollapsed ? '-90deg' : '0deg'})">${Icons.chevronDown('icon-sm')}</span>
+      `;
+      head.querySelectorAll('.icon').forEach(i => { i.style.width = '13px'; i.style.height = '13px'; });
+
+      const body = document.createElement('div');
+      body.id = `bk-cat-body-${cat}`;
+      body.style.display = isCollapsed ? 'none' : '';
+      catItems.forEach(item => body.appendChild(itemRow(item)));
+
+      head.addEventListener('click', () => {
+        const nowCollapsed = !collapsedCategories.has(cat);
+        if (nowCollapsed) collapsedCategories.add(cat); else collapsedCategories.delete(cat);
+        body.style.display = nowCollapsed ? 'none' : '';
+        const chevron = head.querySelector(`#bk-chevron-${cat}`);
+        if (chevron) chevron.style.transform = `rotate(${nowCollapsed ? '-90deg' : '0deg'})`;
+      });
+
       wrap.appendChild(head);
-      byCategory[cat].forEach(item => wrap.appendChild(itemRow(item)));
+      wrap.appendChild(body);
     });
 
     return wrap;
@@ -519,9 +560,8 @@ const BucketListScreen = (() => {
     document.body.appendChild(overlay);
 
     overlay.querySelector('#bk-pv-toggle').addEventListener('click', async () => {
-      await Data.toggleBucketDone(item.id);
       overlay.remove();
-      render();
+      await handleToggle(item.id);
     });
     overlay.querySelector('#bk-pv-remove').addEventListener('click', async () => {
       await Data.removeBucketPhoto(item.id);
