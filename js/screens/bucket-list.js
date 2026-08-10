@@ -58,6 +58,8 @@ const BucketListScreen = (() => {
   function thumb(item) {
     const hasPhoto = !!item.photo_storage_path;
     const el = document.createElement('div');
+    el.id = `bk-thumb-${item.id}`;
+    el.dataset.hasPhoto = hasPhoto ? '1' : '0';
     el.style.cssText = `
       width:56px;height:56px;border-radius:12px;flex-shrink:0;position:relative;
       display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;
@@ -69,12 +71,7 @@ const BucketListScreen = (() => {
       el.style.background = 'var(--surface-raised)';
       el.style.borderColor = item.done ? 'var(--accent)' : 'var(--border)';
       el.innerHTML = `<div id="bk-thumb-img-${item.id}" style="width:100%;height:100%;background-size:cover;background-position:center"></div>`;
-      if (item.done) {
-        const stamp = document.createElement('div');
-        stamp.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;pointer-events:none';
-        stamp.innerHTML = `<span style="transform:rotate(-12deg);border:2px solid var(--accent);color:var(--accent);background:rgba(255,255,255,.92);font-size:9px;font-weight:600;letter-spacing:.03em;padding:2px 6px;border-radius:4px;text-transform:uppercase">Done</span>`;
-        el.appendChild(stamp);
-      }
+      if (item.done) el.appendChild(doneStamp());
       loadThumbImage(item.id);
     } else {
       el.innerHTML = item.done ? Icons.check('icon-sm') : '';
@@ -84,8 +81,26 @@ const BucketListScreen = (() => {
     return el;
   }
 
+  function doneStamp() {
+    const stamp = document.createElement('div');
+    stamp.className = 'bk-stamp';
+    stamp.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;pointer-events:none';
+    stamp.innerHTML = `<span style="transform:rotate(-12deg);border:2px solid var(--accent);color:var(--accent);background:rgba(255,255,255,.92);font-size:9px;font-weight:600;letter-spacing:.03em;padding:2px 6px;border-radius:4px;text-transform:uppercase">Done</span>`;
+    return stamp;
+  }
+
+  // Cache — once a photo's data URL has been fetched for this screen
+  // session, reuse it. Without this, re-deriving the thumb's visual
+  // state (e.g. after toggling done) has no way to redraw the photo
+  // without hitting IndexedDB again.
+  const photoUrlCache = new Map();
+
   async function loadThumbImage(id) {
-    const dataUrl = await Data.getBucketPhoto(id);
+    let dataUrl = photoUrlCache.get(id);
+    if (dataUrl === undefined) {
+      dataUrl = await Data.getBucketPhoto(id);
+      photoUrlCache.set(id, dataUrl);
+    }
     const target = root?.querySelector(`#bk-thumb-img-${id}`);
     if (target && dataUrl) target.style.backgroundImage = `url(${dataUrl})`;
   }
@@ -96,6 +111,7 @@ const BucketListScreen = (() => {
 
     const row = document.createElement('div');
     row.dataset.itemId = item.id;
+    row.dataset.category = item.category || 'Other';
     row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px var(--s4);border-bottom:1px solid var(--border-subtle)';
 
     const t = thumb(item);
@@ -109,6 +125,7 @@ const BucketListScreen = (() => {
     const mid = document.createElement('div');
     mid.style.cssText = 'flex:1;min-width:0';
     const title = document.createElement('div');
+    title.id = `bk-title-${item.id}`;
     title.style.cssText = `font-size:13px;font-weight:${item.done ? '400' : '500'};color:${item.done ? 'var(--text-muted)' : 'var(--text-primary)'};${item.done ? 'text-decoration:line-through' : ''}`;
     title.textContent = item.title;
     mid.appendChild(title);
@@ -267,19 +284,54 @@ const BucketListScreen = (() => {
     return wrap;
   }
 
-  // Updates just the one row that changed, plus the header progress count.
-  // A full render() here would tear down and rebuild every row — including
-  // ones with photos, forcing every photo to reload off a single tap.
+  // Updates the tapped item's thumb + title in place, plus the category
+  // badge and overall header — without rebuilding any DOM the photo lives
+  // in. Rebuilding the row (even just the tapped one) re-runs thumb(),
+  // which re-creates the photo <div> and re-triggers a fetch — that's why
+  // the tapped item's own photo used to flash on every tap.
+  function applyToggleVisual(item) {
+    const thumbEl = root?.querySelector(`#bk-thumb-${item.id}`);
+    const titleEl = root?.querySelector(`#bk-title-${item.id}`);
+    if (!thumbEl || !titleEl) return false;
+
+    thumbEl.style.borderColor = item.done ? 'var(--accent)' : 'var(--border)';
+    if (thumbEl.dataset.hasPhoto === '1') {
+      const existingStamp = thumbEl.querySelector('.bk-stamp');
+      if (item.done && !existingStamp) thumbEl.appendChild(doneStamp());
+      if (!item.done && existingStamp) existingStamp.remove();
+    } else {
+      thumbEl.style.background = item.done ? 'var(--accent)' : 'var(--surface)';
+      thumbEl.style.borderStyle = item.done ? 'solid' : 'dashed';
+      thumbEl.innerHTML = item.done ? Icons.check('icon-sm') : Icons.plus('icon-sm');
+      const iconEl = thumbEl.querySelector('.icon');
+      if (item.done) { iconEl.style.cssText = 'width:22px;height:22px'; thumbEl.style.color = '#fff'; }
+      else { iconEl.style.cssText = 'width:20px;height:20px'; thumbEl.style.color = 'var(--text-muted)'; }
+    }
+
+    titleEl.style.fontWeight = item.done ? '400' : '500';
+    titleEl.style.color = item.done ? 'var(--text-muted)' : 'var(--text-primary)';
+    titleEl.style.textDecoration = item.done ? 'line-through' : 'none';
+    return true;
+  }
+
+  function updateCategoryBadge(category) {
+    const badge = root?.querySelector(`[data-cat-count="${category}"]`);
+    if (!badge) return;
+    const q = searchQuery.trim().toLowerCase();
+    const inCat = Data.getBucketItems().filter(i => matchesQuery(i, q) && (i.category || 'Other') === category);
+    const doneCount = inCat.filter(i => i.done).length;
+    badge.textContent = `${doneCount}/${inCat.length}`;
+  }
+
   async function handleToggle(id) {
     await Data.toggleBucketDone(id);
     const item = Data.getBucketItems().find(i => i.id === id);
     if (!item) { render(); return; }
 
-    const oldRow = root?.querySelector(`[data-item-id="${id}"]`);
-    if (oldRow) {
-      const newRow = itemRow(item);
-      oldRow.replaceWith(newRow);
-    }
+    const updated = applyToggleVisual(item);
+    if (!updated) { render(); return; } // fallback, e.g. item mid-edit
+
+    updateCategoryBadge(item.category || 'Other');
 
     const oldHeader = root?.querySelector('#bk-header');
     if (oldHeader) oldHeader.replaceWith(renderHeader());
@@ -390,13 +442,14 @@ const BucketListScreen = (() => {
       head.style.cssText = 'width:100%;display:flex;align-items:center;gap:6px;background:none;border:none;padding:8px var(--s4) 6px;cursor:pointer;font-family:var(--font)';
       head.innerHTML = `
         <span style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em">${categoryIconHTML(cat)}${cat}</span>
-        <span style="font-size:10px;color:var(--text-muted);font-weight:500">${doneCount}/${catItems.length}</span>
+        <span data-cat-count="${cat}" style="font-size:10px;color:var(--text-muted);font-weight:500">${doneCount}/${catItems.length}</span>
         <span style="flex:1"></span>
-        <span id="bk-chevron-${cat}" style="display:flex;color:var(--text-muted);transition:transform .2s;transform:rotate(${isCollapsed ? '-90deg' : '0deg'})">${Icons.chevronDown('icon-sm')}</span>
+        <span data-cat-chevron="${cat}" style="display:flex;color:var(--text-muted);transition:transform .2s;transform:rotate(${isCollapsed ? '-90deg' : '0deg'})">${Icons.chevronDown('icon-sm')}</span>
       `;
       head.querySelectorAll('.icon').forEach(i => { i.style.width = '13px'; i.style.height = '13px'; });
 
       const body = document.createElement('div');
+      body.dataset.catBody = cat;
       body.id = `bk-cat-body-${cat}`;
       body.style.display = isCollapsed ? 'none' : '';
       catItems.forEach(item => body.appendChild(itemRow(item)));
@@ -405,7 +458,7 @@ const BucketListScreen = (() => {
         const nowCollapsed = !collapsedCategories.has(cat);
         if (nowCollapsed) collapsedCategories.add(cat); else collapsedCategories.delete(cat);
         body.style.display = nowCollapsed ? 'none' : '';
-        const chevron = head.querySelector(`#bk-chevron-${cat}`);
+        const chevron = head.querySelector(`[data-cat-chevron="${cat}"]`);
         if (chevron) chevron.style.transform = `rotate(${nowCollapsed ? '-90deg' : '0deg'})`;
       });
 
