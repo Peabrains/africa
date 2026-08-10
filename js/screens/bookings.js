@@ -1075,28 +1075,6 @@ const BookingsScreen = (() => {
     tSection.appendChild(addRow);
     frag.appendChild(tSection);
 
-    /* ── Your currency (personal preference, not trip-specific) ── */
-    const yourCurSection = document.createElement('div');
-    yourCurSection.className = 'settings-section';
-    const savedUserCur = Data.getUserCurrency?.() || '';
-    yourCurSection.innerHTML = `
-      <p class="settings-section-title">Your currency</p>
-      <div class="bs-edit-group">
-        <label class="bs-edit-label">Also show totals in</label>
-        <input id="your-currency-input" class="bs-input bs-tz-sel" type="text" autocomplete="off" value="${savedUserCur}" placeholder="Search currency…">
-        <p style="font-size:10.5px;color:var(--text-muted);margin-top:4px">Applies across every trip — Budget totals will show both the trip's own currency and this one side by side. Leave blank to turn this off.</p>
-        <p style="font-size:9.5px;color:var(--text-muted);margin-top:6px;opacity:.6">Rates by <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener" style="color:inherit">exchangerate-api.com</a>, updated daily</p>
-      </div>
-      <button class="btn btn-primary" id="your-currency-save-btn" style="width:100%;margin-top:var(--s2)">Save</button>`;
-    frag.appendChild(yourCurSection);
-    window.BottomSheet?.wireCurrencyCombobox?.(yourCurSection.querySelector('#your-currency-input'));
-    yourCurSection.querySelector('#your-currency-save-btn')?.addEventListener('click', () => {
-      const val = yourCurSection.querySelector('#your-currency-input')?.value?.trim().toUpperCase() || '';
-      Data.setUserCurrency?.(val || null);
-      Toast.show(val ? `Now also showing totals in ${val}` : 'Turned off', 'success');
-      render();
-    });
-
     /* ── Trip members (invite flow) ──────────────────────────── */
     const membersSection = document.createElement('div');
     membersSection.className = 'settings-section';
