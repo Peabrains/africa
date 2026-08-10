@@ -731,14 +731,14 @@ const BookingsScreen = (() => {
           const loggedAt = exp.createdAt ? new Date(exp.createdAt).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
           const catColor = EXPENSE_CAT_COLORS[exp.category] || 'var(--text-muted)';
           const initial = n => (n||'?').trim().charAt(0).toUpperCase();
-          const AV = 'width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0';
+          const AV = 'width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0';
 
           const row = document.createElement('div');
           row.className = 'expense-row';
           // NOTE: .expense-row's own CSS class sets display:flex with a
           // row direction — must explicitly override to column here or
           // every child below gets squashed onto one horizontal line.
-          row.style.cssText = 'display:flex;flex-direction:column;align-items:stretch;gap:0;padding:10px var(--s4);border-bottom:1px solid var(--border-subtle)';
+          row.style.cssText = 'display:flex;flex-direction:column;align-items:stretch;gap:0;padding:8px var(--s4);border-bottom:1px solid var(--border-subtle)';
           row.innerHTML = `
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s2)">
               <div style="display:flex;align-items:center;gap:7px;min-width:0">
@@ -751,7 +751,7 @@ const BookingsScreen = (() => {
               </div>
             </div>
             ${(exp.paidBy || exp.splitBetween?.length) ? `
-            <div style="display:flex;align-items:center;gap:10px;margin:5px 0 0 15px">
+            <div style="display:flex;align-items:center;gap:10px;margin:2px 0 0 15px">
               ${exp.paidBy ? `
                 <div style="display:flex;align-items:center;gap:5px">
                   <span style="font-size:10px;color:var(--text-muted)">Paid</span>
@@ -761,12 +761,12 @@ const BookingsScreen = (() => {
                 <div style="display:flex;align-items:center;gap:5px">
                   <span style="font-size:10px;color:var(--text-muted)">Split</span>
                   <div style="display:flex">
-                    ${exp.splitBetween.map((name,i) => `<div style="${AV};background:${travelerColor(name)};${i>0?'margin-left:-6px':''}">${initial(name)}</div>`).join('')}
+                    ${exp.splitBetween.map((name,i) => `<div style="${AV};background:${travelerColor(name)};${i>0?'margin-left:-5px':''}">${initial(name)}</div>`).join('')}
                   </div>
                   ${splitPax>1?`<span style="font-size:10.5px;color:var(--text-muted);margin-left:2px">${cur} ${fmtMoney(perHead)} pp</span>`:''}
                 </div>` : ''}
             </div>` : ''}
-            <p style="font-size:10.5px;color:var(--text-muted);margin:4px 0 0 15px">${exp.category}${loggedAt?` · Logged ${loggedAt}`:''}</p>`;
+            <p style="font-size:10.5px;color:var(--text-muted);margin:2px 0 0 15px">${exp.category}${loggedAt?` · Logged ${loggedAt}`:''}</p>`;
 
           // Inline edit form — same field set as the Log Expense form,
           // prefilled. Toggled open by the "Edit" option in the actions
