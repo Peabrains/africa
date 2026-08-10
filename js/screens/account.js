@@ -31,6 +31,13 @@ const AccountScreen = (() => {
           <p id="acct-email" style="font-size:var(--text-sm);color:var(--text-secondary);padding:8px 0">Loading…</p>
         </div>
 
+        <div class="bs-edit-group">
+          <label class="bs-edit-label">Also show trip totals in</label>
+          <input id="acct-currency" class="bs-input bs-tz-sel" type="text" autocomplete="off" placeholder="Search currency…">
+          <p style="font-size:10.5px;color:var(--text-muted);margin-top:4px">Applies across every trip — Budget totals will show both the trip's own currency and this one side by side. Leave blank to turn this off.</p>
+          <p style="font-size:9.5px;color:var(--text-muted);margin-top:6px;opacity:.6">Rates by <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener" style="color:inherit">exchangerate-api.com</a>, updated daily</p>
+        </div>
+
         <button id="acct-save-btn" class="btn btn-primary" style="width:100%;margin-top:var(--s2)">Save</button>
         <button id="acct-signout-btn" class="btn btn-ghost" style="width:100%;margin-top:var(--s2);color:var(--danger-text);border-color:var(--danger-text)">Sign out</button>
         <button id="acct-close-btn" class="btn btn-ghost" style="width:100%;margin-top:var(--s2)">Close</button>
@@ -43,6 +50,10 @@ const AccountScreen = (() => {
 
     sheet.querySelector('#acct-close-btn').addEventListener('click', close);
     sheet.querySelector('#acct-signout-btn').addEventListener('click', () => Auth.signOut());
+
+    const curInput = sheet.querySelector('#acct-currency');
+    curInput.value = window.Data?.getUserCurrency?.() || '';
+    window.BottomSheet?.wireCurrencyCombobox?.(curInput);
 
     (async () => {
       const user = await Auth.getUser();
@@ -60,6 +71,8 @@ const AccountScreen = (() => {
       try {
         const { error } = await SB.auth.updateUser({ data: { full_name: name } });
         if (error) throw error;
+        const curVal = curInput.value.trim().toUpperCase();
+        window.Data?.setUserCurrency?.(curVal || null);
         Toast.show('Saved', 'success');
         close();
       } catch (e) {
