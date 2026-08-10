@@ -2336,6 +2336,67 @@ const Data = (() => {
     }
   }
 
+  /* ── USER CURRENCY PREFERENCE — a personal preference that follows
+     the person across every trip (unlike a trip's own default currency),
+     so it lives in localStorage rather than any one trip's settings. ── */
+  const USER_CURRENCY_KEY = 'trip_companion_user_currency';
+  function getUserCurrency() {
+    try { return localStorage.getItem(USER_CURRENCY_KEY) || null; }
+    catch (e) { return null; }
+  }
+  function setUserCurrency(code) {
+    try {
+      if (code) localStorage.setItem(USER_CURRENCY_KEY, code);
+      else localStorage.removeItem(USER_CURRENCY_KEY);
+    } catch (e) { console.warn('[Data] setUserCurrency failed:', e); }
+  }
+
+  /* ── LIVE EXCHANGE RATES — for the "show my currency too" display,
+     as opposed to the manual per-trip exchangeRates table used for
+     converting individual foreign-currency costs. That one is manual
+     on purpose (user-controlled, no dependency); this one is live on
+     purpose (the whole point is "roughly what does this mean to me
+     right now", where a current rate matters more than manual control).
+     Cached in memory per session — fetched once, not on every render. */
+  const LIVE_RATE_CACHE = {}; // key: "FROM_TO" -> rate | 'failed'
+  async function fetchLiveRate(from, to) {
+    if (!from || !to || from === to) return 1;
+    const key = `${from}_${to}`;
+    if (key in LIVE_RATE_CACHE) {
+      return LIVE_RATE_CACHE[key] === 'failed' ? null : LIVE_RATE_CACHE[key];
+    }
+    try {
+      const res = await fetch(`https://open.er-api.com/v6/latest/${encodeURIComponent(from)}`);
+      const json = await res.json();
+      if (json.result !== 'success' || !json.rates || !(to in json.rates)) {
+        LIVE_RATE_CACHE[key] = 'failed';
+        return null;
+      }
+      const rate = json.rates[to];
+      LIVE_RATE_CACHE[key] = rate;
+      return rate;
+    } catch (e) {
+      console.warn('[Data] fetchLiveRate failed:', e.message || e);
+      LIVE_RATE_CACHE[key] = 'failed';
+      return null;
+    }
+  }
+  // Sync check — does the render loop already have a cached rate for
+  // this pair, without triggering a new fetch? Lets the UI show the
+  // "≈" line immediately when available, or skip it cleanly otherwise.
+  function getCachedLiveRate(from, to) {
+    if (!from || !to || from === to) return 1;
+    const v = LIVE_RATE_CACHE[`${from}_${to}`];
+    return (v === undefined || v === 'failed') ? null : v;
+  }
+  // Distinct from getCachedLiveRate: tells the caller whether a fetch
+  // was already tried for this pair (success OR failure), so a failed
+  // attempt doesn't get silently retried on every single render.
+  function hasTriedLiveRate(from, to) {
+    if (!from || !to || from === to) return true;
+    return `${from}_${to}` in LIVE_RATE_CACHE;
+  }
+
   /* ── EXCHANGE RATES (manual, per-trip) ───────────────────────
      Deliberately not a live FX API — nothing here is transactional,
      it's a reference total on the Payments summary, so a rate you set
@@ -2489,6 +2550,7 @@ const Data = (() => {
     // Trips
     getTrips, getCurrentTrip, switchTrip, createTrip, updateTripDetails, getTripCurrency, deleteTrip,
     getDefaultTimezone, setDefaultTimezone, getBudgetTotal, setBudgetTotal,
+    getUserCurrency, setUserCurrency, fetchLiveRate, getCachedLiveRate, hasTriedLiveRate,
     getExchangeRates, setExchangeRate, convertToTripCurrency, getPaymentsSummary,
     getTripMembers, inviteMember, removeMember,
     // Trip info
