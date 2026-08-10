@@ -357,7 +357,7 @@ const BucketListScreen = (() => {
     ripple.style.cssText = 'position:absolute;left:50%;top:50%;width:70px;height:70px;border-radius:50%;border:2px solid var(--accent);animation:bk-cat-ripple .55s ease-out forwards';
 
     const medallion = document.createElement('div');
-    medallion.style.cssText = 'position:absolute;left:50%;top:50%;width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.97);border:3px solid var(--accent);color:var(--accent);display:flex;align-items:center;justify-content:center;animation:bk-cat-medallion-in .48s cubic-bezier(.34,1.56,.64,1) forwards';
+    medallion.style.cssText = 'position:absolute;left:50%;top:50%;width:64px;height:64px;border-radius:16px;background:rgba(255,255,255,.97);border:3px solid var(--accent);color:var(--accent);display:flex;align-items:center;justify-content:center;animation:bk-cat-medallion-in .48s cubic-bezier(.34,1.56,.64,1) forwards';
     const iconInner = document.createElement('div');
     iconInner.style.cssText = 'width:28px;height:28px';
     iconInner.innerHTML = categoryIconHTML(category, 'icon-lg');
