@@ -167,3 +167,23 @@ svg { fill:none; }
   border:2px solid var(--accent); animation:bk-stamp-ripple .5s ease-out forwards;
   pointer-events:none;
 }
+
+/* ─── Bucket list — category-complete celebration ───────────── */
+@keyframes bk-cat-medallion-in {
+  0%   { transform:translate(-50%,-50%) scale(2.4) rotate(-16deg); opacity:0; }
+  58%  { transform:translate(-50%,-50%) scale(0.92) rotate(-4deg); opacity:1; }
+  78%  { transform:translate(-50%,-50%) scale(1.06) rotate(-6deg); }
+  100% { transform:translate(-50%,-50%) scale(1) rotate(-6deg); opacity:1; }
+}
+@keyframes bk-cat-ripple {
+  0%   { transform:translate(-50%,-50%) scale(0.4); opacity:.5; }
+  100% { transform:translate(-50%,-50%) scale(2.4); opacity:0; }
+}
+@keyframes bk-cat-fade {
+  0%   { opacity:1; }
+  100% { opacity:0; }
+}
+@keyframes bk-cat-text-in {
+  0%   { opacity:0; transform:translate(-50%,4px); }
+  100% { opacity:1; transform:translate(-50%,0); }
+}
