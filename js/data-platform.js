@@ -1589,12 +1589,32 @@ const Data = (() => {
           .upload(storagePath, blob, { contentType: 'image/jpeg', upsert: true });
         if (!upErr) {
           item.photo_storage_path = storagePath;
-          await SB.from('bucket_items').update({ photo_storage_path: storagePath }).eq('id', id);
+
+          // Storage upload succeeding is not the same as the row actually
+          // getting the pointer — that write can fail independently (a
+          // transient network drop right after upload, etc.), and if it
+          // does, the local optimistic state above looks fine on this
+          // device until the next full sync from Supabase silently
+          // overwrites it back to null. So check the error, retry once,
+          // and if it still fails, surface it — don't pretend it worked.
+          let { error: linkErr } = await SB.from('bucket_items')
+            .update({ photo_storage_path: storagePath }).eq('id', id);
+          if (linkErr) {
+            console.error('[Data] bucket photo link failed, retrying:', linkErr);
+            ({ error: linkErr } = await SB.from('bucket_items')
+              .update({ photo_storage_path: storagePath }).eq('id', id));
+          }
+          if (linkErr) {
+            console.error('[Data] bucket photo link failed after retry:', linkErr);
+            if (window.Toast) Toast.show("Photo saved on this device but didn't sync — check connection and try again", 'error');
+          }
         } else {
           console.error('[Data] bucket photo upload error:', upErr);
+          if (window.Toast) Toast.show("Photo couldn't upload — check connection and try again", 'error');
         }
       } catch (e) {
         console.error('[Data] bucket photo sync error:', e);
+        if (window.Toast) Toast.show("Photo saved on this device but didn't sync — check connection and try again", 'error');
       }
     }
     await DB.saveBucket(BUCKET_ITEMS, tripKey('bucketItems'));
