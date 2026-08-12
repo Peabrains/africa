@@ -162,7 +162,7 @@ const LandingScreen = (() => {
 
       let countdownHtml;
       if (isPast) {
-        countdownHtml = `<div style="font-size:16px;color:var(--text-primary)">✓</div><div style="font-size:9px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Done</div>`;
+        countdownHtml = `<div style="color:var(--text-primary);display:flex;justify-content:center">${Icons.check('icon-md')}</div><div style="font-size:9px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-top:4px">Done</div>`;
       } else if (isOngoing) {
         countdownHtml = `<div style="font-size:15px;font-weight:800;color:var(--accent)">Now</div><div style="font-size:9px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Ongoing</div>`;
       } else {
