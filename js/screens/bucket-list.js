@@ -186,11 +186,13 @@ const BucketListScreen = (() => {
           <div style="display:flex;justify-content:center;padding:6px 0 4px"><div style="width:36px;height:4px;background:var(--border);border-radius:2px"></div></div>
           <p style="padding:var(--s2) var(--s4) var(--s3);font-size:var(--text-sm);font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.title}</p>
           <button id="ra-photo" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px var(--s4);background:none;border:none;font-family:var(--font);font-size:var(--text-sm);color:var(--text-primary);text-align:left">${Icons.camera('icon-sm')}${item.photo_storage_path ? 'Change photo' : 'Add photo'}</button>
+          <button id="ra-paste" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px var(--s4);background:none;border:none;font-family:var(--font);font-size:var(--text-sm);color:var(--text-primary);text-align:left">${Icons.clipboard('icon-sm')}Paste photo</button>
           <button id="ra-edit" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px var(--s4);background:none;border:none;font-family:var(--font);font-size:var(--text-sm);color:var(--text-primary);text-align:left">${Icons.pencil('icon-sm')}Edit</button>
           <button id="ra-delete" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px var(--s4);background:none;border:none;font-family:var(--font);font-size:var(--text-sm);text-align:left;color:${confirming ? 'var(--danger-text)' : 'var(--text-primary)'}">${confirming ? Icons.check('icon-sm') : Icons.trash('icon-sm')}${confirming ? 'Tap again to delete' : 'Delete'}</button>
         </div>`;
 
       overlay.querySelector('#ra-photo').addEventListener('click', () => { overlay.remove(); pickPhoto(item.id); });
+      overlay.querySelector('#ra-paste').addEventListener('click', () => { overlay.remove(); pasteFromClipboard(item.id); });
       overlay.querySelector('#ra-edit').addEventListener('click', () => {
         overlay.remove();
         editingItemId = item.id;
@@ -608,6 +610,41 @@ const BucketListScreen = (() => {
     return wrap;
   }
 
+  /* ── Paste photo — Clipboard API. Support for image reads inside an
+     installed home-screen PWA on iOS is inconsistent across versions,
+     so this is feature-detected and fails with a clear message rather
+     than silently. Needs to run directly off the tap that triggers it
+     (no awaits before the read) — Safari revokes clipboard permission
+     for calls that aren't tied closely enough to the user gesture. ── */
+  async function pasteFromClipboard(itemId) {
+    if (!navigator.clipboard?.read) {
+      Toast.show("Paste isn't supported on this device", 'error');
+      return;
+    }
+    let clipboardItems;
+    try {
+      clipboardItems = await navigator.clipboard.read();
+    } catch {
+      Toast.show('Clipboard access denied — check Safari permissions', 'error');
+      return;
+    }
+
+    let imageBlob = null;
+    for (const ci of clipboardItems) {
+      const imageType = ci.types.find(t => t.startsWith('image/'));
+      if (imageType) { imageBlob = await ci.getType(imageType); break; }
+    }
+    if (!imageBlob) {
+      Toast.show('No image found on clipboard', 'info');
+      return;
+    }
+
+    const dataUrl = await compressImage(imageBlob);
+    await Data.addBucketPhoto(itemId, dataUrl);
+    Toast.show('Photo pasted', 'success');
+    render();
+  }
+
   /* ── Photo capture — identical compress/upload pattern as Dex ── */
   function pickPhoto(itemId) {
     const input = document.createElement('input');
@@ -726,11 +763,11 @@ const BucketListScreen = (() => {
     const searchWrap = renderSearchBar();
     searchWrap.id = 'bk-search-wrap';
     root.appendChild(searchWrap);
+    root.appendChild(renderAddForm());
     const listArea = document.createElement('div');
     listArea.id = 'bk-list-area';
     listArea.appendChild(renderList());
     root.appendChild(listArea);
-    root.appendChild(renderAddForm());
   }
 
   return {
