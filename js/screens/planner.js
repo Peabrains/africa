@@ -3,6 +3,7 @@
 const PlannerScreen = (() => {
   let root = null, proposal = null, trendingResults = null, busy = false, prompt = '', focusDayId = '', errorMessage = '';
   let selected = new Set();
+  let mapInstance = null;
   const DRAFT_KEY = 'africa-ai-planner-draft-v1';
   const QUICK_PROMPTS = [
     ['Slow day', 'Plan a relaxed day with minimal travel and plenty of downtime.'],
@@ -109,6 +110,7 @@ const PlannerScreen = (() => {
   function trendingView() {
     const section = el('section', 'planner-section planner-proposal');
     section.append(el('p', 'planner-label', 'LIVE DISCOVERY'), el('h2', 'planner-proposal-title', 'Places people are talking about'));
+    const map = el('div', 'planner-map'); map.setAttribute('aria-label', 'Map of discovered places'); section.append(map);
     if (trendingResults.summary) section.append(el('p', 'planner-proposal-summary', trendingResults.summary));
     (trendingResults.places || []).forEach(place => {
       const card = el('article', 'planner-trending-card');
@@ -117,8 +119,32 @@ const PlannerScreen = (() => {
       [['Read source', place.sourceUrl], ['Official info', place.officialUrl], ['Open in Maps', place.mapsUrl]].forEach(([label, href]) => { if (/^https:\/\//i.test(href || '')) { const link = el('a', '', `${label} ↗`); link.href = href; link.target = '_blank'; link.rel = 'noopener noreferrer'; links.append(link); } });
       card.append(links, el('p', 'planner-trending-caveat', place.caveat || 'Verify current hours, access, and availability before going.')); section.append(card);
     });
-    const back = el('button', 'planner-trending-back', 'Back to planner'); back.type = 'button'; back.addEventListener('click', () => { trendingResults = null; render(); }); section.append(back); return section;
+    const back = el('button', 'planner-trending-back', 'Back to planner'); back.type = 'button'; back.addEventListener('click', () => { trendingResults = null; render(); }); section.append(back);
+    setTimeout(() => plotPlaces(map, trendingResults.places || []), 0);
+    return section;
   }
+
+  async function plotPlaces(node, places) {
+    if (!window.L || !node || !places.length) return;
+    const points = [];
+    for (const place of places.slice(0, 5)) {
+      try {
+        const query = encodeURIComponent(`${place.name}, ${place.location}`);
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${query}`, { headers: { Accept: 'application/json' } });
+        const hit = (await response.json())[0];
+        if (hit) points.push({ place, lat: Number(hit.lat), lon: Number(hit.lon) });
+      } catch (_) {}
+    }
+    if (!points.length || !document.body.contains(node)) return;
+    mapInstance?.remove();
+    mapInstance = L.map(node, { zoomControl: false, attributionControl: true }).setView([points[0].lat, points[0].lon], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(mapInstance);
+    const bounds = [];
+    points.forEach((point, index) => { const marker = L.marker([point.lat, point.lon]).addTo(mapInstance); marker.bindPopup(`<strong>${index + 1}. ${escapeHtml(point.place.name)}</strong><br>${escapeHtml(point.place.location)}`); bounds.push([point.lat, point.lon]); });
+    if (bounds.length > 1) mapInstance.fitBounds(bounds, { padding: [18, 18] });
+  }
+
+  function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character])); }
 
   async function requestProposal() {
     if (!prompt.trim()) { errorMessage = 'Tell me what kind of day you want first.'; render(); return; }
@@ -165,6 +191,7 @@ const PlannerScreen = (() => {
     discard.addEventListener('click', () => { clearDraft(); proposal = null; selected.clear(); render(); });
     saved.append(discard); intro.append(saved);
     section.append(intro);
+    const routeMap = el('div', 'planner-map'); routeMap.setAttribute('aria-label', 'Map of itinerary suggestions'); section.append(routeMap);
     const timeline = el('div', 'planner-timeline');
     (proposal.items || []).forEach((item, index) => {
       const chosen = selected.has(index);
@@ -194,6 +221,7 @@ const PlannerScreen = (() => {
       card.append(marker, body, check); timeline.append(card);
     });
     section.append(timeline);
+    setTimeout(() => plotPlaces(routeMap, (proposal.items || []).map(item => ({ name: item.name, location: Data.getDays().find(day => day.date === item.dayDate)?.locality || '', why: item.description || '' }))), 0);
     if (proposal.caveats?.length) {
       const note = el('div', 'planner-caveat'); note.innerHTML = Icons.info('icon-sm');
       note.append(el('p', '', proposal.caveats.join(' · '))); section.append(note);
