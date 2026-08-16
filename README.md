@@ -65,6 +65,18 @@ To reset: Browser DevTools → Application → Local Storage → delete `africa-
 App ID is set in `js/config.js`. Data syncs across devices in real time.  
 Manage your database at https://instantdb.com
 
+## AI itinerary planner (Design Lab)
+
+The itinerary screen includes an authenticated AI planner that creates a reviewable draft and only saves selected suggestions. The browser sends compact trip context to the `ai-planner` Supabase Edge Function; the Vercel AI Gateway key is never exposed to the PWA.
+
+One-time setup:
+
+1. Run `migrate_ai_planner.sql` in the Supabase SQL editor.
+2. Add `AI_GATEWAY_API_KEY` as a Supabase Edge Function secret. Optionally set `AI_PLANNER_MODEL`; the default is `openai/gpt-5-mini`.
+3. Deploy `supabase/functions/ai-planner` with JWT verification enabled.
+
+The server enforces five planner requests per signed-in user per UTC day and records input/output token usage in `ai_daily_usage`.
+
 ## Install on iPhone (Safari)
 
 1. Open https://peabrains.github.io/africa/ in Safari

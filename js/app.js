@@ -4,6 +4,7 @@ const App = (() => {
   const SCREENS = {
     home:        () => window.LandingScreen,
     itinerary:   () => window.ItineraryScreen,
+    planner:     () => window.PlannerScreen,
     'bucket-list': () => window.BucketListScreen,
     bookings:    () => window.BookingsScreen,
     sos:         () => window.SOSScreen,

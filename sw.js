@@ -1,10 +1,10 @@
 /* ============================================================
    SERVICE WORKER — Africa Safari PWA (platform branch)
    Cache version bumped manually alongside APP_VERSION.
-   BUILD: 202608121505
+   BUILD: 202608161900
    ============================================================ */
-const CACHE   = 'africa-safari-platform-202608121505';
-const VERSION = '202608121505';
+const CACHE   = 'africa-safari-design-lab-202608161900';
+const VERSION = '202608161900';
 
 const PRECACHE = [
   './', './index.html', './css/tokens.css', './css/print.css',
@@ -15,7 +15,8 @@ const PRECACHE = [
   './js/config.js', './js/db.js', './js/supabase.js',
   './js/data-platform.js', './js/trip-switcher.js', './js/auth.js',
   './js/icons.js', './js/toast.js', './js/bottom-sheet.js',
-  './js/weather.js', './js/flight-price.js', './js/app.js',
+  './js/weather.js', './js/flight-price.js', './js/ai/planner-service.js', './js/app.js',
+  './js/screens/planner.js',
   './js/screens/itinerary.js', './js/screens/map.js', './js/screens/dex.js',
   './js/screens/bookings.js', './js/screens/sos.js', './js/screens/stamps.js',
   './js/screens/food.js', './js/screens/landing.js', './js/screens/bucket-list.js',

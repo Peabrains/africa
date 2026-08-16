@@ -622,12 +622,18 @@ const ItineraryScreen = (() => {
     }
 
     // Itinerary tab — day timeline with country dividers
+    const actionRow = document.createElement('div');
+    actionRow.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:var(--s2);margin:var(--s3) 16px;';
+    const plannerBtn = document.createElement('button');
+    plannerBtn.className = 'btn btn-primary';
+    plannerBtn.textContent = '✦ AI planner';
+    plannerBtn.addEventListener('click', () => App.switchTo('planner'));
     const addDayBtn = document.createElement('button');
-    addDayBtn.className = 'btn btn-primary';
-    addDayBtn.style.cssText = 'width:calc(100% - 32px);margin:var(--s3) 16px;';
+    addDayBtn.className = 'btn btn-ghost';
     addDayBtn.textContent = '+ Add day';
     addDayBtn.addEventListener('click', () => BottomSheet.openAddDay());
-    root.appendChild(addDayBtn);
+    actionRow.append(plannerBtn, addDayBtn);
+    root.appendChild(actionRow);
 
     let lastLocality = undefined;
     const days = Data.getDays();
