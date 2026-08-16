@@ -59,7 +59,16 @@ const PlannerService = (() => {
     return data.proposal;
   }
 
-  return { suggest, buildContext };
+  async function trending(message, focusDayId = '') {
+    const clean = String(message || '').trim().slice(0, 800);
+    const day = (Data.getDays?.() || []).find(item => item.id === focusDayId) || (Data.getDays?.() || [])[0] || {};
+    const response = await SB.functions.invoke('trending-places', { body: { message: clean, location: day.locality || Data.getTripName?.() || '', date: day.date || '', interests: clean } });
+    if (response.error) throw new Error(response.error.message || 'Live place search failed.');
+    if (!response.data?.result) throw new Error(response.data?.error || 'No trending places were found.');
+    return response.data.result;
+  }
+
+  return { suggest, trending, buildContext };
 })();
 
 window.PlannerService = PlannerService;

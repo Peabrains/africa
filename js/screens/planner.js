@@ -1,7 +1,7 @@
 'use strict';
 
 const PlannerScreen = (() => {
-  let root = null, proposal = null, busy = false, prompt = '', focusDayId = '', errorMessage = '';
+  let root = null, proposal = null, trendingResults = null, busy = false, prompt = '', focusDayId = '', errorMessage = '';
   let selected = new Set();
   const DRAFT_KEY = 'africa-ai-planner-draft-v1';
   const QUICK_PROMPTS = [
@@ -93,7 +93,31 @@ const PlannerScreen = (() => {
     submit.innerHTML = busy ? '<span class="planner-spinner"></span><span>Shaping your day…</span>' : `<span>${Icons.star('icon-sm')}</span><span>Make a plan</span>`;
     submit.addEventListener('click', requestProposal);
     footer.append(count, submit); card.append(footer); section.append(heading, card);
+    const discover = el('button', 'planner-discover-button', '✦ Find trending places'); discover.type = 'button'; discover.addEventListener('click', requestTrending);
+    section.append(discover);
     return section;
+  }
+
+  async function requestTrending() {
+    if (!prompt.trim()) { errorMessage = 'Describe the kind of places you want to discover first.'; render(); return; }
+    busy = true; proposal = null; trendingResults = null; errorMessage = ''; render();
+    try { trendingResults = await PlannerService.trending(prompt, focusDayId); }
+    catch (error) { errorMessage = error.message || 'Live place search failed.'; }
+    finally { busy = false; render(); }
+  }
+
+  function trendingView() {
+    const section = el('section', 'planner-section planner-proposal');
+    section.append(el('p', 'planner-label', 'LIVE DISCOVERY'), el('h2', 'planner-proposal-title', 'Places people are talking about'));
+    if (trendingResults.summary) section.append(el('p', 'planner-proposal-summary', trendingResults.summary));
+    (trendingResults.places || []).forEach(place => {
+      const card = el('article', 'planner-trending-card');
+      card.append(el('h3', 'planner-stop-name', place.name), el('p', 'planner-stop-description', `${place.location} · ${place.why}`), el('p', 'planner-trending-best', `Best for: ${place.bestFor}`));
+      const links = el('div', 'planner-trending-links');
+      [['Read source', place.sourceUrl], ['Official info', place.officialUrl], ['Open in Maps', place.mapsUrl]].forEach(([label, href]) => { if (/^https:\/\//i.test(href || '')) { const link = el('a', '', `${label} ↗`); link.href = href; link.target = '_blank'; link.rel = 'noopener noreferrer'; links.append(link); } });
+      card.append(links, el('p', 'planner-trending-caveat', place.caveat || 'Verify current hours, access, and availability before going.')); section.append(card);
+    });
+    const back = el('button', 'planner-secondary-action', 'Back to planner'); back.type = 'button'; back.addEventListener('click', () => { trendingResults = null; render(); }); section.append(back); return section;
   }
 
   async function requestProposal() {
@@ -222,6 +246,7 @@ const PlannerScreen = (() => {
     root.append(header(), dayPicker(), composer());
     if (busy) root.append(loadingView());
     else if (errorMessage) root.append(errorView());
+    else if (trendingResults) root.append(trendingView());
     else if (proposal) root.append(proposalView());
   }
 
