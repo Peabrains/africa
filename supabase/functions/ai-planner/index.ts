@@ -9,7 +9,7 @@ const corsHeaders = {
 const itemSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["dayDate", "startTime", "endTime", "name", "description", "category", "transport", "transportType", "estimatedCost", "bookingRequired", "notes", "referenceUrl"],
+  required: ["dayDate", "startTime", "endTime", "name", "description", "category", "transport", "transportType", "estimatedCost", "bookingRequired", "notes", "referenceUrl", "locationPrecision"],
   properties: {
     dayDate: { type: "string", description: "An ISO date already present in the supplied trip context" },
     startTime: { type: ["string", "null"], description: "24-hour HH:MM local time" },
@@ -23,6 +23,7 @@ const itemSchema = {
     bookingRequired: { type: "boolean" },
     notes: { type: "string" },
     referenceUrl: { type: "string", description: "A direct https URL with more information about this exact place or activity. Prefer the official venue or tourism website; never invent a URL." },
+    locationPrecision: { type: "string", enum: ["exact", "area"], description: "Use exact only for a specific, verifiable venue. Use area for neighborhoods, walks, districts, viewpoints, or broad suggestions." },
   },
 };
 
@@ -58,7 +59,7 @@ Deno.serve(async (req) => {
         input: [
           {
             role: "developer",
-            content: "You are a careful travel itinerary planner. Suggest 6 useful items when the request and available time allow, mixing primary recommendations with sensible alternatives. Fit everything around fixed itinerary entries and use only dates present in context.days. Never claim availability, live opening hours, prices, or bookings are verified. Keep the plan practical and geographically coherent. Keep each description to 1-2 concise sentences. Every item MUST include a real, direct https referenceUrl for more information; prefer the official venue, attraction, transit, or tourism website. If you cannot verify a specific official URL, return an empty referenceUrl so the app can provide a map search link.",
+            content: "You are a careful travel itinerary planner. Suggest 6 useful items when the request and available time allow, mixing primary recommendations with sensible alternatives. Fit everything around fixed itinerary entries and use only dates present in context.days. Never claim availability, live opening hours, prices, or bookings are verified. Keep the plan practical and geographically coherent. Keep each description to 1-2 concise sentences. Every item MUST include a real, direct https referenceUrl for more information; prefer the official venue, attraction, transit, or tourism website. If you cannot verify a specific official URL, return an empty referenceUrl so the app can provide a map search link. Mark locationPrecision as exact only for a specific venue; use area for broad neighborhoods, walks, districts, or unverified suggestions.",
           },
           { role: "user", content: JSON.stringify({ request: message, tripContext: context }) },
         ],

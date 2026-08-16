@@ -157,7 +157,7 @@ const PlannerScreen = (() => {
         const hit = (await response.json())[0];
         if (hit) {
           const overlap = points.filter(point => Math.abs(point.lat - Number(hit.lat)) < 0.0005 && Math.abs(point.lon - Number(hit.lon)) < 0.0005).length;
-          points.push({ place, lat: Number(hit.lat) + overlap * 0.0012, lon: Number(hit.lon) + overlap * 0.0012, approximate: false });
+          points.push({ place, lat: Number(hit.lat) + overlap * 0.0012, lon: Number(hit.lon) + overlap * 0.0012, approximate: place.locationPrecision !== 'exact' });
         } else if (place.location) {
           if (!fallback) {
             const fallbackResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(place.location)}`, { headers: { Accept: 'application/json', 'User-Agent': 'AfricaTripCompanion/1.0' } });
@@ -177,7 +177,7 @@ const PlannerScreen = (() => {
     mapInstance = L.map(node, { zoomControl: false, attributionControl: true }).setView([points[0].lat, points[0].lon], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(mapInstance);
     const bounds = [];
-    points.forEach((point, index) => { const marker = L.marker([point.lat, point.lon]).addTo(mapInstance); marker.bindPopup(`<strong>${index + 1}. ${escapeHtml(point.place.name)}</strong><br>${escapeHtml(point.place.location)}${point.approximate ? '<br><em>Approximate area pin</em>' : ''}`); marker.on('click', () => onMarkerClick?.(point)); bounds.push([point.lat, point.lon]); });
+    points.forEach((point, index) => { const marker = point.approximate ? L.circle([point.lat, point.lon], { radius: 650, color: '#c75a45', fillColor: '#c75a45', fillOpacity: 0.16, weight: 2 }).addTo(mapInstance) : L.marker([point.lat, point.lon]).addTo(mapInstance); marker.bindPopup(`<strong>${index + 1}. ${escapeHtml(point.place.name)}</strong><br>${escapeHtml(point.place.location)}${point.approximate ? '<br><em>Area recommendation — not an exact venue</em>' : ''}`); marker.on('click', () => onMarkerClick?.(point)); bounds.push([point.lat, point.lon]); });
     if (bounds.length > 1) mapInstance.fitBounds(bounds, { padding: [18, 18] });
   }
 
@@ -259,7 +259,7 @@ const PlannerScreen = (() => {
       card.append(marker, body, check); timeline.append(card);
     });
     section.append(timeline);
-    setTimeout(() => plotPlaces(routeMap, (proposal.items || []).map((item, index) => ({ name: item.name, location: Data.getDays().find(day => day.date === item.dayDate)?.locality || '', why: item.description || '', index })), point => { const card = document.getElementById(`planner-stop-${point.place.index}`); if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); card.classList.add('is-map-focused'); setTimeout(() => card.classList.remove('is-map-focused'), 1200); } }), 0);
+    setTimeout(() => plotPlaces(routeMap, (proposal.items || []).map((item, index) => ({ name: item.name, location: Data.getDays().find(day => day.date === item.dayDate)?.locality || '', why: item.description || '', index, locationPrecision: item.locationPrecision || 'area' })), point => { const card = document.getElementById(`planner-stop-${point.place.index}`); if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); card.classList.add('is-map-focused'); setTimeout(() => card.classList.remove('is-map-focused'), 1200); } }), 0);
     if (proposal.caveats?.length) {
       const note = el('div', 'planner-caveat'); note.innerHTML = Icons.info('icon-sm');
       note.append(el('p', '', proposal.caveats.join(' · '))); section.append(note);

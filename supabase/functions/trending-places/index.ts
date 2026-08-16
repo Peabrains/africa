@@ -4,10 +4,11 @@ import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 const placeSchema = {
   type: "object", additionalProperties: false,
-  required: ["name", "location", "why", "bestFor", "sourceUrl", "officialUrl", "mapsUrl", "caveat"],
+  required: ["name", "location", "why", "bestFor", "sourceUrl", "officialUrl", "mapsUrl", "caveat", "locationPrecision"],
   properties: {
     name: { type: "string" }, location: { type: "string" }, why: { type: "string" }, bestFor: { type: "string" },
     sourceUrl: { type: "string" }, officialUrl: { type: "string" }, mapsUrl: { type: "string" }, caveat: { type: "string" },
+    locationPrecision: { type: "string", enum: ["exact", "area"] },
   },
 };
 
@@ -26,7 +27,7 @@ Deno.serve(async (req) => {
       method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "perplexity/sonar", max_output_tokens: 3000,
-        input: [{ role: "system", content: "Find current, interesting travel places using live web search. Use public sources only; never claim Instagram or Xiaohongshu access unless a public result is actually available. Return five places with source links. Prefer recent posts, local tourism sites, official venue pages, and reputable travel publications. Clearly flag uncertainty and tell the user to verify hours, access, and availability." }, { role: "user", content: JSON.stringify({ request: message, location, date, interests }) }],
+        input: [{ role: "system", content: "Find current, interesting travel places using live web search. Use public sources only; never claim Instagram or Xiaohongshu access unless a public result is actually available. Return five places with source links. Prefer recent posts, local tourism sites, official venue pages, and reputable travel publications. Clearly flag uncertainty and tell the user to verify hours, access, and availability. Mark locationPrecision exact only for a specific, verifiable venue; use area for neighborhoods, districts, walks, viewpoints, or broad suggestions." }, { role: "user", content: JSON.stringify({ request: message, location, date, interests }) }],
         text: { format: { type: "json_schema", name: "trending_places", strict: true, schema: { type: "object", additionalProperties: false, required: ["summary", "places"], properties: { summary: { type: "string" }, places: { type: "array", minItems: 1, maxItems: 5, items: placeSchema } } } } },
       }),
     });
