@@ -153,11 +153,11 @@ const PlannerScreen = (() => {
     for (const place of places) {
       try {
         const query = encodeURIComponent(`${place.name}, ${place.location}`);
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${query}`, { headers: { Accept: 'application/json', 'User-Agent': 'AfricaTripCompanion/1.0' } });
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&namedetails=1&addressdetails=1&limit=1&q=${query}`, { headers: { Accept: 'application/json', 'User-Agent': 'AfricaTripCompanion/1.0' } });
         const hit = (await response.json())[0];
         if (hit) {
           const overlap = points.filter(point => Math.abs(point.lat - Number(hit.lat)) < 0.0005 && Math.abs(point.lon - Number(hit.lon)) < 0.0005).length;
-          points.push({ place, lat: Number(hit.lat) + overlap * 0.0012, lon: Number(hit.lon) + overlap * 0.0012, approximate: place.locationPrecision !== 'exact' });
+          points.push({ place, lat: Number(hit.lat) + overlap * 0.0012, lon: Number(hit.lon) + overlap * 0.0012, approximate: !isVerifiedVenue(place, hit) });
         } else if (place.location) {
           if (!fallback) {
             const fallbackResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(place.location)}`, { headers: { Accept: 'application/json', 'User-Agent': 'AfricaTripCompanion/1.0' } });
@@ -179,6 +179,15 @@ const PlannerScreen = (() => {
     const bounds = [];
     points.forEach((point, index) => { const marker = point.approximate ? L.circle([point.lat, point.lon], { radius: 650, color: '#c75a45', fillColor: '#c75a45', fillOpacity: 0.16, weight: 2 }).addTo(mapInstance) : L.marker([point.lat, point.lon]).addTo(mapInstance); marker.bindPopup(`<strong>${index + 1}. ${escapeHtml(point.place.name)}</strong><br>${escapeHtml(point.place.location)}${point.approximate ? '<br><em>Area recommendation — not an exact venue</em>' : ''}`); marker.on('click', () => onMarkerClick?.(point)); bounds.push([point.lat, point.lon]); });
     if (bounds.length > 1) mapInstance.fitBounds(bounds, { padding: [18, 18] });
+  }
+
+  function isVerifiedVenue(place, hit) {
+    const venueClasses = new Set(['amenity', 'shop', 'tourism', 'leisure', 'office', 'craft']);
+    if (!venueClasses.has(hit.class)) return false;
+    const wanted = String(place.name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const returned = String(hit.display_name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ');
+    const words = wanted.split(' ').filter(word => word.length > 2);
+    return words.length > 0 && words.filter(word => returned.includes(word)).length >= Math.max(1, Math.ceil(words.length * 0.55));
   }
 
   function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character])); }
