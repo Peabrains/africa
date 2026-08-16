@@ -3,8 +3,10 @@
 const PlannerScreen = (() => {
   let root = null, proposal = null, trendingResults = null, busy = false, prompt = '', focusDayId = '', errorMessage = '';
   let selected = new Set();
+  let trendingSelected = new Set();
   let mapInstance = null;
   const DRAFT_KEY = 'africa-ai-planner-draft-v1';
+  const TRENDING_KEY = 'africa-ai-planner-trending-v1';
   const QUICK_PROMPTS = [
     ['Slow day', 'Plan a relaxed day with minimal travel and plenty of downtime.'],
     ['Local food', 'Suggest a local food experience that fits naturally around what is already planned.'],
@@ -40,6 +42,9 @@ const PlannerScreen = (() => {
   }
 
   function clearDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch (_) {} }
+  function saveTrending() { try { localStorage.setItem(TRENDING_KEY, JSON.stringify({ tripKey: getTripKey(), results: trendingResults, selected: [...trendingSelected], savedAt: Date.now() })); } catch (_) {} }
+  function restoreTrending() { try { const saved = JSON.parse(localStorage.getItem(TRENDING_KEY) || 'null'); if (saved?.tripKey === getTripKey() && saved.results?.places?.length) { trendingResults = saved.results; trendingSelected = new Set(saved.selected || []); } } catch (_) {} }
+  function clearTrending() { try { localStorage.removeItem(TRENDING_KEY); } catch (_) {} }
 
   function header() {
     const row = el('div', 'planner-header');
@@ -107,7 +112,7 @@ const PlannerScreen = (() => {
   async function requestTrending() {
     if (!prompt.trim()) { errorMessage = 'Describe the kind of places you want to discover first.'; render(); return; }
     busy = true; trendingResults = null; errorMessage = ''; saveDraft(); render();
-    try { trendingResults = await PlannerService.trending(prompt, focusDayId); }
+    try { trendingResults = await PlannerService.trending(prompt, focusDayId); trendingSelected = new Set(); saveTrending(); }
     catch (error) { errorMessage = error.message || 'Live place search failed.'; }
     finally { busy = false; render(); }
   }
@@ -117,14 +122,17 @@ const PlannerScreen = (() => {
     section.append(el('p', 'planner-label', 'LIVE DISCOVERY'), el('h2', 'planner-proposal-title', 'Places people are talking about'));
     const map = el('div', 'planner-map'); map.setAttribute('aria-label', 'Map of discovered places'); section.append(map);
     if (trendingResults.summary) section.append(el('p', 'planner-proposal-summary', trendingResults.summary));
-    (trendingResults.places || []).forEach(place => {
-      const card = el('article', 'planner-trending-card');
+    (trendingResults.places || []).forEach((place, index) => {
+      const chosen = trendingSelected.has(index);
+      const card = el('article', `planner-trending-card ${chosen ? 'is-selected' : ''}`);
       card.append(el('h3', 'planner-stop-name', place.name), el('p', 'planner-stop-description', `${place.location} · ${place.why}`), el('p', 'planner-trending-best', `Best for: ${place.bestFor}`));
       const links = el('div', 'planner-trending-links');
       [['Read source', place.sourceUrl], ['Official info', place.officialUrl], ['Open in Maps', place.mapsUrl]].forEach(([label, href]) => { if (/^https:\/\//i.test(href || '')) { const link = el('a', '', `${label} ↗`); link.href = href; link.target = '_blank'; link.rel = 'noopener noreferrer'; links.append(link); } });
-      card.append(links, el('p', 'planner-trending-caveat', place.caveat || 'Verify current hours, access, and availability before going.')); section.append(card);
+      const save = el('button', 'planner-trending-save', chosen ? 'Saved ✓' : 'Save place'); save.type = 'button'; save.addEventListener('click', () => { const nowChosen = !trendingSelected.has(index); nowChosen ? trendingSelected.add(index) : trendingSelected.delete(index); save.textContent = nowChosen ? 'Saved ✓' : 'Save place'; card.classList.toggle('is-selected', nowChosen); saveTrending(); });
+      card.append(links, save, el('p', 'planner-trending-caveat', place.caveat || 'Verify current hours, access, and availability before going.')); section.append(card);
     });
     const back = el('button', 'planner-trending-back', 'Back to planner'); back.type = 'button'; back.addEventListener('click', () => { trendingResults = null; render(); }); section.append(back);
+    const clear = el('button', 'planner-trending-clear', 'Clear discoveries'); clear.type = 'button'; clear.addEventListener('click', () => { clearTrending(); trendingResults = null; trendingSelected.clear(); render(); }); section.append(clear);
     setTimeout(() => plotPlaces(map, trendingResults.places || []), 0);
     return section;
   }
@@ -298,7 +306,7 @@ const PlannerScreen = (() => {
     else if (proposal) root.append(proposalView());
   }
 
-  return { init(node) { root = node; restoreDraft(); render(); }, destroy() { root = null; } };
+  return { init(node) { root = node; restoreDraft(); restoreTrending(); render(); }, destroy() { root = null; } };
 })();
 
 window.PlannerScreen = PlannerScreen;
