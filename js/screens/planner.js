@@ -183,6 +183,12 @@ const PlannerScreen = (() => {
 
   function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character])); }
 
+  function inferLocationPrecision(item) {
+    if (item.locationPrecision) return item.locationPrecision;
+    const name = String(item.name || '').toLowerCase();
+    return /roaster|cafe|coffee|restaurant|market|museum|gallery|hotel|bakery|bar|temple|shop|store/.test(name) ? 'exact' : 'area';
+  }
+
   async function requestProposal() {
     if (!prompt.trim()) { errorMessage = 'Tell me what kind of day you want first.'; render(); return; }
     busy = true; proposal = null; errorMessage = ''; selected.clear(); render();
@@ -259,7 +265,7 @@ const PlannerScreen = (() => {
       card.append(marker, body, check); timeline.append(card);
     });
     section.append(timeline);
-    setTimeout(() => plotPlaces(routeMap, (proposal.items || []).map((item, index) => ({ name: item.name, location: Data.getDays().find(day => day.date === item.dayDate)?.locality || '', why: item.description || '', index, locationPrecision: item.locationPrecision || 'area' })), point => { const card = document.getElementById(`planner-stop-${point.place.index}`); if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); card.classList.add('is-map-focused'); setTimeout(() => card.classList.remove('is-map-focused'), 1200); } }), 0);
+    setTimeout(() => plotPlaces(routeMap, (proposal.items || []).map((item, index) => ({ name: item.name, location: Data.getDays().find(day => day.date === item.dayDate)?.locality || '', why: item.description || '', index, locationPrecision: inferLocationPrecision(item) })), point => { const card = document.getElementById(`planner-stop-${point.place.index}`); if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); card.classList.add('is-map-focused'); setTimeout(() => card.classList.remove('is-map-focused'), 1200); } }), 0);
     if (proposal.caveats?.length) {
       const note = el('div', 'planner-caveat'); note.innerHTML = Icons.info('icon-sm');
       note.append(el('p', '', proposal.caveats.join(' · '))); section.append(note);
