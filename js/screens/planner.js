@@ -3,6 +3,7 @@
 const PlannerScreen = (() => {
   let root = null, proposal = null, busy = false, prompt = '', focusDayId = '', errorMessage = '';
   let selected = new Set();
+  const DRAFT_KEY = 'africa-ai-planner-draft-v1';
   const QUICK_PROMPTS = [
     ['Slow day', 'Plan a relaxed day with minimal travel and plenty of downtime.'],
     ['Local food', 'Suggest a local food experience that fits naturally around what is already planned.'],
@@ -16,6 +17,23 @@ const PlannerScreen = (() => {
     if (text != null) node.textContent = text;
     return node;
   }
+
+  function saveDraft() {
+    if (!proposal) return;
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ tripKey: Data.getCurrentTrip?.()?.id || Data.getTripName?.() || 'trip', proposal, prompt, focusDayId, selected: [...selected], savedAt: Date.now() })); } catch (_) {}
+  }
+
+  function restoreDraft() {
+    try {
+      const draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
+      const tripKey = Data.getCurrentTrip?.()?.id || Data.getTripName?.() || 'trip';
+      if (!draft || draft.tripKey !== tripKey || !draft.proposal?.items?.length) return;
+      proposal = draft.proposal; prompt = draft.prompt || ''; focusDayId = draft.focusDayId || '';
+      selected = new Set(Array.isArray(draft.selected) ? draft.selected : draft.proposal.items.map((_, i) => i));
+    } catch (_) {}
+  }
+
+  function clearDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch (_) {} }
 
   function header() {
     const row = el('div', 'planner-header');
@@ -52,7 +70,7 @@ const PlannerScreen = (() => {
   function composer() {
     const section = el('section', 'planner-section planner-compose-section');
     const heading = el('div', 'planner-section-heading');
-    heading.append(el('p', 'planner-label', 'YOUR BRIEF'), el('span', 'planner-quota', '5 plans / day'));
+    heading.append(el('p', 'planner-label', 'YOUR BRIEF'), el('span', 'planner-quota', 'No daily cap'));
     const card = el('div', 'planner-compose-card');
     const textarea = el('textarea', 'planner-textarea');
     textarea.rows = 5; textarea.maxLength = 1200; textarea.value = prompt;
@@ -84,6 +102,7 @@ const PlannerScreen = (() => {
     try {
       proposal = await PlannerService.suggest(prompt, focusDayId);
       selected = new Set((proposal.items || []).map((_, index) => index));
+      saveDraft();
     } catch (error) {
       errorMessage = error.message || 'The planner hit a problem. Your daily allowance was not charged.';
     } finally { busy = false; render(); }
@@ -116,6 +135,11 @@ const PlannerScreen = (() => {
     const intro = el('div', 'planner-proposal-intro');
     intro.append(el('p', 'planner-label', 'YOUR DRAFT'), el('h2', 'planner-proposal-title', proposal.title || 'A plan for your day'));
     if (proposal.summary) intro.append(el('p', 'planner-proposal-summary', proposal.summary));
+    const saved = el('div', 'planner-draft-saved');
+    saved.append(el('span', '', 'Saved on this device'));
+    const discard = el('button', 'planner-draft-discard', 'Discard draft'); discard.type = 'button';
+    discard.addEventListener('click', () => { clearDraft(); proposal = null; selected.clear(); render(); });
+    saved.append(discard); intro.append(saved);
     section.append(intro);
     const timeline = el('div', 'planner-timeline');
     (proposal.items || []).forEach((item, index) => {
@@ -123,7 +147,7 @@ const PlannerScreen = (() => {
       const card = el('div', `planner-stop ${chosen ? 'is-selected' : ''}`);
       card.setAttribute('role', 'button');
       card.tabIndex = 0;
-      const toggle = () => { chosen ? selected.delete(index) : selected.add(index); render(); };
+      const toggle = () => { chosen ? selected.delete(index) : selected.add(index); saveDraft(); render(); };
       card.addEventListener('click', toggle);
       card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggle(); } });
       const time = [item.startTime, item.endTime].filter(Boolean).join(' – ') || 'Flexible';
@@ -152,7 +176,7 @@ const PlannerScreen = (() => {
     }
     const actions = el('div', 'planner-actions');
     const reset = el('button', 'planner-secondary-action', 'Try another idea');
-    reset.type = 'button'; reset.addEventListener('click', () => { proposal = null; selected.clear(); errorMessage = ''; render(); });
+    reset.type = 'button'; reset.addEventListener('click', () => { clearDraft(); proposal = null; selected.clear(); errorMessage = ''; render(); });
     const add = el('button', 'planner-primary-action');
     add.type = 'button'; add.innerHTML = `${Icons.plus('icon-sm')}<span>Add ${selected.size || ''} to itinerary</span>`;
     add.disabled = selected.size === 0; add.addEventListener('click', addSelected);
@@ -185,6 +209,7 @@ const PlannerScreen = (() => {
           booking: { status: item.bookingRequired ? 'open' : null, cost: item.estimatedCost ?? null, costCurrency: proposal.currency || Data.getTripCurrency?.() },
         });
       }
+      clearDraft();
       Toast.show(`Added ${chosen.length} suggestion${chosen.length === 1 ? '' : 's'} ✓`, 'success');
       App.switchTo('itinerary');
     } catch (error) { errorMessage = `Could not add the draft: ${error.message}`; render(); }
@@ -200,7 +225,7 @@ const PlannerScreen = (() => {
     else if (proposal) root.append(proposalView());
   }
 
-  return { init(node) { root = node; render(); }, destroy() { root = null; } };
+  return { init(node) { root = node; restoreDraft(); render(); }, destroy() { root = null; } };
 })();
 
 window.PlannerScreen = PlannerScreen;
