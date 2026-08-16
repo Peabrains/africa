@@ -100,7 +100,7 @@ const PlannerScreen = (() => {
 
   async function requestTrending() {
     if (!prompt.trim()) { errorMessage = 'Describe the kind of places you want to discover first.'; render(); return; }
-    busy = true; proposal = null; trendingResults = null; errorMessage = ''; render();
+    busy = true; trendingResults = null; errorMessage = ''; saveDraft(); render();
     try { trendingResults = await PlannerService.trending(prompt, focusDayId); }
     catch (error) { errorMessage = error.message || 'Live place search failed.'; }
     finally { busy = false; render(); }
