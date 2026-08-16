@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
       const retryable = response.status === 429 || response.status >= 500;
       return json({ error: retryable ? "The planner is busy right now. Please try again." : "The planner could not understand that request. Try rephrasing it." }, 502);
     }
-    const outputText = result.output?.flatMap((entry: any) => entry.content || []).find((part: any) => part.type === "output_text")?.text;
+    const outputText = extractOutputText(result);
     if (!outputText) {
       return json({ error: "The planner ran out of room. Try a shorter request or choose one day." }, 502);
     }
@@ -101,9 +101,21 @@ Deno.serve(async (req) => {
     return json({ proposal: JSON.parse(outputText), usage });
   } catch (error) {
     console.error("AI planner failure", error instanceof Error ? error.message : "unknown");
-    return json({ error: "The planner request could not be completed" }, 500);
+    const message = error instanceof Error ? error.message : "unknown planner error";
+    return json({ error: `The planner response could not be read: ${message}` }, 502);
   }
 });
+
+function extractOutputText(result: any): string {
+  if (typeof result?.output_text === "string" && result.output_text.trim()) return result.output_text;
+  if (Array.isArray(result?.output)) {
+    const part = result.output
+      .flatMap((entry: any) => Array.isArray(entry?.content) ? entry.content : [])
+      .find((candidate: any) => candidate?.type === "output_text" && typeof candidate?.text === "string");
+    if (part?.text?.trim()) return part.text;
+  }
+  return "";
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
