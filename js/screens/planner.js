@@ -3,7 +3,7 @@
 const PlannerScreen = (() => {
   let root = null, proposal = null, trendingResults = null, busy = false, prompt = '', focusDayId = '', errorMessage = '';
   let selected = new Set();
-  let trendingSelected = new Set();
+  let trendingSelected = new Set(), workspaceTab = 'itinerary';
   let mapInstance = null;
   const DRAFT_KEY = 'africa-ai-planner-draft-v1';
   const TRENDING_KEY = 'africa-ai-planner-trending-v1';
@@ -109,9 +109,18 @@ const PlannerScreen = (() => {
     return section;
   }
 
+  function workspaceTabs() {
+    const tabs = el('div', 'planner-workspace-tabs');
+    [['itinerary', 'Suggested itinerary'], ['trending', 'Trending places']].forEach(([key, label]) => {
+      const button = el('button', `planner-workspace-tab ${workspaceTab === key ? 'is-active' : ''}`, label); button.type = 'button'; button.disabled = key === 'itinerary' ? !proposal : !trendingResults;
+      button.addEventListener('click', () => { workspaceTab = key; errorMessage = ''; render(); }); tabs.append(button);
+    });
+    return tabs;
+  }
+
   async function requestTrending() {
     if (!prompt.trim()) { errorMessage = 'Describe the kind of places you want to discover first.'; render(); return; }
-    busy = true; trendingResults = null; errorMessage = ''; saveDraft(); render();
+    busy = true; workspaceTab = 'trending'; trendingResults = null; errorMessage = ''; saveDraft(); render();
     try { trendingResults = await PlannerService.trending(prompt, focusDayId); trendingSelected = new Set(); saveTrending(); }
     catch (error) { errorMessage = error.message || 'Live place search failed.'; }
     finally { busy = false; render(); }
@@ -131,17 +140,17 @@ const PlannerScreen = (() => {
       const save = el('button', 'planner-trending-save', chosen ? 'Saved ✓' : 'Save place'); save.type = 'button'; save.addEventListener('click', () => { const nowChosen = !trendingSelected.has(index); nowChosen ? trendingSelected.add(index) : trendingSelected.delete(index); save.textContent = nowChosen ? 'Saved ✓' : 'Save place'; card.classList.toggle('is-selected', nowChosen); saveTrending(); });
       card.append(links, save, el('p', 'planner-trending-caveat', place.caveat || 'Verify current hours, access, and availability before going.')); section.append(card);
     });
-    const back = el('button', 'planner-trending-back', 'Back to planner'); back.type = 'button'; back.addEventListener('click', () => { trendingResults = null; render(); }); section.append(back);
+    const back = el('button', 'planner-trending-back', 'Back to planner'); back.type = 'button'; back.addEventListener('click', () => { workspaceTab = 'itinerary'; render(); }); section.append(back);
     const clear = el('button', 'planner-trending-clear', 'Clear discoveries'); clear.type = 'button'; clear.addEventListener('click', () => { clearTrending(); trendingResults = null; trendingSelected.clear(); render(); }); section.append(clear);
     setTimeout(() => plotPlaces(map, trendingResults.places || []), 0);
     return section;
   }
 
-  async function plotPlaces(node, places) {
+  async function plotPlaces(node, places, onMarkerClick) {
     if (!window.L || !node || !places.length) return;
     const points = [];
     let fallback = null;
-    for (const place of places.slice(0, 5)) {
+    for (const place of places) {
       try {
         const query = encodeURIComponent(`${place.name}, ${place.location}`);
         const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${query}`, { headers: { Accept: 'application/json', 'User-Agent': 'AfricaTripCompanion/1.0' } });
@@ -168,7 +177,7 @@ const PlannerScreen = (() => {
     mapInstance = L.map(node, { zoomControl: false, attributionControl: true }).setView([points[0].lat, points[0].lon], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(mapInstance);
     const bounds = [];
-    points.forEach((point, index) => { const marker = L.marker([point.lat, point.lon]).addTo(mapInstance); marker.bindPopup(`<strong>${index + 1}. ${escapeHtml(point.place.name)}</strong><br>${escapeHtml(point.place.location)}${point.approximate ? '<br><em>Approximate area pin</em>' : ''}`); bounds.push([point.lat, point.lon]); });
+    points.forEach((point, index) => { const marker = L.marker([point.lat, point.lon]).addTo(mapInstance); marker.bindPopup(`<strong>${index + 1}. ${escapeHtml(point.place.name)}</strong><br>${escapeHtml(point.place.location)}${point.approximate ? '<br><em>Approximate area pin</em>' : ''}`); marker.on('click', () => onMarkerClick?.(point)); bounds.push([point.lat, point.lon]); });
     if (bounds.length > 1) mapInstance.fitBounds(bounds, { padding: [18, 18] });
   }
 
@@ -224,9 +233,10 @@ const PlannerScreen = (() => {
     (proposal.items || []).forEach((item, index) => {
       const chosen = selected.has(index);
       const card = el('div', `planner-stop ${chosen ? 'is-selected' : ''}`);
+      card.id = `planner-stop-${index}`;
       card.setAttribute('role', 'button');
       card.tabIndex = 0;
-      const toggle = () => { chosen ? selected.delete(index) : selected.add(index); saveDraft(); render(); };
+      const toggle = () => { const nowChosen = !selected.has(index); nowChosen ? selected.add(index) : selected.delete(index); saveDraft(); card.classList.toggle('is-selected', nowChosen); check.innerHTML = nowChosen ? Icons.check('icon-sm') : ''; };
       card.addEventListener('click', toggle);
       card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggle(); } });
       const time = [item.startTime, item.endTime].filter(Boolean).join(' – ') || 'Flexible';
@@ -249,7 +259,7 @@ const PlannerScreen = (() => {
       card.append(marker, body, check); timeline.append(card);
     });
     section.append(timeline);
-    setTimeout(() => plotPlaces(routeMap, (proposal.items || []).map(item => ({ name: item.name, location: Data.getDays().find(day => day.date === item.dayDate)?.locality || '', why: item.description || '' }))), 0);
+    setTimeout(() => plotPlaces(routeMap, (proposal.items || []).map((item, index) => ({ name: item.name, location: Data.getDays().find(day => day.date === item.dayDate)?.locality || '', why: item.description || '', index })), point => { const card = document.getElementById(`planner-stop-${point.place.index}`); if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); card.classList.add('is-map-focused'); setTimeout(() => card.classList.remove('is-map-focused'), 1200); } }), 0);
     if (proposal.caveats?.length) {
       const note = el('div', 'planner-caveat'); note.innerHTML = Icons.info('icon-sm');
       note.append(el('p', '', proposal.caveats.join(' · '))); section.append(note);
@@ -300,10 +310,12 @@ const PlannerScreen = (() => {
     if (!root) return;
     root.innerHTML = ''; root.className = 'planner-screen';
     root.append(header(), dayPicker(), composer());
+    if (proposal || trendingResults) root.append(workspaceTabs());
     if (busy) root.append(loadingView());
     else if (errorMessage) root.append(errorView());
-    else if (trendingResults) root.append(trendingView());
+    else if (workspaceTab === 'trending' && trendingResults) root.append(trendingView());
     else if (proposal) root.append(proposalView());
+    else if (trendingResults) root.append(trendingView());
   }
 
   return { init(node) { root = node; restoreDraft(); restoreTrending(); render(); }, destroy() { root = null; } };
