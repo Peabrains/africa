@@ -21,13 +21,18 @@ const PlannerScreen = (() => {
 
   function saveDraft() {
     if (!proposal) return;
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ tripKey: Data.getCurrentTrip?.()?.id || Data.getTripName?.() || 'trip', proposal, prompt, focusDayId, selected: [...selected], savedAt: Date.now() })); } catch (_) {}
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ tripKey: getTripKey(), proposal, prompt, focusDayId, selected: [...selected], savedAt: Date.now() })); } catch (_) {}
+  }
+
+  function getTripKey() {
+    const trip = Data.getCurrentTrip?.() || {};
+    return [trip.id, trip.name || Data.getTripName?.(), trip.start_date, trip.end_date, ...(trip.countries || [])].filter(Boolean).join('|') || 'trip';
   }
 
   function restoreDraft() {
     try {
       const draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
-      const tripKey = Data.getCurrentTrip?.()?.id || Data.getTripName?.() || 'trip';
+      const tripKey = getTripKey();
       if (!draft || draft.tripKey !== tripKey || !draft.proposal?.items?.length) return;
       proposal = draft.proposal; prompt = draft.prompt || ''; focusDayId = draft.focusDayId || '';
       selected = new Set(Array.isArray(draft.selected) ? draft.selected : draft.proposal.items.map((_, i) => i));
@@ -130,9 +135,13 @@ const PlannerScreen = (() => {
     for (const place of places.slice(0, 5)) {
       try {
         const query = encodeURIComponent(`${place.name}, ${place.location}`);
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${query}`, { headers: { Accept: 'application/json' } });
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${query}`, { headers: { Accept: 'application/json', 'User-Agent': 'AfricaTripCompanion/1.0' } });
         const hit = (await response.json())[0];
-        if (hit) points.push({ place, lat: Number(hit.lat), lon: Number(hit.lon) });
+        if (hit) {
+          const overlap = points.filter(point => Math.abs(point.lat - Number(hit.lat)) < 0.0005 && Math.abs(point.lon - Number(hit.lon)) < 0.0005).length;
+          points.push({ place, lat: Number(hit.lat) + overlap * 0.0012, lon: Number(hit.lon) + overlap * 0.0012 });
+        }
+        await new Promise(resolve => setTimeout(resolve, 1100));
       } catch (_) {}
     }
     if (!points.length || !document.body.contains(node)) return;
