@@ -132,6 +132,7 @@ const PlannerScreen = (() => {
   async function plotPlaces(node, places) {
     if (!window.L || !node || !places.length) return;
     const points = [];
+    let fallback = null;
     for (const place of places.slice(0, 5)) {
       try {
         const query = encodeURIComponent(`${place.name}, ${place.location}`);
@@ -139,7 +140,17 @@ const PlannerScreen = (() => {
         const hit = (await response.json())[0];
         if (hit) {
           const overlap = points.filter(point => Math.abs(point.lat - Number(hit.lat)) < 0.0005 && Math.abs(point.lon - Number(hit.lon)) < 0.0005).length;
-          points.push({ place, lat: Number(hit.lat) + overlap * 0.0012, lon: Number(hit.lon) + overlap * 0.0012 });
+          points.push({ place, lat: Number(hit.lat) + overlap * 0.0012, lon: Number(hit.lon) + overlap * 0.0012, approximate: false });
+        } else if (place.location) {
+          if (!fallback) {
+            const fallbackResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(place.location)}`, { headers: { Accept: 'application/json', 'User-Agent': 'AfricaTripCompanion/1.0' } });
+            const fallbackHit = (await fallbackResponse.json())[0];
+            if (fallbackHit) fallback = { lat: Number(fallbackHit.lat), lon: Number(fallbackHit.lon) };
+          }
+          if (fallback) {
+            const offset = points.filter(point => point.approximate).length;
+            points.push({ place, lat: fallback.lat + (offset - 1) * 0.0015, lon: fallback.lon + (offset - 1) * 0.0015, approximate: true });
+          }
         }
         await new Promise(resolve => setTimeout(resolve, 1100));
       } catch (_) {}
@@ -149,7 +160,7 @@ const PlannerScreen = (() => {
     mapInstance = L.map(node, { zoomControl: false, attributionControl: true }).setView([points[0].lat, points[0].lon], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(mapInstance);
     const bounds = [];
-    points.forEach((point, index) => { const marker = L.marker([point.lat, point.lon]).addTo(mapInstance); marker.bindPopup(`<strong>${index + 1}. ${escapeHtml(point.place.name)}</strong><br>${escapeHtml(point.place.location)}`); bounds.push([point.lat, point.lon]); });
+    points.forEach((point, index) => { const marker = L.marker([point.lat, point.lon]).addTo(mapInstance); marker.bindPopup(`<strong>${index + 1}. ${escapeHtml(point.place.name)}</strong><br>${escapeHtml(point.place.location)}${point.approximate ? '<br><em>Approximate area pin</em>' : ''}`); bounds.push([point.lat, point.lon]); });
     if (bounds.length > 1) mapInstance.fitBounds(bounds, { padding: [18, 18] });
   }
 
