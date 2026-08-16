@@ -137,13 +137,29 @@ const PlannerScreen = (() => {
       card.append(el('h3', 'planner-stop-name', place.name), el('p', 'planner-stop-description', `${place.location} · ${place.why}`), el('p', 'planner-trending-best', `Best for: ${place.bestFor}`));
       const links = el('div', 'planner-trending-links');
       [['Read source', place.sourceUrl], ['Official info', place.officialUrl], ['Open in Maps', place.mapsUrl]].forEach(([label, href]) => { if (/^https:\/\//i.test(href || '')) { const link = el('a', '', `${label} ↗`); link.href = href; link.target = '_blank'; link.rel = 'noopener noreferrer'; links.append(link); } });
-      const save = el('button', 'planner-trending-save', chosen ? 'Saved ✓' : 'Save place'); save.type = 'button'; save.addEventListener('click', () => { const nowChosen = !trendingSelected.has(index); nowChosen ? trendingSelected.add(index) : trendingSelected.delete(index); save.textContent = nowChosen ? 'Saved ✓' : 'Save place'; card.classList.toggle('is-selected', nowChosen); saveTrending(); });
+      const save = el('button', 'planner-trending-save', chosen ? 'Selected ✓' : 'Select place'); save.type = 'button'; save.addEventListener('click', () => { const nowChosen = !trendingSelected.has(index); nowChosen ? trendingSelected.add(index) : trendingSelected.delete(index); save.textContent = nowChosen ? 'Selected ✓' : 'Select place'; card.classList.toggle('is-selected', nowChosen); saveTrending(); });
       card.append(links, save, el('p', 'planner-trending-caveat', place.caveat || 'Verify current hours, access, and availability before going.')); section.append(card);
     });
-    const back = el('button', 'planner-trending-back', 'Back to planner'); back.type = 'button'; back.addEventListener('click', () => { workspaceTab = 'itinerary'; render(); }); section.append(back);
+    const actions = el('div', 'planner-actions');
+    const back = el('button', 'planner-trending-back', 'Back to planner'); back.type = 'button'; back.addEventListener('click', () => { workspaceTab = 'itinerary'; render(); });
+    const add = el('button', 'planner-primary-action', `Add ${trendingSelected.size || ''} to itinerary`); add.type = 'button'; add.disabled = trendingSelected.size === 0; add.addEventListener('click', addTrendingSelected);
+    actions.append(back, add); section.append(actions);
     const clear = el('button', 'planner-trending-clear', 'Clear discoveries'); clear.type = 'button'; clear.addEventListener('click', () => { clearTrending(); trendingResults = null; trendingSelected.clear(); render(); }); section.append(clear);
     setTimeout(() => plotPlaces(map, trendingResults.places || []), 0);
     return section;
+  }
+
+  async function addTrendingSelected() {
+    const days = Data.getDays();
+    const day = days.find(candidate => candidate.id === focusDayId) || days[0];
+    const chosen = (trendingResults?.places || []).filter((_, index) => trendingSelected.has(index));
+    if (!day || !chosen.length) return;
+    busy = true; render();
+    try {
+      for (const place of chosen) await Data.addStop({ dayId: day.id, name: place.name, activity: place.why || '', time: '', transport: '', transportType: 'walk', notes: `${place.caveat || 'Verify current details before booking'} · Source: ${place.sourceUrl || place.officialUrl || ''}`, needsBooking: false, category: 'activity', booking: { status: null, cost: null, costCurrency: Data.getTripCurrency?.() } });
+      clearTrending(); trendingResults = null; trendingSelected.clear(); workspaceTab = 'itinerary'; Toast.show(`Added ${chosen.length} place${chosen.length === 1 ? '' : 's'} ✓`, 'success'); App.switchTo('itinerary');
+    } catch (error) { errorMessage = `Could not add places: ${error.message}`; }
+    finally { busy = false; render(); }
   }
 
   async function plotPlaces(node, places, onMarkerClick) {
