@@ -9,7 +9,7 @@ const corsHeaders = {
 const itemSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["dayDate", "startTime", "endTime", "name", "description", "category", "transport", "transportType", "estimatedCost", "bookingRequired", "notes"],
+  required: ["dayDate", "startTime", "endTime", "name", "description", "category", "transport", "transportType", "estimatedCost", "bookingRequired", "notes", "referenceUrl"],
   properties: {
     dayDate: { type: "string", description: "An ISO date already present in the supplied trip context" },
     startTime: { type: ["string", "null"], description: "24-hour HH:MM local time" },
@@ -22,6 +22,7 @@ const itemSchema = {
     estimatedCost: { type: ["number", "null"] },
     bookingRequired: { type: "boolean" },
     notes: { type: "string" },
+    referenceUrl: { type: "string", description: "A direct https URL with more information about this exact place or activity. Prefer the official venue or tourism website; never invent a URL." },
   },
 };
 
@@ -63,11 +64,11 @@ Deno.serve(async (req) => {
       headers: { "Authorization": `Bearer ${gatewayKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: Deno.env.get("AI_PLANNER_MODEL") || "openai/gpt-4.1-mini",
-        max_output_tokens: 1200,
+        max_output_tokens: 2400,
         input: [
           {
             role: "developer",
-            content: "You are a careful travel itinerary planner. Suggest only items that fit around fixed itinerary entries. Use only dates present in context.days. Never claim availability, live opening hours, prices, or bookings are verified. Keep the plan practical, geographically coherent, and concise. Return 1 to 6 items.",
+            content: "You are a careful travel itinerary planner. Suggest a genuinely useful set of 6 to 8 items when the request and available time allow, including a mix of primary recommendations and sensible alternatives. Fit everything around fixed itinerary entries and use only dates present in context.days. Never claim availability, live opening hours, prices, or bookings are verified. Keep the plan practical, geographically coherent, and detailed enough to act on. Every item MUST include a real, direct https referenceUrl for more information; prefer the official venue, attraction, transit, or tourism website. If you cannot verify a specific official URL, return an empty referenceUrl so the app can provide a map search link.",
           },
           { role: "user", content: JSON.stringify({ request: message, tripContext: context }) },
         ],
@@ -84,7 +85,7 @@ Deno.serve(async (req) => {
                 title: { type: "string" },
                 summary: { type: "string" },
                 currency: { type: "string" },
-                items: { type: "array", minItems: 1, maxItems: 6, items: itemSchema },
+                items: { type: "array", minItems: 1, maxItems: 8, items: itemSchema },
                 caveats: { type: "array", maxItems: 4, items: { type: "string" } },
               },
             },

@@ -120,14 +120,24 @@ const PlannerScreen = (() => {
     const timeline = el('div', 'planner-timeline');
     (proposal.items || []).forEach((item, index) => {
       const chosen = selected.has(index);
-      const card = el('button', `planner-stop ${chosen ? 'is-selected' : ''}`);
-      card.type = 'button';
-      card.addEventListener('click', () => { chosen ? selected.delete(index) : selected.add(index); render(); });
+      const card = el('div', `planner-stop ${chosen ? 'is-selected' : ''}`);
+      card.setAttribute('role', 'button');
+      card.tabIndex = 0;
+      const toggle = () => { chosen ? selected.delete(index) : selected.add(index); render(); };
+      card.addEventListener('click', toggle);
+      card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggle(); } });
       const time = [item.startTime, item.endTime].filter(Boolean).join(' – ') || 'Flexible';
       const marker = el('div', 'planner-stop-marker'); marker.innerHTML = '<span></span><i></i>';
       const body = el('div', 'planner-stop-body');
       body.append(el('p', 'planner-stop-time', time), el('h3', 'planner-stop-name', item.name));
       if (item.description) body.append(el('p', 'planner-stop-description', item.description));
+      const referenceUrl = getReferenceUrl(item);
+      const reference = el('a', 'planner-stop-reference', 'More information ↗');
+      reference.href = referenceUrl;
+      reference.target = '_blank';
+      reference.rel = 'noopener noreferrer';
+      reference.addEventListener('click', event => event.stopPropagation());
+      body.append(reference);
       const meta = el('div', 'planner-stop-meta');
       if (item.estimatedCost != null) meta.append(el('span', '', `Est. ${item.estimatedCost} ${proposal.currency || ''}`));
       if (item.bookingRequired) meta.append(el('span', '', 'Book ahead'));
@@ -147,6 +157,13 @@ const PlannerScreen = (() => {
     add.type = 'button'; add.innerHTML = `${Icons.plus('icon-sm')}<span>Add ${selected.size || ''} to itinerary</span>`;
     add.disabled = selected.size === 0; add.addEventListener('click', addSelected);
     actions.append(reset, add); section.append(actions); return section;
+  }
+
+  function getReferenceUrl(item) {
+    if (typeof item.referenceUrl === 'string' && /^https:\/\//i.test(item.referenceUrl)) return item.referenceUrl;
+    const day = Data.getDays().find(candidate => candidate.date === item.dayDate);
+    const locality = day?.locality || Data.getCurrentTrip?.()?.name || '';
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${item.name}${locality ? `, ${locality}` : ''}`)}`;
   }
 
   async function addSelected() {
