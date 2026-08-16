@@ -53,11 +53,12 @@ Deno.serve(async (req) => {
       headers: { "Authorization": `Bearer ${gatewayKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: Deno.env.get("AI_PLANNER_MODEL") || "openai/gpt-5.6-luna",
-        max_output_tokens: 2400,
+        max_output_tokens: 5000,
+        reasoning: { effort: "low" },
         input: [
           {
             role: "developer",
-            content: "You are a careful travel itinerary planner. Suggest a genuinely useful set of 6 to 8 items when the request and available time allow, including a mix of primary recommendations and sensible alternatives. Fit everything around fixed itinerary entries and use only dates present in context.days. Never claim availability, live opening hours, prices, or bookings are verified. Keep the plan practical, geographically coherent, and detailed enough to act on. Every item MUST include a real, direct https referenceUrl for more information; prefer the official venue, attraction, transit, or tourism website. If you cannot verify a specific official URL, return an empty referenceUrl so the app can provide a map search link.",
+            content: "You are a careful travel itinerary planner. Suggest 6 useful items when the request and available time allow, mixing primary recommendations with sensible alternatives. Fit everything around fixed itinerary entries and use only dates present in context.days. Never claim availability, live opening hours, prices, or bookings are verified. Keep the plan practical and geographically coherent. Keep each description to 1-2 concise sentences. Every item MUST include a real, direct https referenceUrl for more information; prefer the official venue, attraction, transit, or tourism website. If you cannot verify a specific official URL, return an empty referenceUrl so the app can provide a map search link.",
           },
           { role: "user", content: JSON.stringify({ request: message, tripContext: context }) },
         ],
