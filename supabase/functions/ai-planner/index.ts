@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: { "Authorization": `Bearer ${gatewayKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: Deno.env.get("AI_PLANNER_MODEL") || "openai/gpt-4.1-mini",
+        model: Deno.env.get("AI_PLANNER_MODEL") || "openai/gpt-5.6-luna",
         max_output_tokens: 2400,
         input: [
           {
