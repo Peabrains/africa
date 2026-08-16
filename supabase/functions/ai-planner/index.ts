@@ -32,6 +32,8 @@ Deno.serve(async (req) => {
   const gatewayKey = Deno.env.get("AI_GATEWAY_API_KEY");
   if (!gatewayKey) return json({ error: "AI Gateway is not configured" }, 503);
 
+  let scopedSupabase: ReturnType<typeof createClient> | null = null;
+  let quotaClaimed = false;
   try {
     const { message, context } = await req.json();
     if (!message || typeof message !== "string" || message.length > 1200) return json({ error: "Invalid planner request" }, 400);
@@ -44,6 +46,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authorization } },
       auth: { persistSession: false },
     });
+    scopedSupabase = supabase;
     const { data: authData, error: authError } = await supabase.auth.getUser();
     if (authError || !authData.user) return json({ error: "Sign in to use the AI planner" }, 401);
 
@@ -53,13 +56,14 @@ Deno.serve(async (req) => {
       return json({ error: "AI quota checking is not configured" }, 503);
     }
     if (!allowed) return json({ error: "You have used today's 5 AI plans. Try again tomorrow." }, 429);
+    quotaClaimed = true;
 
     const response = await fetch("https://ai-gateway.vercel.sh/v1/responses", {
       method: "POST",
       headers: { "Authorization": `Bearer ${gatewayKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: Deno.env.get("AI_PLANNER_MODEL") || "openai/gpt-5-mini",
-        max_output_tokens: 1600,
+        model: Deno.env.get("AI_PLANNER_MODEL") || "openai/gpt-4.1-mini",
+        max_output_tokens: 1200,
         input: [
           {
             role: "developer",
@@ -92,10 +96,17 @@ Deno.serve(async (req) => {
     const result = await response.json();
     if (!response.ok) {
       console.error("AI Gateway planner error", response.status, result?.error?.code || "unknown");
-      return json({ error: "The AI planner is temporarily unavailable" }, 502);
+      await refundQuota(supabase);
+      quotaClaimed = false;
+      const retryable = response.status === 429 || response.status >= 500;
+      return json({ error: retryable ? "The planner is busy right now. Please try again." : "The planner could not understand that request. Try rephrasing it." }, 502);
     }
     const outputText = result.output?.flatMap((entry: any) => entry.content || []).find((part: any) => part.type === "output_text")?.text;
-    if (!outputText) return json({ error: "The planner returned no proposal" }, 502);
+    if (!outputText) {
+      await refundQuota(supabase);
+      quotaClaimed = false;
+      return json({ error: "The planner ran out of room. Try a shorter request or choose one day." }, 502);
+    }
     const usage = result.usage || {};
     await supabase.rpc("record_ai_planner_tokens", {
       p_input_tokens: usage.input_tokens || 0,
@@ -104,9 +115,15 @@ Deno.serve(async (req) => {
     return json({ proposal: JSON.parse(outputText), usage });
   } catch (error) {
     console.error("AI planner failure", error instanceof Error ? error.message : "unknown");
+    if (quotaClaimed && scopedSupabase) await refundQuota(scopedSupabase);
     return json({ error: "The planner request could not be completed" }, 500);
   }
 });
+
+async function refundQuota(supabase: ReturnType<typeof createClient>) {
+  const { error } = await supabase.rpc("release_ai_planner_request");
+  if (error) console.error("Planner quota refund failed", error.code || "unknown");
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

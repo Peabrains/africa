@@ -72,7 +72,7 @@ The itinerary screen includes an authenticated AI planner that creates a reviewa
 One-time setup:
 
 1. Run `migrate_ai_planner.sql` in the Supabase SQL editor.
-2. Add `AI_GATEWAY_API_KEY` as a Supabase Edge Function secret. Optionally set `AI_PLANNER_MODEL`; the default is `openai/gpt-5-mini`.
+2. Add `AI_GATEWAY_API_KEY` as a Supabase Edge Function secret. Optionally set `AI_PLANNER_MODEL`; the default is `openai/gpt-4.1-mini`.
 3. Deploy `supabase/functions/ai-planner` with JWT verification enabled.
 
 The server enforces five planner requests per signed-in user per UTC day and records input/output token usage in `ai_daily_usage`.

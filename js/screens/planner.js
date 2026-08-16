@@ -1,162 +1,189 @@
 'use strict';
 
 const PlannerScreen = (() => {
-  let root = null;
-  let proposal = null;
+  let root = null, proposal = null, busy = false, prompt = '', focusDayId = '', errorMessage = '';
   let selected = new Set();
-  let busy = false;
+  const QUICK_PROMPTS = [
+    ['Slow day', 'Plan a relaxed day with minimal travel and plenty of downtime.'],
+    ['Local food', 'Suggest a local food experience that fits naturally around what is already planned.'],
+    ['Hidden gems', 'Add one or two memorable, less touristy places without making the day rushed.'],
+    ['Fill a gap', 'Find the best use of an open gap without moving confirmed plans.'],
+  ];
 
-  function el(tag, className, text) {
+  function el(tag, cls, text) {
     const node = document.createElement(tag);
-    if (className) node.className = className;
+    if (cls) node.className = cls;
     if (text != null) node.textContent = text;
     return node;
   }
 
   function header() {
-    const row = el('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:var(--s3);padding:var(--s3) var(--s4);border-bottom:1px solid var(--border);';
-    const back = el('button', 'btn btn-ghost', '← Itinerary');
-    back.style.padding = '7px 10px';
+    const row = el('div', 'planner-header');
+    const back = el('button', 'planner-icon-btn');
+    back.type = 'button'; back.setAttribute('aria-label', 'Back to itinerary');
+    back.innerHTML = Icons.chevronDown('icon-sm');
     back.addEventListener('click', () => App.switchTo('itinerary'));
-    const copy = el('div');
-    copy.append(el('p', '', 'AI trip planner'), el('p', '', 'Suggestions are drafts — you approve every stop.'));
-    copy.firstChild.style.cssText = 'font-weight:700;color:var(--text-primary)';
-    copy.lastChild.style.cssText = 'font-size:var(--text-xs);color:var(--text-muted);margin-top:2px';
+    const copy = el('div', 'planner-header-copy');
+    copy.append(el('p', 'planner-eyebrow', 'AI PLANNER'), el('h1', 'planner-title', 'Shape the day around you'));
     row.append(back, copy);
     return row;
   }
 
-  function composer() {
-    const wrap = el('div');
-    wrap.style.cssText = 'padding:var(--s4);';
-    const intro = el('div');
-    intro.style.cssText = 'padding:var(--s4);background:var(--accent-subtle);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:var(--s3)';
-    intro.append(
-      el('p', '', '✦ What would make this trip better?'),
-      el('p', '', 'Try “Plan a relaxed food and culture afternoon under USD 100.”')
-    );
-    intro.firstChild.style.cssText = 'font-weight:700;color:var(--text-primary)';
-    intro.lastChild.style.cssText = 'font-size:var(--text-sm);color:var(--text-secondary);line-height:1.45;margin-top:5px';
-
-    const daySelect = el('select', 'form-input');
-    daySelect.id = 'planner-day';
-    daySelect.append(new Option('Whole trip / choose for me', ''));
-    Data.getDays().forEach(day => daySelect.append(new Option(`${day.label} · ${day.date} · ${day.locality || day.title}`, day.id)));
-    daySelect.style.marginBottom = 'var(--s2)';
-
-    const input = el('textarea', 'form-input');
-    input.id = 'planner-prompt';
-    input.rows = 4;
-    input.maxLength = 1200;
-    input.placeholder = 'Describe the day, interests, pace and budget…';
-    input.style.resize = 'vertical';
-
-    const submit = el('button', 'btn btn-primary bs-full-btn', busy ? 'Planning…' : 'Create suggestions');
-    submit.disabled = busy;
-    submit.style.marginTop = 'var(--s2)';
-    submit.addEventListener('click', async () => {
-      busy = true; proposal = null; selected.clear(); render();
-      try {
-        proposal = await PlannerService.suggest(input.value, daySelect.value);
-        selected = new Set((proposal.items || []).map((_, i) => i));
-      } catch (e) {
-        Toast.show(e.message, 'warning');
-      } finally {
-        busy = false; render();
-      }
+  function dayPicker() {
+    const section = el('section', 'planner-section');
+    section.append(el('p', 'planner-label', 'PLAN FOR'));
+    const rail = el('div', 'planner-day-rail');
+    const all = el('button', `planner-day-pill ${focusDayId ? '' : 'is-active'}`, 'Whole trip');
+    all.type = 'button'; all.addEventListener('click', () => { focusDayId = ''; render(); });
+    rail.append(all);
+    Data.getDays().forEach(day => {
+      const button = el('button', `planner-day-pill ${focusDayId === day.id ? 'is-active' : ''}`);
+      button.type = 'button';
+      const date = new Date(`${day.date}T00:00:00`);
+      const dateLabel = isNaN(date.getTime()) ? day.date : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      button.innerHTML = `<span>${day.label}</span><small>${dateLabel}</small>`;
+      button.addEventListener('click', () => { focusDayId = day.id; render(); });
+      rail.append(button);
     });
-    wrap.append(intro, daySelect, input, submit);
+    section.append(rail);
+    return section;
+  }
+
+  function composer() {
+    const section = el('section', 'planner-section planner-compose-section');
+    const heading = el('div', 'planner-section-heading');
+    heading.append(el('p', 'planner-label', 'YOUR BRIEF'), el('span', 'planner-quota', '5 plans / day'));
+    const card = el('div', 'planner-compose-card');
+    const textarea = el('textarea', 'planner-textarea');
+    textarea.rows = 5; textarea.maxLength = 1200; textarea.value = prompt;
+    textarea.placeholder = 'A quiet afternoon, somewhere beautiful for sunset, dinner under USD 80…';
+    textarea.setAttribute('aria-label', 'Describe your ideal itinerary');
+    const count = el('span', 'planner-count', `${prompt.length}/1200`);
+    textarea.addEventListener('input', () => { prompt = textarea.value; count.textContent = `${prompt.length}/1200`; });
+    card.append(textarea);
+    const quick = el('div', 'planner-quick-rail');
+    QUICK_PROMPTS.forEach(([label, value]) => {
+      const chip = el('button', 'planner-quick-chip', label);
+      chip.type = 'button';
+      chip.addEventListener('click', () => { prompt = value; textarea.value = value; count.textContent = `${value.length}/1200`; textarea.focus(); });
+      quick.append(chip);
+    });
+    card.append(quick);
+    const footer = el('div', 'planner-compose-footer');
+    const submit = el('button', 'planner-submit');
+    submit.type = 'button'; submit.disabled = busy;
+    submit.innerHTML = busy ? '<span class="planner-spinner"></span><span>Shaping your day…</span>' : `<span>${Icons.star('icon-sm')}</span><span>Make a plan</span>`;
+    submit.addEventListener('click', requestProposal);
+    footer.append(count, submit); card.append(footer); section.append(heading, card);
+    return section;
+  }
+
+  async function requestProposal() {
+    if (!prompt.trim()) { errorMessage = 'Tell me what kind of day you want first.'; render(); return; }
+    busy = true; proposal = null; errorMessage = ''; selected.clear(); render();
+    try {
+      proposal = await PlannerService.suggest(prompt, focusDayId);
+      selected = new Set((proposal.items || []).map((_, index) => index));
+    } catch (error) {
+      errorMessage = error.message || 'The planner hit a problem. Your daily allowance was not charged.';
+    } finally { busy = false; render(); }
+  }
+
+  function loadingView() {
+    const wrap = el('section', 'planner-section planner-loading');
+    wrap.append(el('p', 'planner-label', 'BUILDING YOUR DRAFT'));
+    for (let i = 0; i < 2; i++) {
+      const card = el('div', 'planner-skeleton-card');
+      card.innerHTML = '<span></span><div><i></i><i></i><i></i></div>';
+      wrap.append(card);
+    }
+    wrap.append(el('p', 'planner-loading-note', 'Checking the timing against your existing plans…'));
     return wrap;
   }
 
+  function errorView() {
+    const card = el('section', 'planner-error-card');
+    const icon = el('div', 'planner-error-icon'); icon.innerHTML = Icons.refresh('icon-md');
+    const body = el('div');
+    body.append(el('p', 'planner-error-title', 'That plan didn’t come together'), el('p', 'planner-error-copy', errorMessage));
+    const retry = el('button', 'planner-error-retry', 'Try again');
+    retry.type = 'button'; retry.addEventListener('click', requestProposal); body.append(retry);
+    card.append(icon, body); return card;
+  }
+
   function proposalView() {
-    const wrap = el('div');
-    wrap.style.cssText = 'padding:0 var(--s4) var(--s6)';
-    const heading = el('div');
-    heading.style.cssText = 'margin-bottom:var(--s3)';
-    heading.append(el('p', '', proposal.title || 'Suggested itinerary'), el('p', '', proposal.summary || ''));
-    heading.firstChild.style.cssText = 'font-size:var(--text-lg);font-weight:700;color:var(--text-primary)';
-    heading.lastChild.style.cssText = 'font-size:var(--text-sm);line-height:1.45;color:var(--text-secondary);margin-top:4px';
-    wrap.append(heading);
-
+    const section = el('section', 'planner-section planner-proposal');
+    const intro = el('div', 'planner-proposal-intro');
+    intro.append(el('p', 'planner-label', 'YOUR DRAFT'), el('h2', 'planner-proposal-title', proposal.title || 'A plan for your day'));
+    if (proposal.summary) intro.append(el('p', 'planner-proposal-summary', proposal.summary));
+    section.append(intro);
+    const timeline = el('div', 'planner-timeline');
     (proposal.items || []).forEach((item, index) => {
-      const card = el('label', 'card');
-      card.style.cssText = 'display:flex;align-items:flex-start;gap:var(--s3);padding:var(--s3);margin-bottom:var(--s2);cursor:pointer';
-      const check = document.createElement('input');
-      check.type = 'checkbox'; check.checked = selected.has(index); check.style.marginTop = '4px';
-      check.addEventListener('change', () => check.checked ? selected.add(index) : selected.delete(index));
-      const body = el('div'); body.style.flex = '1';
-      const time = [item.startTime, item.endTime].filter(Boolean).join('–');
-      body.append(el('p', '', `${time ? time + ' · ' : ''}${item.name}`));
-      body.firstChild.style.cssText = 'font-weight:700;color:var(--text-primary)';
-      if (item.description) {
-        const desc = el('p', '', item.description);
-        desc.style.cssText = 'font-size:var(--text-sm);color:var(--text-secondary);line-height:1.4;margin-top:4px';
-        body.append(desc);
-      }
-      const metaParts = [item.dayDate, item.estimatedCost != null ? `Est. ${item.estimatedCost} ${proposal.currency || ''}` : '', item.bookingRequired ? 'Booking suggested' : ''];
-      const meta = el('p', '', metaParts.filter(Boolean).join(' · '));
-      meta.style.cssText = 'font-size:var(--text-xs);color:var(--text-muted);margin-top:6px';
-      body.append(meta); card.append(check, body); wrap.append(card);
+      const chosen = selected.has(index);
+      const card = el('button', `planner-stop ${chosen ? 'is-selected' : ''}`);
+      card.type = 'button';
+      card.addEventListener('click', () => { chosen ? selected.delete(index) : selected.add(index); render(); });
+      const time = [item.startTime, item.endTime].filter(Boolean).join(' – ') || 'Flexible';
+      const marker = el('div', 'planner-stop-marker'); marker.innerHTML = '<span></span><i></i>';
+      const body = el('div', 'planner-stop-body');
+      body.append(el('p', 'planner-stop-time', time), el('h3', 'planner-stop-name', item.name));
+      if (item.description) body.append(el('p', 'planner-stop-description', item.description));
+      const meta = el('div', 'planner-stop-meta');
+      if (item.estimatedCost != null) meta.append(el('span', '', `Est. ${item.estimatedCost} ${proposal.currency || ''}`));
+      if (item.bookingRequired) meta.append(el('span', '', 'Book ahead'));
+      body.append(meta);
+      const check = el('span', 'planner-stop-check'); check.innerHTML = chosen ? Icons.check('icon-sm') : '';
+      card.append(marker, body, check); timeline.append(card);
     });
-
+    section.append(timeline);
     if (proposal.caveats?.length) {
-      const caveat = el('p', '', `Check before booking: ${proposal.caveats.join(' · ')}`);
-      caveat.style.cssText = 'font-size:var(--text-xs);color:var(--warning-text);line-height:1.4;margin:var(--s3) 0';
-      wrap.append(caveat);
+      const note = el('div', 'planner-caveat'); note.innerHTML = Icons.info('icon-sm');
+      note.append(el('p', '', proposal.caveats.join(' · '))); section.append(note);
     }
-
-    const add = el('button', 'btn btn-primary bs-full-btn', 'Add selected to itinerary');
-    add.addEventListener('click', addSelected);
-    const retry = el('button', 'btn btn-ghost bs-full-btn', 'Start over');
-    retry.style.marginTop = 'var(--s2)';
-    retry.addEventListener('click', () => { proposal = null; selected.clear(); render(); });
-    wrap.append(add, retry);
-    return wrap;
+    const actions = el('div', 'planner-actions');
+    const reset = el('button', 'planner-secondary-action', 'Try another idea');
+    reset.type = 'button'; reset.addEventListener('click', () => { proposal = null; selected.clear(); errorMessage = ''; render(); });
+    const add = el('button', 'planner-primary-action');
+    add.type = 'button'; add.innerHTML = `${Icons.plus('icon-sm')}<span>Add ${selected.size || ''} to itinerary</span>`;
+    add.disabled = selected.size === 0; add.addEventListener('click', addSelected);
+    actions.append(reset, add); section.append(actions); return section;
   }
 
   async function addSelected() {
     const days = Data.getDays();
-    const chosen = (proposal.items || []).filter((_, i) => selected.has(i));
-    if (!chosen.length) return Toast.show('Select at least one suggestion.', 'warning');
-    const unmatched = chosen.filter(item => !days.some(day => day.date === item.dayDate));
-    if (unmatched.length) return Toast.show('One or more suggestions fall outside this trip. Choose a specific trip day and try again.', 'warning');
+    const chosen = (proposal.items || []).filter((_, index) => selected.has(index));
+    if (chosen.some(item => !days.some(day => day.date === item.dayDate))) {
+      errorMessage = 'A suggestion falls outside this trip. Choose a specific day and generate it again.';
+      proposal = null; render(); return;
+    }
     busy = true;
     try {
       for (const item of chosen) {
         const day = days.find(d => d.date === item.dayDate);
         await Data.addStop({
-          dayId: day.id,
-          name: item.name,
-          activity: item.description || '',
-          time: item.startTime || '',
-          transport: item.transport || '',
-          transportType: item.transportType || 'walk',
+          dayId: day.id, name: item.name, activity: item.description || '', time: item.startTime || '',
+          transport: item.transport || '', transportType: item.transportType || 'walk',
           notes: item.notes || 'Suggested by AI · verify current details before booking',
-          needsBooking: !!item.bookingRequired,
-          category: item.category || 'activity',
+          needsBooking: !!item.bookingRequired, category: item.category || 'activity',
           booking: { status: item.bookingRequired ? 'open' : null, cost: item.estimatedCost ?? null, costCurrency: proposal.currency || Data.getTripCurrency?.() },
         });
       }
       Toast.show(`Added ${chosen.length} suggestion${chosen.length === 1 ? '' : 's'} ✓`, 'success');
       App.switchTo('itinerary');
-    } catch (e) {
-      Toast.show(`Could not add suggestions: ${e.message}`, 'warning');
-    } finally { busy = false; }
+    } catch (error) { errorMessage = `Could not add the draft: ${error.message}`; render(); }
+    finally { busy = false; }
   }
 
   function render() {
     if (!root) return;
-    root.innerHTML = '';
-    root.append(header(), composer());
-    if (proposal) root.append(proposalView());
+    root.innerHTML = ''; root.className = 'planner-screen';
+    root.append(header(), dayPicker(), composer());
+    if (busy) root.append(loadingView());
+    else if (errorMessage) root.append(errorView());
+    else if (proposal) root.append(proposalView());
   }
 
-  return {
-    init(node) { root = node; render(); },
-    destroy() { root = null; },
-  };
+  return { init(node) { root = node; render(); }, destroy() { root = null; } };
 })();
 
 window.PlannerScreen = PlannerScreen;

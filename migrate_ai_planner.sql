@@ -58,3 +58,21 @@ revoke all on function public.claim_ai_planner_request(integer) from anon;
 revoke all on function public.record_ai_planner_tokens(bigint, bigint) from anon;
 grant execute on function public.claim_ai_planner_request(integer) to authenticated;
 grant execute on function public.record_ai_planner_tokens(bigint, bigint) to authenticated;
+
+-- Failed Gateway requests should not consume a user's daily allowance.
+create or replace function public.release_ai_planner_request()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.ai_daily_usage
+     set request_count = greatest(request_count - 1, 0),
+         updated_at = now()
+   where user_id = auth.uid()
+     and usage_date = (timezone('utc', now()))::date;
+$$;
+
+revoke all on function public.release_ai_planner_request() from public;
+revoke all on function public.release_ai_planner_request() from anon;
+grant execute on function public.release_ai_planner_request() to authenticated;
