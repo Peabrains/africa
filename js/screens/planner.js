@@ -142,7 +142,7 @@ const PlannerScreen = (() => {
     if (trendingResults.summary) section.append(el('p', 'planner-proposal-summary', trendingResults.summary));
     (trendingResults.places || []).forEach((place, index) => {
       const chosen = trendingSelected.has(index);
-      const card = el('article', `planner-stop planner-trending-card ${chosen ? 'is-selected' : ''}`);
+      const card = el('article', `planner-stop planner-trending-card ${chosen ? 'is-selected' : ''} ${place.added ? 'is-added' : ''}`);
       const marker = el('div', 'planner-stop-marker'); marker.innerHTML = '<span></span><i></i>';
       const body = el('div', 'planner-stop-body');
       body.append(el('h3', 'planner-stop-name', place.name), el('p', 'planner-stop-description', `${place.location} · ${place.why}`), el('p', 'planner-trending-best', `Best for: ${place.bestFor}`));
@@ -153,6 +153,7 @@ const PlannerScreen = (() => {
       card.addEventListener('click', toggle);
       links.addEventListener('click', event => event.stopPropagation());
       body.append(links, el('p', 'planner-trending-caveat', place.caveat || 'Verify current hours, access, and availability before going.'));
+      if (place.added) body.append(el('span', 'planner-stop-added', 'Added to itinerary'));
       card.append(marker, body, check); section.append(card);
     });
     const actions = el('div', 'planner-actions');
@@ -177,7 +178,8 @@ const PlannerScreen = (() => {
     busy = true; render();
     try {
       for (const place of chosen) await Data.addStop({ dayId: day.id, name: place.name, activity: place.why || '', time: '', transport: '', transportType: 'walk', notes: `${place.caveat || 'Verify current details before booking'} · Source: ${place.sourceUrl || place.officialUrl || ''}`, needsBooking: false, category: 'activity', booking: { status: null, cost: null, costCurrency: Data.getTripCurrency?.() } });
-      clearTrending(); trendingResults = null; trendingSelected.clear(); workspaceTab = 'itinerary'; Toast.show(`Added ${chosen.length} place${chosen.length === 1 ? '' : 's'} ✓`, 'success'); App.switchTo('itinerary');
+      chosen.forEach(place => { place.added = true; });
+      trendingSelected.clear(); saveTrending(); workspaceTab = 'itinerary'; Toast.show(`Added ${chosen.length} place${chosen.length === 1 ? '' : 's'} ✓`, 'success'); App.switchTo('itinerary');
     } catch (error) { errorMessage = `Could not add places: ${error.message}`; }
     finally { busy = false; render(); }
   }
@@ -272,7 +274,7 @@ const PlannerScreen = (() => {
     const timeline = el('div', 'planner-timeline');
     (proposal.items || []).forEach((item, index) => {
       const chosen = selected.has(index);
-      const card = el('div', `planner-stop ${chosen ? 'is-selected' : ''}`);
+      const card = el('div', `planner-stop ${chosen ? 'is-selected' : ''} ${item.added ? 'is-added' : ''}`);
       card.id = `planner-stop-${index}`;
       card.setAttribute('role', 'button');
       card.tabIndex = 0;
@@ -291,6 +293,7 @@ const PlannerScreen = (() => {
       reference.rel = 'noopener noreferrer';
       reference.addEventListener('click', event => event.stopPropagation());
       body.append(reference);
+      if (item.added) body.append(el('span', 'planner-stop-added', 'Added to itinerary'));
       const meta = el('div', 'planner-stop-meta');
       if (item.estimatedCost != null) meta.append(el('span', '', `Est. ${item.estimatedCost} ${proposal.currency || ''}`));
       if (item.bookingRequired) meta.append(el('span', '', 'Book ahead'));
@@ -339,7 +342,9 @@ const PlannerScreen = (() => {
           booking: { status: item.bookingRequired ? 'open' : null, cost: item.estimatedCost ?? null, costCurrency: proposal.currency || Data.getTripCurrency?.() },
         });
       }
-      clearDraft();
+      chosen.forEach(item => { item.added = true; });
+      selected = new Set([...selected].filter(index => !chosen.includes(proposal.items[index])));
+      saveDraft();
       Toast.show(`Added ${chosen.length} suggestion${chosen.length === 1 ? '' : 's'} ✓`, 'success');
       App.switchTo('itinerary');
     } catch (error) { errorMessage = `Could not add the draft: ${error.message}`; render(); }
