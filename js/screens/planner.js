@@ -23,34 +23,35 @@ const PlannerScreen = (() => {
 
   function saveDraft() {
     if (!proposal) return;
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ tripKey: getTripKey(), proposal, prompt, focusDayId, selected: [...selected], savedAt: Date.now() })); } catch (_) {}
+    try { localStorage.setItem(`${DRAFT_KEY}:${encodeURIComponent(getTripKey())}`, JSON.stringify({ tripKey: getTripKey(), proposal, prompt, focusDayId, selected: [...selected], savedAt: Date.now() })); } catch (_) {}
   }
 
   function getTripKey() {
     const trip = Data.getCurrentTrip?.() || {};
-    return [trip.id, trip.name || Data.getTripName?.(), trip.start_date, trip.end_date, ...(trip.countries || [])].filter(Boolean).join('|') || 'trip';
+    return trip.id ? String(trip.id) : [trip.name || Data.getTripName?.(), trip.start_date, trip.end_date].filter(Boolean).join('|') || 'trip';
   }
 
   function restoreDraft() {
     try {
-      const draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
       const tripKey = getTripKey();
+      const draft = JSON.parse(localStorage.getItem(`${DRAFT_KEY}:${encodeURIComponent(tripKey)}`) || 'null');
       if (!draft || draft.tripKey !== tripKey || !draft.proposal?.items?.length) return;
       proposal = draft.proposal; prompt = draft.prompt || ''; focusDayId = draft.focusDayId || '';
       selected = new Set(Array.isArray(draft.selected) ? draft.selected : draft.proposal.items.map((_, i) => i));
     } catch (_) {}
   }
 
-  function clearDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch (_) {} }
-  function saveTrending() { try { localStorage.setItem(TRENDING_KEY, JSON.stringify({ tripKey: getTripKey(), results: trendingResults, selected: [...trendingSelected], savedAt: Date.now() })); } catch (_) {} }
-  function restoreTrending() { try { const saved = JSON.parse(localStorage.getItem(TRENDING_KEY) || 'null'); if (saved?.tripKey === getTripKey() && saved.results?.places?.length) { trendingResults = saved.results; trendingSelected = new Set(saved.selected || []); } } catch (_) {} }
-  function clearTrending() { try { localStorage.removeItem(TRENDING_KEY); } catch (_) {} }
+  function tripStorageKey(key) { return `${key}:${encodeURIComponent(getTripKey())}`; }
+  function clearDraft() { try { localStorage.removeItem(tripStorageKey(DRAFT_KEY)); } catch (_) {} }
+  function saveTrending() { try { localStorage.setItem(tripStorageKey(TRENDING_KEY), JSON.stringify({ tripKey: getTripKey(), results: trendingResults, selected: [...trendingSelected], savedAt: Date.now() })); } catch (_) {} }
+  function restoreTrending() { try { const saved = JSON.parse(localStorage.getItem(tripStorageKey(TRENDING_KEY)) || 'null'); if (saved?.tripKey === getTripKey() && saved.results?.places?.length) { trendingResults = saved.results; trendingSelected = new Set(saved.selected || []); } } catch (_) {} }
+  function clearTrending() { try { localStorage.removeItem(tripStorageKey(TRENDING_KEY)); } catch (_) {} }
 
   function syncTripContext() {
     const tripKey = getTripKey();
     if (loadedTripKey === tripKey) return;
     loadedTripKey = tripKey;
-    proposal = null; trendingResults = null; selected.clear(); trendingSelected.clear(); workspaceTab = 'itinerary';
+    proposal = null; trendingResults = null; selected.clear(); trendingSelected.clear(); prompt = ''; focusDayId = ''; errorMessage = ''; workspaceTab = 'itinerary';
     restoreDraft(); restoreTrending();
   }
 
