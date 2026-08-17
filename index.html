@@ -71,7 +71,8 @@
        rule survives that since inline reassignment only clears properties
        it actually declares, not the whole cascade. This is what was making
        the map render short, with empty space below it. */
-    .map-embed-wrap{flex:1;min-height:0}
+    .map-embed-wrap{flex:1;min-height:0;display:flex}
+    #screen-content.map-active .map-embed-wrap{margin-bottom:-120px}
 
     /* ── Bottom nav ────────────────────────────────────────────── */
     /* ── Bottom nav — floating pill (Polarsteps-style). Always has
