@@ -18,4 +18,4 @@
 .planner-actions{grid-template-columns:1fr 1fr}.planner-actions .planner-primary-action,.planner-actions .planner-secondary-action{width:100%;box-sizing:border-box;min-height:44px}
 .planner-stop-added{display:inline-flex;margin-top:8px;color:var(--accent);font-size:10px;font-weight:700}
 .planner-actions .planner-primary-action,.planner-actions .planner-secondary-action{height:44px;max-height:44px;padding:0 10px;line-height:1.2}
-.planner-actions>button{width:100%;box-sizing:border-box;min-height:40px;height:auto;max-height:none;margin-top:0;padding:0 15px;line-height:1.2}
+.planner-actions{align-items:stretch}.planner-actions>button{width:100%;box-sizing:border-box;min-height:40px;height:auto;max-height:none!important;margin:0!important;padding:0 15px;line-height:1.2;align-self:stretch}
