@@ -4,7 +4,7 @@ const PlannerScreen = (() => {
   let root = null, proposal = null, trendingResults = null, busy = false, prompt = '', focusDayId = '', errorMessage = '';
   let selected = new Set();
   let trendingSelected = new Set(), workspaceTab = 'itinerary';
-  let mapInstance = null;
+  let mapInstance = null, loadedTripKey = '';
   const DRAFT_KEY = 'africa-ai-planner-draft-v1';
   const TRENDING_KEY = 'africa-ai-planner-trending-v1';
   const QUICK_PROMPTS = [
@@ -45,6 +45,14 @@ const PlannerScreen = (() => {
   function saveTrending() { try { localStorage.setItem(TRENDING_KEY, JSON.stringify({ tripKey: getTripKey(), results: trendingResults, selected: [...trendingSelected], savedAt: Date.now() })); } catch (_) {} }
   function restoreTrending() { try { const saved = JSON.parse(localStorage.getItem(TRENDING_KEY) || 'null'); if (saved?.tripKey === getTripKey() && saved.results?.places?.length) { trendingResults = saved.results; trendingSelected = new Set(saved.selected || []); } } catch (_) {} }
   function clearTrending() { try { localStorage.removeItem(TRENDING_KEY); } catch (_) {} }
+
+  function syncTripContext() {
+    const tripKey = getTripKey();
+    if (loadedTripKey === tripKey) return;
+    loadedTripKey = tripKey;
+    proposal = null; trendingResults = null; selected.clear(); trendingSelected.clear(); workspaceTab = 'itinerary';
+    restoreDraft(); restoreTrending();
+  }
 
   function header() {
     const row = el('div', 'planner-header');
@@ -176,25 +184,14 @@ const PlannerScreen = (() => {
   async function plotPlaces(node, places, onMarkerClick) {
     if (!window.L || !node || !places.length) return;
     const points = [];
-    let fallback = null;
     for (const place of places) {
       try {
-        const query = encodeURIComponent(`${place.name}, ${place.location}`);
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&namedetails=1&addressdetails=1&limit=1&q=${query}`, { headers: { Accept: 'application/json', 'User-Agent': 'AfricaTripCompanion/1.0' } });
-        const hit = (await response.json())[0];
+        const search = async query => { const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&namedetails=1&addressdetails=1&limit=1&q=${encodeURIComponent(query)}`, { headers: { Accept: 'application/json', 'User-Agent': 'AfricaTripCompanion/1.0' } }); return (await response.json())[0]; };
+        let hit = await search(`${place.name}, ${place.location}`);
+        if (!hit && place.location) hit = await search(place.location);
         if (hit) {
           const overlap = points.filter(point => Math.abs(point.lat - Number(hit.lat)) < 0.0005 && Math.abs(point.lon - Number(hit.lon)) < 0.0005).length;
           points.push({ place, lat: Number(hit.lat) + overlap * 0.0012, lon: Number(hit.lon) + overlap * 0.0012, approximate: !isVerifiedVenue(place, hit) });
-        } else if (place.location) {
-          if (!fallback) {
-            const fallbackResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(place.location)}`, { headers: { Accept: 'application/json', 'User-Agent': 'AfricaTripCompanion/1.0' } });
-            const fallbackHit = (await fallbackResponse.json())[0];
-            if (fallbackHit) fallback = { lat: Number(fallbackHit.lat), lon: Number(fallbackHit.lon) };
-          }
-          if (fallback) {
-            const offset = points.filter(point => point.approximate).length;
-            points.push({ place, lat: fallback.lat + (offset - 1) * 0.0015, lon: fallback.lon + (offset - 1) * 0.0015, approximate: true });
-          }
         }
         await new Promise(resolve => setTimeout(resolve, 1100));
       } catch (_) {}
@@ -349,6 +346,7 @@ const PlannerScreen = (() => {
   }
 
   function render() {
+    syncTripContext();
     if (!root) return;
     root.innerHTML = ''; root.className = 'planner-screen';
     root.append(header(), dayPicker(), composer());
@@ -360,7 +358,7 @@ const PlannerScreen = (() => {
     else if (trendingResults) root.append(trendingView());
   }
 
-  return { init(node) { root = node; restoreDraft(); restoreTrending(); render(); }, destroy() { root = null; } };
+  return { init(node) { root = node; loadedTripKey = ''; render(); }, destroy() { root = null; } };
 })();
 
 window.PlannerScreen = PlannerScreen;
