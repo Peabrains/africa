@@ -116,7 +116,7 @@ const PlannerScreen = (() => {
     footer.append(count, submit); card.append(footer); section.append(heading, card);
     const discover = el('button', 'planner-discover-button', '✦ Find trending places'); discover.type = 'button'; discover.addEventListener('click', requestTrending);
     section.append(discover);
-    const importButton = el('button', 'planner-import-button', '＋ Import booking or itinerary'); importButton.type = 'button'; importButton.addEventListener('click', () => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.pdf,.png,.jpg,.jpeg,.txt,.eml'; input.addEventListener('change', () => { if (input.files?.[0]) { importReview = buildImportReview(input.files[0]); render(); } }); input.click(); }); section.append(importButton);
+    const importButton = el('button', 'planner-import-button', '＋ Import one booking screenshot'); importButton.type = 'button'; importButton.addEventListener('click', () => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/png,image/jpeg'; input.addEventListener('change', () => { if (input.files?.[0]) { importReview = buildImportReview(input.files[0]); render(); } }); input.click(); }); section.append(importButton);
     return section;
   }
 
