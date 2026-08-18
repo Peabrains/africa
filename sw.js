@@ -4,7 +4,7 @@
    BUILD: 202608180530
    ============================================================ */
 const CACHE   = 'africa-safari-design-lab-202608180530';
-const VERSION = '202608180900';
+const VERSION = '202608180915';
 
 const PRECACHE = [
   './', './index.html', './css/tokens.css', './css/print.css', './css/planner.css',
