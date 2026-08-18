@@ -68,7 +68,16 @@ const PlannerService = (() => {
     return response.data.result;
   }
 
-  return { suggest, trending, buildContext };
+  async function importScreenshot(file) {
+    if (!file || !/^image\/(png|jpeg)$/.test(file.type)) throw new Error('Choose one JPG or PNG screenshot.');
+    const imageData = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(new Error('Could not read the image.')); reader.readAsDataURL(file); });
+    const { data, error } = await SB.functions.invoke('ai-import', { body: { imageData, fileName: file.name } });
+    if (error) throw new Error(error.message || 'Screenshot import failed.');
+    if (!data?.result?.items) throw new Error(data?.error || 'The screenshot could not be understood.');
+    return data.result;
+  }
+
+  return { suggest, trending, importScreenshot, buildContext };
 })();
 
 window.PlannerService = PlannerService;
