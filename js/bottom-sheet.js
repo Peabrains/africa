@@ -1260,6 +1260,50 @@ const BottomSheet = (() => {
     wireAdd(dayId);
     showSheet();
   }
+
+  function openDraftStop(item, dayId, onSave) {
+    if (!overlay) build();
+    const days = Data.getDays();
+    const resolvedDay = days.find(day => day.id === dayId) || (days.length === 1 ? days[0] : null);
+    body.innerHTML = addHTML(resolvedDay?.id || days[0]?.id || '');
+
+    const setValue = (id, value) => {
+      const field = body.querySelector('#' + id);
+      if (!field) return;
+      field.value = value || '';
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    setValue('a-name', item.name);
+    setValue('a-activity', [item.detail, item.notes].filter(Boolean).join('\n\n'));
+    setValue('a-time', item.startTime);
+    setValue('a-ref', item.reference);
+    if (item.type === 'Flight') setValue('a-category', 'transport');
+    else setValue('a-category', 'activity');
+    const booking = body.querySelector('#a-needsbook');
+    if (booking) booking.checked = item.type === 'Flight' || item.type === 'Accommodation';
+
+    const save = body.querySelector('#bs-add-btn');
+    if (save) {
+      save.textContent = 'Save changes';
+      save.addEventListener('click', () => {
+        const selectedDay = days.find(day => day.id === body.querySelector('#a-day')?.value);
+        const name = body.querySelector('#a-name')?.value?.trim() || '';
+        if (!name) { Toast.show('Stop name is required', 'warning'); return; }
+        item.name = name;
+        item.detail = body.querySelector('#a-activity')?.value?.trim() || '';
+        item.startTime = body.querySelector('#a-time')?.value || '';
+        item.reference = body.querySelector('#a-ref')?.value?.trim() || '';
+        if (selectedDay) {
+          item.date = selectedDay.date;
+          item.day = `${selectedDay.label}${selectedDay.locality ? ` · ${selectedDay.locality}` : ''}`;
+        }
+        close();
+        onSave?.();
+      });
+    }
+    body.querySelector('#bs-addcancel-btn')?.addEventListener('click', close);
+    showSheet();
+  }
   async function openDay(day) {
     if (!overlay) build();
     body.innerHTML = '<div class="bs-detail" style="padding:var(--s5) 0;text-align:center;color:var(--text-muted)">Loading…</div>';
@@ -1278,7 +1322,7 @@ const BottomSheet = (() => {
   }
 
   return {
-    openStop, openOvernight, openAdd, openDay, openAddDay, close,
+    openStop, openOvernight, openAdd, openDraftStop, openDay, openAddDay, close,
     // Exposed so other screens (e.g. trip creation) can reuse the same
     // searchable, validated comboboxes instead of duplicating this logic.
     wireTzCombobox, wireCurrencyCombobox, getAllZones, getAllCurrencies,
