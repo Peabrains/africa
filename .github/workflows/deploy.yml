@@ -30,6 +30,9 @@ jobs:
           ref: platform
           path: site/platform
 
+      - name: Remove stale lab artifact
+        run: rm -rf site/lab
+
       - name: Checkout design-lab into subfolder (experimental UI, isolated from platform)
         uses: actions/checkout@v4
         with:
