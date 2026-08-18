@@ -121,12 +121,25 @@ const PlannerScreen = (() => {
   }
 
   function buildImportReview(file) {
-    return { fileName: file.name, items: [
+    const items = [
       { day: 'Day 1 · Osaka', date: '12 Apr 2027', type: 'Flight', name: 'Flight confirmation', detail: 'Arrival time and airport extracted from the document.', selected: true, confidence: 'High confidence' },
       { day: 'Day 1 · Osaka', date: '12 Apr 2027', type: 'Accommodation', name: 'Hotel reservation', detail: 'Check-in and property details found.', selected: true, confidence: 'High confidence' },
       { day: 'Day 2 · Kumano', date: '13 Apr 2027', type: 'Stop', name: 'Transfer to Kii-Tanabe', detail: 'Transport mentioned, but departure time needs confirmation.', selected: true, confidence: 'Needs review' },
       { day: 'Day 3 · Nakahechi Trail', date: '14 Apr 2027', type: 'Stop', name: 'Takijiri-oji trailhead', detail: 'Referenced as the trail start point.', selected: false, confidence: 'Medium confidence' },
-    ] };
+    ];
+    return { fileName: file.name, ...normalizeImportedDays(items) };
+  }
+
+  function normalizeImportedDays(items) {
+    const existing = Data.getDays?.() || [];
+    const dates = [...new Set(items.map(item => item.date))].filter(Boolean).sort();
+    const days = dates.map((date, index) => {
+      const match = existing.find(day => day.date === date);
+      return { date, id: match?.id || `import-day-${date}`, label: match?.label || `D${index}`, locality: match?.locality || '', existing: !!match };
+    });
+    const byDate = new Map(days.map(day => [day.date, day]));
+    items.forEach(item => { const day = byDate.get(item.date); if (day) { item.day = `${day.label}${day.locality ? ` · ${day.locality}` : ''}`; item.dayDate = item.date; item.dayExisting = day.existing; } });
+    return { days, items };
   }
 
   function importEditorView(item) {
