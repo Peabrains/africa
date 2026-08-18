@@ -4,7 +4,7 @@ const PlannerScreen = (() => {
   let root = null, proposal = null, trendingResults = null, busy = false, plannerPrompt = '', focusDayId = '', errorMessage = '';
   let selected = new Set();
   let trendingSelected = new Set(), workspaceTab = 'itinerary';
-  let importReview = null;
+  let importReview = null, importEditor = null;
   let mapInstance = null, loadedTripKey = '';
   const DRAFT_KEY = 'africa-ai-planner-draft-v1';
   const TRENDING_KEY = 'africa-ai-planner-trending-v1';
@@ -129,11 +129,21 @@ const PlannerScreen = (() => {
     ] };
   }
 
+  function importEditorView(item) {
+    const editor = el('div', 'planner-import-editor'); editor.append(el('h3', '', `Edit ${item.type.toLowerCase()}`));
+    const fields = [['Name', item.name], ['Location', item.location || ''], ['Start time', item.startTime || ''], ['End time', item.endTime || ''], ['Notes', item.detail || ''], ['Booking reference', item.reference || '']];
+    const day = el('select', 'planner-import-input'); ['Day 1 · Osaka', 'Day 2 · Kumano', 'Day 3 · Nakahechi Trail'].forEach(value => { const option = el('option', '', value); option.selected = value === item.day; day.append(option); });
+    const dayField = el('label', 'planner-import-field'); dayField.append(el('span', '', 'Day'), day); editor.append(dayField);
+    fields.forEach(([label, value]) => { const field = el('label', 'planner-import-field'); field.append(el('span', '', label)); const input = el('input', 'planner-import-input'); input.value = value; input.dataset.field = label; field.append(input); editor.append(field); });
+    const actions = el('div', 'planner-import-editor-actions'); const cancel = el('button', 'planner-secondary-action', 'Cancel'); cancel.type = 'button'; cancel.addEventListener('click', () => { importEditor = null; render(); }); const save = el('button', 'planner-primary-action', 'Save changes'); save.type = 'button'; save.addEventListener('click', () => { item.day = day.value; item.name = editor.querySelector('[data-field="Name"]').value; item.location = editor.querySelector('[data-field="Location"]').value; item.startTime = editor.querySelector('[data-field="Start time"]').value; item.endTime = editor.querySelector('[data-field="End time"]').value; item.detail = editor.querySelector('[data-field="Notes"]').value; item.reference = editor.querySelector('[data-field="Booking reference"]').value; importEditor = null; render(); }); actions.append(cancel, save); editor.append(actions); return editor;
+  }
+
   function importView() {
     const section = el('section', 'planner-section planner-import-review');
     section.append(el('p', 'planner-label', 'REVIEW IMPORTED ITINERARY'), el('h2', 'planner-proposal-title', 'Check before adding'), el('p', 'planner-proposal-summary', `${importReview.items.length} items found in ${importReview.fileName}. Edit or deselect anything that needs correction.`));
+    if (importEditor) section.append(importEditorView(importEditor));
     const grouped = [...new Set(importReview.items.map(item => item.day))];
-    grouped.forEach(day => { const dayWrap = el('div', 'planner-import-day'); dayWrap.append(el('h3', 'planner-import-day-title', day)); importReview.items.filter(item => item.day === day).forEach(item => { const card = el('article', `planner-import-card ${item.selected ? 'is-selected' : ''}`); const check = el('span', 'planner-stop-check'); check.innerHTML = item.selected ? Icons.check('icon-sm') : ''; const body = el('div', 'planner-stop-body'); body.append(el('p', 'planner-import-type', item.type), el('h4', 'planner-stop-name', item.name), el('p', 'planner-stop-description', item.detail), el('p', `planner-import-confidence ${item.confidence === 'Needs review' ? 'is-warning' : ''}`, item.confidence)); const edit = el('button', 'planner-import-edit', 'Edit'); edit.type = 'button'; edit.addEventListener('click', event => { event.stopPropagation(); item.detail = prompt('Edit details', item.detail) || item.detail; render(); }); const toggle = () => { item.selected = !item.selected; card.classList.toggle('is-selected', item.selected); check.innerHTML = item.selected ? Icons.check('icon-sm') : ''; }; card.addEventListener('click', toggle); card.append(check, body, edit); dayWrap.append(card); }); section.append(dayWrap); });
+    grouped.forEach(day => { const dayWrap = el('div', 'planner-import-day'); dayWrap.append(el('h3', 'planner-import-day-title', day)); importReview.items.filter(item => item.day === day).forEach(item => { const card = el('article', `planner-import-card ${item.selected ? 'is-selected' : ''}`); const check = el('span', 'planner-stop-check'); check.innerHTML = item.selected ? Icons.check('icon-sm') : ''; const body = el('div', 'planner-stop-body'); body.append(el('p', 'planner-import-type', item.type), el('h4', 'planner-stop-name', item.name), el('p', 'planner-stop-description', item.detail), el('p', `planner-import-confidence ${item.confidence === 'Needs review' ? 'is-warning' : ''}`, item.confidence)); const edit = el('button', 'planner-import-edit', 'Edit'); edit.type = 'button'; edit.addEventListener('click', event => { event.stopPropagation(); importEditor = item; render(); }); const toggle = () => { item.selected = !item.selected; card.classList.toggle('is-selected', item.selected); check.innerHTML = item.selected ? Icons.check('icon-sm') : ''; }; card.addEventListener('click', toggle); card.append(check, body, edit); dayWrap.append(card); }); section.append(dayWrap); });
     const actions = el('div', 'planner-actions'); const back = el('button', 'planner-secondary-action', 'Back to planner'); back.type = 'button'; back.addEventListener('click', () => { importReview = null; render(); }); const add = el('button', 'planner-primary-action', `Add ${importReview.items.filter(item => item.selected).length} selected`); add.type = 'button'; add.addEventListener('click', () => { Toast.show('Import review saved as a draft ✓', 'success'); importReview = null; render(); }); actions.append(back, add); section.append(actions); return section;
   }
 
