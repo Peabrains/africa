@@ -1,9 +1,10 @@
 'use strict';
 
 const PlannerScreen = (() => {
-  let root = null, proposal = null, trendingResults = null, busy = false, prompt = '', focusDayId = '', errorMessage = '';
+  let root = null, proposal = null, trendingResults = null, busy = false, plannerPrompt = '', focusDayId = '', errorMessage = '';
   let selected = new Set();
   let trendingSelected = new Set(), workspaceTab = 'itinerary';
+  let importReview = null;
   let mapInstance = null, loadedTripKey = '';
   const DRAFT_KEY = 'africa-ai-planner-draft-v1';
   const TRENDING_KEY = 'africa-ai-planner-trending-v1';
@@ -23,7 +24,7 @@ const PlannerScreen = (() => {
 
   function saveDraft() {
     if (!proposal) return;
-    try { localStorage.setItem(`${DRAFT_KEY}:${encodeURIComponent(getTripKey())}`, JSON.stringify({ tripKey: getTripKey(), proposal, prompt, focusDayId, selected: [...selected], savedAt: Date.now() })); } catch (_) {}
+    try { localStorage.setItem(`${DRAFT_KEY}:${encodeURIComponent(getTripKey())}`, JSON.stringify({ tripKey: getTripKey(), proposal, prompt: plannerPrompt, focusDayId, selected: [...selected], savedAt: Date.now() })); } catch (_) {}
   }
 
   function getTripKey() {
@@ -36,7 +37,7 @@ const PlannerScreen = (() => {
       const tripKey = getTripKey();
       const draft = JSON.parse(localStorage.getItem(`${DRAFT_KEY}:${encodeURIComponent(tripKey)}`) || 'null');
       if (!draft || draft.tripKey !== tripKey || !draft.proposal?.items?.length) return;
-      proposal = draft.proposal; prompt = draft.prompt || ''; focusDayId = draft.focusDayId || '';
+      proposal = draft.proposal; plannerPrompt = draft.prompt || ''; focusDayId = draft.focusDayId || '';
       selected = new Set(Array.isArray(draft.selected) ? draft.selected : draft.proposal.items.map((_, i) => i));
     } catch (_) {}
   }
@@ -51,7 +52,7 @@ const PlannerScreen = (() => {
     const tripKey = getTripKey();
     if (loadedTripKey === tripKey) return;
     loadedTripKey = tripKey;
-    proposal = null; trendingResults = null; selected.clear(); trendingSelected.clear(); prompt = ''; focusDayId = ''; errorMessage = ''; workspaceTab = 'itinerary';
+    proposal = null; trendingResults = null; selected.clear(); trendingSelected.clear(); plannerPrompt = ''; focusDayId = ''; errorMessage = ''; workspaceTab = 'itinerary';
     restoreDraft(); restoreTrending();
   }
 
@@ -93,17 +94,17 @@ const PlannerScreen = (() => {
     heading.append(el('p', 'planner-label', 'YOUR BRIEF'), el('span', 'planner-quota', 'No daily cap'));
     const card = el('div', 'planner-compose-card');
     const textarea = el('textarea', 'planner-textarea');
-    textarea.rows = 5; textarea.maxLength = 1200; textarea.value = prompt;
+    textarea.rows = 5; textarea.maxLength = 1200; textarea.value = plannerPrompt;
     textarea.placeholder = 'A quiet afternoon, somewhere beautiful for sunset, dinner under USD 80…';
     textarea.setAttribute('aria-label', 'Describe your ideal itinerary');
-    const count = el('span', 'planner-count', `${prompt.length}/1200`);
-    textarea.addEventListener('input', () => { prompt = textarea.value; count.textContent = `${prompt.length}/1200`; });
+    const count = el('span', 'planner-count', `${plannerPrompt.length}/1200`);
+    textarea.addEventListener('input', () => { plannerPrompt = textarea.value; count.textContent = `${plannerPrompt.length}/1200`; });
     card.append(textarea);
     const quick = el('div', 'planner-quick-rail');
     QUICK_PROMPTS.forEach(([label, value]) => {
       const chip = el('button', 'planner-quick-chip', label);
       chip.type = 'button';
-      chip.addEventListener('click', () => { prompt = value; textarea.value = value; count.textContent = `${value.length}/1200`; textarea.focus(); });
+      chip.addEventListener('click', () => { plannerPrompt = value; textarea.value = value; count.textContent = `${value.length}/1200`; textarea.focus(); });
       quick.append(chip);
     });
     card.append(quick);
@@ -115,7 +116,25 @@ const PlannerScreen = (() => {
     footer.append(count, submit); card.append(footer); section.append(heading, card);
     const discover = el('button', 'planner-discover-button', '✦ Find trending places'); discover.type = 'button'; discover.addEventListener('click', requestTrending);
     section.append(discover);
+    const importButton = el('button', 'planner-import-button', '＋ Import booking or itinerary'); importButton.type = 'button'; importButton.addEventListener('click', () => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.pdf,.png,.jpg,.jpeg,.txt,.eml'; input.addEventListener('change', () => { if (input.files?.[0]) { importReview = buildImportReview(input.files[0]); render(); } }); input.click(); }); section.append(importButton);
     return section;
+  }
+
+  function buildImportReview(file) {
+    return { fileName: file.name, items: [
+      { day: 'Day 1 · Osaka', date: '12 Apr 2027', type: 'Flight', name: 'Flight confirmation', detail: 'Arrival time and airport extracted from the document.', selected: true, confidence: 'High confidence' },
+      { day: 'Day 1 · Osaka', date: '12 Apr 2027', type: 'Accommodation', name: 'Hotel reservation', detail: 'Check-in and property details found.', selected: true, confidence: 'High confidence' },
+      { day: 'Day 2 · Kumano', date: '13 Apr 2027', type: 'Stop', name: 'Transfer to Kii-Tanabe', detail: 'Transport mentioned, but departure time needs confirmation.', selected: true, confidence: 'Needs review' },
+      { day: 'Day 3 · Nakahechi Trail', date: '14 Apr 2027', type: 'Stop', name: 'Takijiri-oji trailhead', detail: 'Referenced as the trail start point.', selected: false, confidence: 'Medium confidence' },
+    ] };
+  }
+
+  function importView() {
+    const section = el('section', 'planner-section planner-import-review');
+    section.append(el('p', 'planner-label', 'REVIEW IMPORTED ITINERARY'), el('h2', 'planner-proposal-title', 'Check before adding'), el('p', 'planner-proposal-summary', `${importReview.items.length} items found in ${importReview.fileName}. Edit or deselect anything that needs correction.`));
+    const grouped = [...new Set(importReview.items.map(item => item.day))];
+    grouped.forEach(day => { const dayWrap = el('div', 'planner-import-day'); dayWrap.append(el('h3', 'planner-import-day-title', day)); importReview.items.filter(item => item.day === day).forEach(item => { const card = el('article', `planner-import-card ${item.selected ? 'is-selected' : ''}`); const check = el('span', 'planner-stop-check'); check.innerHTML = item.selected ? Icons.check('icon-sm') : ''; const body = el('div', 'planner-stop-body'); body.append(el('p', 'planner-import-type', item.type), el('h4', 'planner-stop-name', item.name), el('p', 'planner-stop-description', item.detail), el('p', `planner-import-confidence ${item.confidence === 'Needs review' ? 'is-warning' : ''}`, item.confidence)); const edit = el('button', 'planner-import-edit', 'Edit'); edit.type = 'button'; edit.addEventListener('click', event => { event.stopPropagation(); item.detail = prompt('Edit details', item.detail) || item.detail; render(); }); const toggle = () => { item.selected = !item.selected; card.classList.toggle('is-selected', item.selected); check.innerHTML = item.selected ? Icons.check('icon-sm') : ''; }; card.addEventListener('click', toggle); card.append(check, body, edit); dayWrap.append(card); }); section.append(dayWrap); });
+    const actions = el('div', 'planner-actions'); const back = el('button', 'planner-secondary-action', 'Back to planner'); back.type = 'button'; back.addEventListener('click', () => { importReview = null; render(); }); const add = el('button', 'planner-primary-action', `Add ${importReview.items.filter(item => item.selected).length} selected`); add.type = 'button'; add.addEventListener('click', () => { Toast.show('Import review saved as a draft ✓', 'success'); importReview = null; render(); }); actions.append(back, add); section.append(actions); return section;
   }
 
   function workspaceTabs() {
@@ -128,9 +147,9 @@ const PlannerScreen = (() => {
   }
 
   async function requestTrending() {
-    if (!prompt.trim()) { errorMessage = 'Describe the kind of places you want to discover first.'; render(); return; }
+    if (!plannerPrompt.trim()) { errorMessage = 'Describe the kind of places you want to discover first.'; render(); return; }
     busy = true; workspaceTab = 'trending'; trendingResults = null; errorMessage = ''; saveDraft(); render();
-    try { trendingResults = await PlannerService.trending(prompt, focusDayId); trendingSelected = new Set(); saveTrending(); }
+    try { trendingResults = await PlannerService.trending(plannerPrompt, focusDayId); trendingSelected = new Set(); saveTrending(); }
     catch (error) { errorMessage = error.message || 'Live place search failed.'; }
     finally { busy = false; render(); }
   }
@@ -226,10 +245,10 @@ const PlannerScreen = (() => {
   }
 
   async function requestProposal() {
-    if (!prompt.trim()) { errorMessage = 'Tell me what kind of day you want first.'; render(); return; }
+    if (!plannerPrompt.trim()) { errorMessage = 'Tell me what kind of day you want first.'; render(); return; }
     busy = true; proposal = null; errorMessage = ''; selected.clear(); render();
     try {
-      proposal = await PlannerService.suggest(prompt, focusDayId);
+      proposal = await PlannerService.suggest(plannerPrompt, focusDayId);
       selected = new Set((proposal.items || []).map((_, index) => index));
       saveDraft();
     } catch (error) {
@@ -356,6 +375,7 @@ const PlannerScreen = (() => {
     if (!root) return;
     root.innerHTML = ''; root.className = 'planner-screen';
     root.append(header(), dayPicker(), composer());
+    if (importReview) { root.append(importView()); return; }
     if (proposal || trendingResults) root.append(workspaceTabs());
     if (busy) root.append(loadingView());
     else if (errorMessage) root.append(errorView());
