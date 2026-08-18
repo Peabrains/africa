@@ -623,6 +623,7 @@ const BottomSheet = (() => {
         ${select('Day','a-day',dayId,days)}
         ${field('Stop name *','a-name','','text','e.g. Kumano Hongu Taisha')}
         ${textarea('Activity','a-activity','','What happens here?')}
+        ${textarea('Notes','a-notes','','Comments, reminders, or useful context')}
         ${timeWithTz('a-time','a-tz','','')}
         ${textarea('Transport to get here','a-transport','','e.g. On foot · 3.6 km')}
         ${select('Transport type','a-ttype','walk',transTypes)}
@@ -1017,7 +1018,7 @@ const BottomSheet = (() => {
       } : null;
       await Data.addStop({
         dayId: g('a-day')||dayId, name,
-        activity: g('a-activity'), time: g('a-time'),
+        activity: g('a-activity'), notes: g('a-notes'), time: g('a-time'),
         timeZone: body.querySelector('#a-tz')?.value || defaultTripTz(),
         transport: g('a-transport'), transportType: tType,
         trainDetail,
@@ -1274,7 +1275,8 @@ const BottomSheet = (() => {
       field.dispatchEvent(new Event('input', { bubbles: true }));
     };
     setValue('a-name', item.name);
-    setValue('a-activity', [item.detail, item.notes].filter(Boolean).join('\n\n'));
+    setValue('a-activity', item.detail);
+    setValue('a-notes', item.notes);
     setValue('a-time', item.startTime);
     setValue('a-ref', item.reference);
     if (item.type === 'Flight') setValue('a-category', 'transport');
@@ -1291,6 +1293,7 @@ const BottomSheet = (() => {
         if (!name) { Toast.show('Stop name is required', 'warning'); return; }
         item.name = name;
         item.detail = body.querySelector('#a-activity')?.value?.trim() || '';
+        item.notes = body.querySelector('#a-notes')?.value?.trim() || '';
         item.startTime = body.querySelector('#a-time')?.value || '';
         item.reference = body.querySelector('#a-ref')?.value?.trim() || '';
         if (selectedDay) {
