@@ -121,12 +121,17 @@ const PlannerScreen = (() => {
   }
 
   function buildImportReview(file) {
-    return { fileName: file.name, items: [
-      { day: 'Day 1 · Osaka', date: '12 Apr 2027', type: 'Flight', name: 'Flight confirmation', detail: 'Arrival time and airport extracted from the document.', selected: true, confidence: 'High confidence' },
-      { day: 'Day 1 · Osaka', date: '12 Apr 2027', type: 'Accommodation', name: 'Hotel reservation', detail: 'Check-in and property details found.', selected: true, confidence: 'High confidence' },
-      { day: 'Day 2 · Kumano', date: '13 Apr 2027', type: 'Stop', name: 'Transfer to Kii-Tanabe', detail: 'Transport mentioned, but departure time needs confirmation.', selected: true, confidence: 'Needs review' },
-      { day: 'Day 3 · Nakahechi Trail', date: '14 Apr 2027', type: 'Stop', name: 'Takijiri-oji trailhead', detail: 'Referenced as the trail start point.', selected: false, confidence: 'Medium confidence' },
-    ] };
+    const imported = [
+      { date: '2027-04-12', type: 'Flight', name: 'Flight confirmation', detail: 'Arrival time and airport extracted from the document.', selected: true, confidence: 'High confidence' },
+      { date: '2027-04-12', type: 'Accommodation', name: 'Hotel reservation', detail: 'Check-in and property details found.', selected: true, confidence: 'High confidence' },
+      { date: '2027-04-13', type: 'Stop', name: 'Transfer to Kii-Tanabe', detail: 'Transport mentioned, but departure time needs confirmation.', selected: true, confidence: 'Needs review' },
+      { date: '2027-04-14', type: 'Stop', name: 'Takijiri-oji trailhead', detail: 'Referenced as the trail start point.', selected: false, confidence: 'Medium confidence' },
+    ];
+    const existingDays = Data.getDays();
+    const dates = [...new Set([...existingDays.map(day => day.date), ...imported.map(item => item.date)])].filter(Boolean).sort();
+    const dayMap = new Map(dates.map((date, index) => { const existing = existingDays.find(day => day.date === date); return [date, { date, id: existing?.id || `import-day-${date}`, label: existing?.label || `D${index}`, title: existing?.title || '', locality: existing?.locality || '', existing: !!existing }; }));
+    imported.forEach(item => { const day = dayMap.get(item.date); item.day = `${day.label}${day.locality ? ` · ${day.locality}` : ''}`; item.dayDate = item.date; item.dayExisting = day.existing; });
+    return { fileName: file.name, days: [...dayMap.values()], items: imported };
   }
 
   function importEditorView(item) {
