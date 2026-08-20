@@ -1,7 +1,7 @@
 'use strict';
 
 const PlannerScreen = (() => {
-  let root = null, proposal = null, trendingResults = null, busy = false, plannerPrompt = '', focusDayId = '', errorMessage = '';
+  let root = null, proposal = null, trendingResults = null, busy = false, importBusy = false, plannerPrompt = '', focusDayId = '', errorMessage = '';
   let selected = new Set();
   let trendingSelected = new Set(), workspaceTab = 'itinerary';
   let importReview = null, importEditor = null;
@@ -116,7 +116,7 @@ const PlannerScreen = (() => {
     footer.append(count, submit); card.append(footer); section.append(heading, card);
     const discover = el('button', 'planner-discover-button', '✦ Find trending places'); discover.type = 'button'; discover.addEventListener('click', requestTrending);
     section.append(discover);
-    const importButton = el('button', 'planner-import-button', busy ? 'Reading screenshot…' : '＋ Import one booking screenshot'); importButton.type = 'button'; importButton.disabled = busy; importButton.addEventListener('click', () => { const consent = window.confirm('Use this screenshot only for itinerary extraction? Do not upload passports, payment details, or other sensitive documents. The original image is not intended to be stored.'); if (!consent) return; const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/png,image/jpeg'; input.addEventListener('change', async () => { if (!input.files?.[0]) return; busy = true; errorMessage = ''; render(); try { const extracted = await PlannerService.importScreenshot(input.files[0]); const normalized = normalizeImportedDays(extracted.items.map(item => ({ ...item, selected: true }))); importReview = { fileName: input.files[0].name, ...normalized }; } catch (error) { errorMessage = error.message || 'Screenshot import failed.'; } finally { busy = false; render(); } }); input.click(); }); section.append(importButton);
+    const importButton = el('button', 'planner-import-button', importBusy ? 'Reading screenshot…' : '＋ Import one booking screenshot'); importButton.type = 'button'; importButton.disabled = importBusy; importButton.addEventListener('click', () => { const consent = window.confirm('Use this screenshot only for itinerary extraction? Do not upload passports, payment details, or other sensitive documents. The original image is not intended to be stored.'); if (!consent) return; const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/png,image/jpeg'; input.addEventListener('change', async () => { if (!input.files?.[0]) return; importBusy = true; errorMessage = ''; render(); try { const extracted = await PlannerService.importScreenshot(input.files[0]); const normalized = normalizeImportedDays(extracted.items.map(item => ({ ...item, selected: true }))); importReview = { fileName: input.files[0].name, ...normalized }; } catch (error) { errorMessage = error.message || 'Screenshot import failed.'; } finally { importBusy = false; render(); } }); input.click(); }); section.append(importButton);
     return section;
   }
 
