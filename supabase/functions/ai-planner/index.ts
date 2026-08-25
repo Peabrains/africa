@@ -56,6 +56,7 @@ Deno.serve(async (req) => {
         model: Deno.env.get("AI_PLANNER_MODEL") || "openai/gpt-5.6-luna",
         max_output_tokens: 5000,
         reasoning: { effort: "low" },
+        return_images: true,
         input: [
           {
             role: "developer",
@@ -100,7 +101,9 @@ Deno.serve(async (req) => {
       p_input_tokens: usage.input_tokens || 0,
       p_output_tokens: usage.output_tokens || 0,
     });
-    return json({ proposal: JSON.parse(outputText), usage });
+    const proposal = JSON.parse(outputText);
+    attachImages(proposal.items, result.images);
+    return json({ proposal, usage });
   } catch (error) {
     console.error("AI planner failure", error instanceof Error ? error.message : "unknown");
     const message = error instanceof Error ? error.message : "unknown planner error";
@@ -117,6 +120,30 @@ function extractOutputText(result: any): string {
     if (part?.text?.trim()) return part.text;
   }
   return "";
+}
+
+function attachImages(items: any[], images: any[]) {
+  if (!Array.isArray(items) || !Array.isArray(images)) return;
+  for (const item of items) {
+    const tokens = imageTokens(item?.name);
+    const matches = images
+      .filter((image: any) => /^https:\/\//i.test(image?.image_url || ""))
+      .map((image: any) => ({ image, score: imageScore(tokens, `${image.title || ""} ${image.origin_url || ""}`) }))
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map(({ image }) => image.image_url);
+    if (matches.length) item.imageUrls = [...new Set(matches)];
+  }
+}
+
+function imageTokens(value: string) {
+  return new Set(String(value || "").toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 2 && !["the", "and", "market", "museum", "park"].includes(token)));
+}
+
+function imageScore(tokens: Set<string>, haystack: string) {
+  const text = haystack.toLowerCase();
+  return [...tokens].reduce((score, token) => score + (text.includes(token) ? 1 : 0), 0);
 }
 
 function json(body: unknown, status = 200) {

@@ -27,6 +27,7 @@ Deno.serve(async (req) => {
       method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "perplexity/sonar", max_output_tokens: 3000,
+        return_images: true,
         input: [{ role: "system", content: "Find current, interesting travel places using live web search. Use public sources only; never claim Instagram or Xiaohongshu access unless a public result is actually available. Return five places with source links. Prefer recent posts, local tourism sites, official venue pages, and reputable travel publications. Clearly flag uncertainty and tell the user to verify hours, access, and availability. Mark locationPrecision exact only for a specific, verifiable venue; use area for neighborhoods, districts, walks, viewpoints, or broad suggestions." }, { role: "user", content: JSON.stringify({ request: message, location, date, interests }) }],
         text: { format: { type: "json_schema", name: "trending_places", strict: true, schema: { type: "object", additionalProperties: false, required: ["summary", "places"], properties: { summary: { type: "string" }, places: { type: "array", minItems: 1, maxItems: 5, items: placeSchema } } } } },
       }),
@@ -35,8 +36,34 @@ Deno.serve(async (req) => {
     if (!response.ok) return json({ error: "Live place search is unavailable right now. Try again shortly." }, 502);
     const text = typeof result.output_text === "string" ? result.output_text : result.output?.flatMap((e: any) => e.content || []).find((p: any) => p.type === "output_text")?.text || "";
     if (!text) return json({ error: "No current places were found. Try a more specific location." }, 502);
-    return json({ result: JSON.parse(text), usage: result.usage || {} });
+    const parsed = JSON.parse(text);
+    attachImages(parsed.places, result.images);
+    return json({ result: parsed, usage: result.usage || {} });
   } catch (error) { return json({ error: error instanceof Error ? error.message : "Trending search failed" }, 502); }
 });
+
+function attachImages(places: any[], images: any[]) {
+  if (!Array.isArray(places) || !Array.isArray(images)) return;
+  for (const place of places) {
+    const tokens = imageTokens(place?.name);
+    const matches = images
+      .filter((image: any) => /^https:\/\//i.test(image?.image_url || ""))
+      .map((image: any) => ({ image, score: imageScore(tokens, `${image.title || ""} ${image.origin_url || ""}`) }))
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map(({ image }) => image.image_url);
+    if (matches.length) place.imageUrls = [...new Set(matches)];
+  }
+}
+
+function imageTokens(value: string) {
+  return new Set(String(value || "").toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 2 && !["the", "and", "market", "museum", "park"].includes(token)));
+}
+
+function imageScore(tokens: Set<string>, haystack: string) {
+  const text = haystack.toLowerCase();
+  return [...tokens].reduce((score, token) => score + (text.includes(token) ? 1 : 0), 0);
+}
 
 function json(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
