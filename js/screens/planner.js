@@ -198,7 +198,7 @@ const PlannerScreen = (() => {
     section.append(el('p', 'planner-label', 'LIVE DISCOVERY'), el('h2', 'planner-proposal-title', 'Places people are talking about'));
     const map = el('div', 'planner-map'); map.setAttribute('aria-label', 'Map of discovered places'); section.append(map);
     if (trendingResults.summary) section.append(el('p', 'planner-proposal-summary', trendingResults.summary));
-    if (trendingResults._imageDiagnostics) section.append(el('p', 'planner-image-diagnostics', `Photo debug: ${trendingResults._imageDiagnostics.returned} returned · ${trendingResults._imageDiagnostics.matched} matched`));
+    if (trendingResults._imageDiagnostics) section.append(el('p', 'planner-image-diagnostics', `Photo debug: ${trendingResults._imageDiagnostics.returned} search results · ${trendingResults._imageDiagnostics.matched} matched${trendingResults._imageDiagnostics.sourceMatched ? ` · ${trendingResults._imageDiagnostics.sourceMatched} source images` : ''}`));
     (trendingResults.places || []).forEach((place, index) => {
       const chosen = trendingSelected.has(index);
       const card = el('article', `planner-stop planner-trending-card ${chosen ? 'is-selected' : ''} ${place.added ? 'is-added' : ''}`);
@@ -343,7 +343,7 @@ const PlannerScreen = (() => {
     const intro = el('div', 'planner-proposal-intro');
     intro.append(el('p', 'planner-label', 'YOUR DRAFT'), el('h2', 'planner-proposal-title', proposal.title || 'A plan for your day'));
     if (proposal.summary) intro.append(el('p', 'planner-proposal-summary', proposal.summary));
-    if (proposal._imageDiagnostics) intro.append(el('p', 'planner-image-diagnostics', `Photo debug: ${proposal._imageDiagnostics.returned} returned · ${proposal._imageDiagnostics.matched} matched`));
+    if (proposal._imageDiagnostics) intro.append(el('p', 'planner-image-diagnostics', `Photo debug: ${proposal._imageDiagnostics.returned} search results · ${proposal._imageDiagnostics.matched} matched${proposal._imageDiagnostics.sourceMatched ? ` · ${proposal._imageDiagnostics.sourceMatched} source images` : ''}`));
     const saved = el('div', 'planner-draft-saved');
     saved.append(el('span', '', 'Saved on this device'));
     const discard = el('button', 'planner-draft-discard', 'Discard draft'); discard.type = 'button';

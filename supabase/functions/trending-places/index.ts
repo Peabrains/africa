@@ -40,7 +40,8 @@ Deno.serve(async (req) => {
     const imageResults = await searchImages(key, parsed.places);
     console.log("trending image search result", { requested: parsed.places?.length || 0, returned: imageResults.length });
     const matched = attachImages(parsed.places, imageResults);
-    return json({ result: parsed, usage: result.usage || {}, imageDiagnostics: { requested: parsed.places?.length || 0, returned: imageResults.length, matched } });
+    const sourceMatched = matched ? 0 : await attachSourceImages(parsed.places);
+    return json({ result: parsed, usage: result.usage || {}, imageDiagnostics: { requested: parsed.places?.length || 0, returned: imageResults.length, matched: matched + sourceMatched, sourceMatched } });
   } catch (error) { return json({ error: error instanceof Error ? error.message : "Trending search failed" }, 502); }
 });
 
@@ -90,6 +91,36 @@ async function searchImages(key: string, places: any[]) {
   } catch (_) {
     return [];
   }
+}
+
+async function attachSourceImages(places: any[]) {
+  if (!Array.isArray(places)) return 0;
+  const results = await Promise.all(places.map(async (place) => {
+    const source = safeUrl(place?.sourceUrl || place?.officialUrl);
+    const imageUrl = source ? await fetchOgImage(source) : '';
+    if (imageUrl) { place.imageUrls = [imageUrl]; return 1; }
+    return 0;
+  }));
+  return results.reduce((total, value) => total + value, 0);
+}
+
+function safeUrl(value: string) {
+  try {
+    const url = new URL(String(value || ''));
+    if (url.protocol !== 'https:') return '';
+    if (/^(localhost|127\.|0\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.|169\.254\.)/i.test(url.hostname)) return '';
+    return url.toString();
+  } catch (_) { return ''; }
+}
+
+async function fetchOgImage(source: string) {
+  try {
+    const response = await fetch(source, { headers: { 'User-Agent': 'AfricaTripCompanion/1.0' }, redirect: 'follow' });
+    if (!response.ok) return '';
+    const html = (await response.text()).slice(0, 600000);
+    const match = html.match(/<meta[^>]+property=[\"']og:image[\"'][^>]+content=[\"']([^\"']+)/i) || html.match(/<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+property=[\"']og:image[\"']/i);
+    return match?.[1] ? new URL(match[1], response.url).toString() : '';
+  } catch (_) { return ''; }
 }
 
 function json(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
