@@ -252,7 +252,7 @@ const PlannerScreen = (() => {
         if (!hit && place.location) hit = await search(place.location);
         if (hit) {
           const overlap = points.filter(point => Math.abs(point.lat - Number(hit.lat)) < 0.0005 && Math.abs(point.lon - Number(hit.lon)) < 0.0005).length;
-          points.push({ place, lat: Number(hit.lat) + overlap * 0.0012, lon: Number(hit.lon) + overlap * 0.0012, approximate: !isVerifiedVenue(place, hit) });
+          points.push({ place, lat: Number(hit.lat) + overlap * 0.0012, lon: Number(hit.lon) + overlap * 0.0012, precision: classifyMapLocation(place, hit) });
         }
         await new Promise(resolve => setTimeout(resolve, 1100));
       } catch (_) {}
@@ -262,7 +262,17 @@ const PlannerScreen = (() => {
     mapInstance = L.map(node, { zoomControl: false, attributionControl: true }).setView([points[0].lat, points[0].lon], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(mapInstance);
     const bounds = [];
-    points.forEach((point, index) => { const marker = point.approximate ? L.circle([point.lat, point.lon], { radius: 650, color: '#c75a45', fillColor: '#c75a45', fillOpacity: 0.16, weight: 2 }).addTo(mapInstance) : L.marker([point.lat, point.lon]).addTo(mapInstance); marker.bindPopup(`<strong>${index + 1}. ${escapeHtml(point.place.name)}</strong><br>${escapeHtml(point.place.location)}${point.approximate ? '<br><em>Area recommendation — not an exact venue</em>' : ''}`); marker.on('click', () => onMarkerClick?.(point)); bounds.push([point.lat, point.lon]); });
+    points.forEach((point, index) => {
+      const isBroadArea = point.precision === 'area';
+      const marker = isBroadArea
+        ? L.circle([point.lat, point.lon], { radius: 650, color: '#c75a45', fillColor: '#c75a45', fillOpacity: 0.16, weight: 2 }).addTo(mapInstance)
+        : L.marker([point.lat, point.lon]).addTo(mapInstance);
+      const note = point.precision === 'named-area'
+        ? '<br><em>Named area pin — not an exact venue</em>'
+        : isBroadArea ? '<br><em>Area recommendation — not an exact venue</em>' : '';
+      marker.bindPopup(`<strong>${index + 1}. ${escapeHtml(point.place.name)}</strong><br>${escapeHtml(point.place.location)}${note}`);
+      marker.on('click', () => onMarkerClick?.(point)); bounds.push([point.lat, point.lon]);
+    });
     if (bounds.length > 1) mapInstance.fitBounds(bounds, { padding: [18, 18] });
   }
 
@@ -273,6 +283,15 @@ const PlannerScreen = (() => {
     const returned = String(hit.display_name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ');
     const words = wanted.split(' ').filter(word => word.length > 2);
     return words.length > 0 && words.filter(word => returned.includes(word)).length >= Math.max(1, Math.ceil(words.length * 0.55));
+  }
+
+  function classifyMapLocation(place, hit) {
+    if (isVerifiedVenue(place, hit)) return 'exact';
+    const type = String(hit.type || '').toLowerCase();
+    const cls = String(hit.class || '').toLowerCase();
+    const namedAreaTypes = new Set(['road', 'residential', 'pedestrian', 'footway', 'neighbourhood', 'suburb', 'quarter', 'district', 'city', 'town', 'village', 'marketplace']);
+    if (cls === 'highway' || (cls === 'place' && namedAreaTypes.has(type)) || namedAreaTypes.has(type)) return 'named-area';
+    return 'area';
   }
 
   function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character])); }
