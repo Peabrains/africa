@@ -103,6 +103,7 @@ Deno.serve(async (req) => {
     });
     const proposal = JSON.parse(outputText);
     const imageResults = await searchImages(gatewayKey, proposal.items);
+    console.log("planner image search result", { requested: proposal.items?.length || 0, returned: imageResults.length });
     attachImages(proposal.items, imageResults);
     return json({ proposal, usage });
   } catch (error) {

@@ -37,7 +37,9 @@ Deno.serve(async (req) => {
     const text = typeof result.output_text === "string" ? result.output_text : result.output?.flatMap((e: any) => e.content || []).find((p: any) => p.type === "output_text")?.text || "";
     if (!text) return json({ error: "No current places were found. Try a more specific location." }, 502);
     const parsed = JSON.parse(text);
-    attachImages(parsed.places, await searchImages(key, parsed.places));
+    const imageResults = await searchImages(key, parsed.places);
+    console.log("trending image search result", { requested: parsed.places?.length || 0, returned: imageResults.length });
+    attachImages(parsed.places, imageResults);
     return json({ result: parsed, usage: result.usage || {} });
   } catch (error) { return json({ error: error instanceof Error ? error.message : "Trending search failed" }, 502); }
 });
