@@ -39,13 +39,14 @@ Deno.serve(async (req) => {
     const parsed = JSON.parse(text);
     const imageResults = await searchImages(key, parsed.places);
     console.log("trending image search result", { requested: parsed.places?.length || 0, returned: imageResults.length });
-    attachImages(parsed.places, imageResults);
-    return json({ result: parsed, usage: result.usage || {} });
+    const matched = attachImages(parsed.places, imageResults);
+    return json({ result: parsed, usage: result.usage || {}, imageDiagnostics: { requested: parsed.places?.length || 0, returned: imageResults.length, matched } });
   } catch (error) { return json({ error: error instanceof Error ? error.message : "Trending search failed" }, 502); }
 });
 
 function attachImages(places: any[], images: any[]) {
-  if (!Array.isArray(places) || !Array.isArray(images)) return;
+  if (!Array.isArray(places) || !Array.isArray(images)) return 0;
+  let matched = 0;
   for (const place of places) {
     const tokens = imageTokens(place?.name);
     const matches = images
@@ -55,8 +56,9 @@ function attachImages(places: any[], images: any[]) {
       .sort((a, b) => b.score - a.score)
       .slice(0, 5)
       .map(({ image }) => image.image_url);
-    if (matches.length) place.imageUrls = [...new Set(matches)];
+    if (matches.length) { place.imageUrls = [...new Set(matches)]; matched += 1; }
   }
+  return matched;
 }
 
 function imageTokens(value: string) {

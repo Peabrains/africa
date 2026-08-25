@@ -104,8 +104,8 @@ Deno.serve(async (req) => {
     const proposal = JSON.parse(outputText);
     const imageResults = await searchImages(gatewayKey, proposal.items);
     console.log("planner image search result", { requested: proposal.items?.length || 0, returned: imageResults.length });
-    attachImages(proposal.items, imageResults);
-    return json({ proposal, usage });
+    const matched = attachImages(proposal.items, imageResults);
+    return json({ proposal, usage, imageDiagnostics: { requested: proposal.items?.length || 0, returned: imageResults.length, matched } });
   } catch (error) {
     console.error("AI planner failure", error instanceof Error ? error.message : "unknown");
     const message = error instanceof Error ? error.message : "unknown planner error";
@@ -125,7 +125,8 @@ function extractOutputText(result: any): string {
 }
 
 function attachImages(items: any[], images: any[]) {
-  if (!Array.isArray(items) || !Array.isArray(images)) return;
+  if (!Array.isArray(items) || !Array.isArray(images)) return 0;
+  let matched = 0;
   for (const item of items) {
     const tokens = imageTokens(item?.name);
     const matches = images
@@ -135,8 +136,9 @@ function attachImages(items: any[], images: any[]) {
       .sort((a, b) => b.score - a.score)
       .slice(0, 5)
       .map(({ image }) => image.image_url);
-    if (matches.length) item.imageUrls = [...new Set(matches)];
+    if (matches.length) { item.imageUrls = [...new Set(matches)]; matched += 1; }
   }
+  return matched;
 }
 
 async function searchImages(key: string, items: any[]) {

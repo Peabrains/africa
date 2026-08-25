@@ -56,6 +56,7 @@ const PlannerService = (() => {
       throw new Error(serverMessage || error.message || 'The planner could not respond.');
     }
     if (!data?.proposal) throw new Error(data?.error || 'The planner returned an invalid proposal.');
+    data.proposal._imageDiagnostics = data.imageDiagnostics || null;
     return data.proposal;
   }
 
@@ -65,6 +66,7 @@ const PlannerService = (() => {
     const response = await SB.functions.invoke('trending-places', { body: { message: clean, location: day.locality || Data.getTripName?.() || '', date: day.date || '', interests: clean } });
     if (response.error) throw new Error(response.error.message || 'Live place search failed.');
     if (!response.data?.result) throw new Error(response.data?.error || 'No trending places were found.');
+    response.data.result._imageDiagnostics = response.data.imageDiagnostics || null;
     return response.data.result;
   }
 
