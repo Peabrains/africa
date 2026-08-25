@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     const text = typeof result.output_text === "string" ? result.output_text : result.output?.flatMap((e: any) => e.content || []).find((p: any) => p.type === "output_text")?.text || "";
     if (!text) return json({ error: "No current places were found. Try a more specific location." }, 502);
     const parsed = JSON.parse(text);
-    attachImages(parsed.places, result.images);
+    attachImages(parsed.places, await searchImages(key, parsed.places));
     return json({ result: parsed, usage: result.usage || {} });
   } catch (error) { return json({ error: error instanceof Error ? error.message : "Trending search failed" }, 502); }
 });
@@ -64,6 +64,28 @@ function imageTokens(value: string) {
 function imageScore(tokens: Set<string>, haystack: string) {
   const text = haystack.toLowerCase();
   return [...tokens].reduce((score, token) => score + (text.includes(token) ? 1 : 0), 0);
+}
+
+async function searchImages(key: string, places: any[]) {
+  const names = (Array.isArray(places) ? places : []).map((place) => place?.name).filter(Boolean).slice(0, 5);
+  if (!names.length) return [];
+  try {
+    const response = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "perplexity/sonar",
+        max_tokens: 64,
+        return_images: true,
+        messages: [{ role: "user", content: `Find representative, publicly accessible photos for these exact travel places. Search only these names and return image results: ${names.join(" | ")}` }],
+      }),
+    });
+    if (!response.ok) return [];
+    const result = await response.json();
+    return Array.isArray(result.images) ? result.images : [];
+  } catch (_) {
+    return [];
+  }
 }
 
 function json(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }

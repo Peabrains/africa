@@ -102,9 +102,7 @@ Deno.serve(async (req) => {
       p_output_tokens: usage.output_tokens || 0,
     });
     const proposal = JSON.parse(outputText);
-    const imageResults = Array.isArray(result.images) && result.images.length
-      ? result.images
-      : await searchImages(gatewayKey, proposal.items);
+    const imageResults = await searchImages(gatewayKey, proposal.items);
     attachImages(proposal.items, imageResults);
     return json({ proposal, usage });
   } catch (error) {
@@ -144,14 +142,14 @@ async function searchImages(key: string, items: any[]) {
   const names = (Array.isArray(items) ? items : []).map((item) => item?.name).filter(Boolean).slice(0, 8);
   if (!names.length) return [];
   try {
-    const response = await fetch("https://ai-gateway.vercel.sh/v1/responses", {
+    const response = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "perplexity/sonar",
         max_output_tokens: 64,
         return_images: true,
-        input: [{ role: "user", content: `Find representative, publicly accessible photos for these exact travel places. Search only these names and return image results: ${names.join(" | ")}` }],
+        messages: [{ role: "user", content: `Find representative, publicly accessible photos for these exact travel places. Search only these names and return image results: ${names.join(" | ")}` }],
       }),
     });
     if (!response.ok) return [];
