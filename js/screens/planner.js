@@ -212,7 +212,7 @@ const PlannerScreen = (() => {
       links.addEventListener('click', event => event.stopPropagation());
       body.append(links, el('p', 'planner-trending-caveat', place.caveat || 'Verify current hours, access, and availability before going.'));
       if (place.added) body.append(el('span', 'planner-stop-added', 'Added to itinerary'));
-      card.append(photoCarousel(place, index), marker, body, check); section.append(card);
+      card.append(...[photoCarousel(place, index), marker, body, check].filter(Boolean)); section.append(card);
     });
     const actions = el('div', 'planner-actions');
     const back = el('button', 'planner-trending-back', 'Back to planner'); back.type = 'button'; back.addEventListener('click', () => { workspaceTab = 'itinerary'; render(); });
@@ -289,8 +289,9 @@ const PlannerScreen = (() => {
     if (isVerifiedVenue(place, hit)) return 'exact';
     const type = String(hit.type || '').toLowerCase();
     const cls = String(hit.class || '').toLowerCase();
-    const namedAreaTypes = new Set(['road', 'residential', 'pedestrian', 'footway', 'neighbourhood', 'suburb', 'quarter', 'district', 'city', 'town', 'village', 'marketplace']);
-    if (cls === 'highway' || (cls === 'place' && namedAreaTypes.has(type)) || namedAreaTypes.has(type)) return 'named-area';
+    const addressType = String(hit.addresstype || '').toLowerCase();
+    const namedAreaTypes = new Set(['road', 'residential', 'pedestrian', 'footway', 'neighbourhood', 'suburb', 'quarter', 'district', 'city', 'city_district', 'town', 'village', 'marketplace', 'administrative', 'retail', 'commercial']);
+    if (cls === 'highway' || (cls === 'place' && namedAreaTypes.has(type)) || namedAreaTypes.has(type) || namedAreaTypes.has(addressType)) return 'named-area';
     return 'area';
   }
 
@@ -376,7 +377,7 @@ const PlannerScreen = (() => {
       if (item.bookingRequired) meta.append(el('span', '', 'Book ahead'));
       body.append(meta);
       const check = el('span', 'planner-stop-check'); check.innerHTML = chosen ? Icons.check('icon-sm') : '';
-      card.append(photoCarousel(item, index), marker, body, check); timeline.append(card);
+      card.append(...[photoCarousel(item, index), marker, body, check].filter(Boolean)); timeline.append(card);
     });
     section.append(timeline);
     setTimeout(() => plotPlaces(routeMap, (proposal.items || []).map((item, index) => ({ name: item.name, location: Data.getDays().find(day => day.date === item.dayDate)?.locality || '', why: item.description || '', index, locationPrecision: inferLocationPrecision(item) })), point => { const card = document.getElementById(`planner-stop-${point.place.index}`); if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); card.classList.add('is-map-focused'); setTimeout(() => card.classList.remove('is-map-focused'), 1200); } }), 0);
