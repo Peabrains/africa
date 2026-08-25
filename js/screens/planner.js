@@ -8,11 +8,6 @@ const PlannerScreen = (() => {
   let mapInstance = null, loadedTripKey = '';
   const DRAFT_KEY = 'africa-ai-planner-draft-v1';
   const TRENDING_KEY = 'africa-ai-planner-trending-v1';
-  const DEMO_PHOTOS = [
-    'https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=900&q=80',
-    'https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=900&q=80',
-    'https://images.unsplash.com/photo-1528181304800-259b08848526?auto=format&fit=crop&w=900&q=80',
-  ];
   const QUICK_PROMPTS = [
     ['Slow day', 'Plan a relaxed day with minimal travel and plenty of downtime.'],
     ['Local food', 'Suggest a local food experience that fits naturally around what is already planned.'],
@@ -388,10 +383,11 @@ const PlannerScreen = (() => {
 
   function photoCarousel(item, index) {
     const urls = [...(Array.isArray(item.imageUrls) ? item.imageUrls : []), item.imageUrl].filter(url => /^https:\/\//i.test(url || '')).slice(0, 5);
-    const photos = urls.length ? urls : [DEMO_PHOTOS[index % DEMO_PHOTOS.length]];
+    if (!urls.length) return null;
+    const photos = urls;
     const wrap = el('div', 'planner-photo-carousel');
     const image = el('img', 'planner-photo-image'); image.src = photos[0]; image.alt = `${item.name || 'Place'} representative photo`; image.loading = 'lazy';
-    const label = el('span', 'planner-photo-label', urls.length ? 'Place photos' : 'Representative photo');
+    const label = el('span', 'planner-photo-label', 'Place photos');
     const previous = el('button', 'planner-photo-prev', '‹'); previous.type = 'button'; previous.setAttribute('aria-label', 'Previous photo');
     const next = el('button', 'planner-photo-next', '›'); next.type = 'button'; next.setAttribute('aria-label', 'Next photo');
     const dots = el('div', 'planner-photo-dots'); let current = 0;
