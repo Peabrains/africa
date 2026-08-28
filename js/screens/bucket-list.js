@@ -20,6 +20,9 @@ const BucketListScreen = (() => {
   let addFormOpen = false;
   let pendingCategory = '';
   let editingItemId = null;   // id of item currently showing its inline edit form, or null
+  let activeView = 'list'; // 'list' | 'map'
+  let bucketMap = null;
+  let bucketMapMarkers = null;
 
   let searchQuery = '';
   const collapsedCategories = new Set(); // category names currently collapsed
@@ -453,6 +456,61 @@ const BucketListScreen = (() => {
     return hay.includes(q);
   }
 
+  // Handles the coordinate-bearing Google Maps URLs we can safely pin
+  // without guessing a place from free text.
+  function coordinatesFromMapsUrl(url) {
+    if (!url || !/google\.(com|[a-z.]+)\/maps/i.test(url)) return null;
+    try {
+      const u = new URL(url);
+      const candidates = [u.searchParams.get('query'), u.searchParams.get('q'), u.searchParams.get('ll')];
+      const path = decodeURIComponent(u.pathname + u.search);
+      candidates.push(...path.match(/-?\d{1,3}(?:\.\d+)?\s*,\s*-?\d{1,3}(?:\.\d+)?/g) || []);
+      for (const value of candidates) {
+        const m = String(value || '').match(/(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/);
+        if (m && Math.abs(+m[1]) <= 90 && Math.abs(+m[2]) <= 180) return { lat:+m[1], lng:+m[2] };
+      }
+    } catch (_) { /* invalid URL: leave it unpinned */ }
+    return null;
+  }
+
+  function renderMapView() {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'padding:0 var(--s4) var(--s4);flex:1;min-height:360px;display:flex;flex-direction:column';
+    const items = Data.getBucketItems().map(item => ({ item, point: coordinatesFromMapsUrl(item.url) })).filter(x => x.point);
+    const mapEl = document.createElement('div');
+    mapEl.id = 'bk-map-container';
+    mapEl.style.cssText = 'flex:1;min-height:360px;border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;background:var(--surface-raised)';
+    wrap.appendChild(mapEl);
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:10px;color:var(--text-muted);padding:8px 2px 0';
+    note.textContent = items.length ? `${items.length} pinned item${items.length === 1 ? '' : 's'} · Location access is optional` : 'Add a Google Maps link with coordinates to place an item on the map.';
+    wrap.appendChild(note);
+    requestAnimationFrame(() => {
+      bucketMap = L.map(mapEl, { zoomControl:true }).setView([13.7563, 100.5018], 4);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'© OpenStreetMap', maxZoom:18 }).addTo(bucketMap);
+      bucketMapMarkers = L.layerGroup().addTo(bucketMap);
+      const bounds = [];
+      items.forEach(({ item, point }) => {
+        bounds.push([point.lat, point.lng]);
+        const marker = L.marker([point.lat, point.lng]).addTo(bucketMapMarkers);
+        const popup = document.createElement('div');
+        popup.style.cssText = 'min-width:150px';
+        popup.innerHTML = `<strong></strong><div style="font-size:10px;color:#777;margin:4px 0 8px">${item.done ? 'Completed' : 'Not completed'}</div><a target="_blank" rel="noopener" style="font-size:11px;color:var(--accent)">Open directions in Google Maps ↗</a>`;
+        popup.querySelector('strong').textContent = item.title;
+        popup.querySelector('a').href = `https://www.google.com/maps/dir/?api=1&destination=${point.lat},${point.lng}`;
+        marker.bindPopup(popup);
+      });
+      if (navigator.geolocation) navigator.geolocation.getCurrentPosition(pos => {
+        const here = [pos.coords.latitude, pos.coords.longitude];
+        L.circleMarker(here, { radius:8, color:'#2563EB', fillColor:'#60A5FA', fillOpacity:.95, weight:3 }).addTo(bucketMapMarkers).bindPopup('Your current location');
+        bounds.push(here);
+        if (bounds.length) bucketMap.fitBounds(bounds, { padding:[24,24] });
+      }, () => { if (bounds.length) bucketMap.fitBounds(bounds, { padding:[24,24] }); });
+      if (bounds.length) bucketMap.fitBounds(bounds, { padding:[24,24] });
+    });
+    return wrap;
+  }
+
   /* ── Grouped list ─────────────────────────────────────────── */
   function renderList() {
     const wrap = document.createElement('div');
@@ -748,6 +806,7 @@ const BucketListScreen = (() => {
   /* ── Main render ──────────────────────────────────────────── */
   function render() {
     if (!root) return;
+    if (bucketMap) { bucketMap.remove(); bucketMap = null; bucketMapMarkers = null; }
     root.innerHTML = '';
     root.appendChild(subTabBar());
 
@@ -760,6 +819,14 @@ const BucketListScreen = (() => {
     }
 
     root.appendChild(renderHeader());
+    const viewBar = document.createElement('div');
+    viewBar.style.cssText = 'display:flex;gap:6px;padding:10px var(--s4) 0';
+    [['list','List'],['map','Map']].forEach(([id,label]) => {
+      const btn = document.createElement('button'); btn.className = `pill ${activeView === id ? 'active' : ''}`; btn.textContent = label;
+      btn.addEventListener('click', () => { activeView = id; render(); }); viewBar.appendChild(btn);
+    });
+    root.appendChild(viewBar);
+    if (activeView === 'map') { root.appendChild(renderMapView()); return; }
     const searchWrap = renderSearchBar();
     searchWrap.id = 'bk-search-wrap';
     root.appendChild(searchWrap);
@@ -771,9 +838,11 @@ const BucketListScreen = (() => {
   }
 
   return {
-    init(el) { root = el; activeTab = 'bucket'; addFormOpen = false; render(); },
+    init(el) { root = el; activeTab = 'bucket'; activeView = 'list'; addFormOpen = false; render(); },
     destroy() {
       if (activeTab === 'collection') { const c = currentCollection(); c?.screen()?.destroy?.(); }
+      if (bucketMap) { bucketMap.remove(); bucketMap = null; }
+      bucketMapMarkers = null;
       root = null;
     },
     refresh() { render(); },
