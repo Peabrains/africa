@@ -460,12 +460,19 @@ const BucketListScreen = (() => {
   // Handles the coordinate-bearing Google Maps URLs we can safely pin
   // without guessing a place from free text.
   function coordinatesFromMapsUrl(url) {
-    if (!url || !/google\.(com|[a-z.]+)\/maps/i.test(url)) return null;
+    if (!url || !/(?:^|\/)maps\.google\.|google\.(?:com|[a-z.]+)\/maps|maps\.app\.goo\.gl|goo\.gl\/maps/i.test(url)) return null;
     try {
       const u = new URL(url);
       const candidates = [u.searchParams.get('query'), u.searchParams.get('q'), u.searchParams.get('ll')];
       const path = decodeURIComponent(u.pathname + u.search);
       candidates.push(...path.match(/-?\d{1,3}(?:\.\d+)?\s*,\s*-?\d{1,3}(?:\.\d+)?/g) || []);
+      // Google Maps embeds coordinates in several URL formats, including
+      // /@lat,lng,zoom and /data=!3dLAT!4dLNG.
+      const at = path.match(/@(-?\d{1,3}(?:\.\d+)?),\s*(-?\d{1,3}(?:\.\d+)?)/);
+      if (at) candidates.push(`${at[1]},${at[2]}`);
+      const dataLat = path.match(/!3d(-?\d{1,3}(?:\.\d+)?)/);
+      const dataLng = path.match(/!4d(-?\d{1,3}(?:\.\d+)?)/);
+      if (dataLat && dataLng) candidates.push(`${dataLat[1]},${dataLng[1]}`);
       for (const value of candidates) {
         const m = String(value || '').match(/(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/);
         if (m && Math.abs(+m[1]) <= 90 && Math.abs(+m[2]) <= 180) return { lat:+m[1], lng:+m[2] };
