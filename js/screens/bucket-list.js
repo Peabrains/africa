@@ -24,6 +24,7 @@ const BucketListScreen = (() => {
   let bucketMap = null;
   let bucketMapMarkers = null;
   let bucketMapRequest = 0;
+  let bucketBackfillRunning = false;
 
   let searchQuery = '';
   const collapsedCategories = new Set(); // category names currently collapsed
@@ -486,22 +487,6 @@ const BucketListScreen = (() => {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
   }
 
-  async function geocodeBucketItem(item) {
-    const direct = coordinatesFromMapsUrl(item.url);
-    if (direct) return { point: direct, source: 'link', mapsUrl: item.url };
-    const query = [item.title, item.location].filter(Boolean).join(', ').trim();
-    if (!query) return null;
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`, { headers:{ Accept:'application/json' } });
-      const data = await res.json();
-      const hit = data?.[0];
-      if (!hit) return { item, mapsUrl: mapsSearchUrl(item), unresolved:true };
-      return { item, point:{ lat:+hit.lat, lng:+hit.lon }, source:'search', mapsUrl:mapsSearchUrl(item), label:hit.display_name };
-    } catch (_) {
-      return { item, mapsUrl: mapsSearchUrl(item), unresolved:true };
-    }
-  }
-
   function renderMapView() {
     const wrap = document.createElement('div');
     wrap.style.cssText = 'padding:0 var(--s4) var(--s4);flex:1;min-height:0;display:flex;flex-direction:column';
@@ -514,15 +499,26 @@ const BucketListScreen = (() => {
     note.textContent = 'Loading locations from your bucket list…';
     wrap.appendChild(note);
     const requestId = ++bucketMapRequest;
-    requestAnimationFrame(async () => {
+    requestAnimationFrame(() => {
       bucketMap = L.map(mapEl, { zoomControl:true }).setView([13.7563, 100.5018], 4);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'© OpenStreetMap', maxZoom:18 }).addTo(bucketMap);
       bucketMapMarkers = L.layerGroup().addTo(bucketMap);
-      const items = (await Promise.all(Data.getBucketItems().map(geocodeBucketItem))).filter(Boolean);
+      const items = Data.getBucketItems().map(item => {
+        const stored = Number.isFinite(+item.latitude) && Number.isFinite(+item.longitude)
+          ? { lat:+item.latitude, lng:+item.longitude }
+          : coordinatesFromMapsUrl(item.url);
+        return {
+          item,
+          point: stored,
+          source: item.location_status === 'resolved' ? 'link' : item.location_status === 'approximate' ? 'search' : stored ? 'link' : '',
+          mapsUrl: item.canonical_maps_url || item.url || mapsSearchUrl(item),
+          unresolved: !stored,
+        };
+      });
       if (requestId !== bucketMapRequest || !bucketMap) return;
       const pinned = items.filter(x => x.point);
       note.textContent = pinned.length
-        ? `${pinned.length} pinned item${pinned.length === 1 ? '' : 's'} · ${items.filter(x => x.unresolved).length ? `${items.filter(x => x.unresolved).length} need a clearer location` : 'Location access is optional'}`
+        ? `${pinned.length} pinned item${pinned.length === 1 ? '' : 's'} · ${items.filter(x => x.unresolved).length ? `${items.filter(x => x.unresolved).length} unresolved` : 'Location access is optional'}`
         : 'No locations found yet. Add a location or link to a bucket-list item.';
       const bounds = [];
       pinned.forEach(({ item, point, source, mapsUrl }) => {
@@ -542,6 +538,19 @@ const BucketListScreen = (() => {
         if (bounds.length) bucketMap.fitBounds(bounds, { padding:[24,24] });
       }, () => { if (bounds.length) bucketMap.fitBounds(bounds, { padding:[24,24] }); });
       if (bounds.length) bucketMap.fitBounds(bounds, { padding:[24,24] });
+
+      const pendingCount = Data.getBucketItems().filter(item =>
+        item.location_status === 'pending' &&
+        /(?:maps\.app\.goo\.gl|goo\.gl\/maps|maps\.google\.|google\.[^/]+\/maps)/i.test(item.url || '')
+      ).length;
+      if (pendingCount && !bucketBackfillRunning && navigator.onLine) {
+        bucketBackfillRunning = true;
+        note.textContent = `Resolving ${pendingCount} saved Google Maps link${pendingCount === 1 ? '' : 's'}…`;
+        Data.resolvePendingBucketLocations().then(result => {
+          bucketBackfillRunning = false;
+          if (activeView === 'map' && root && result.attempted) render();
+        }).catch(() => { bucketBackfillRunning = false; });
+      }
     });
     return wrap;
   }

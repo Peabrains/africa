@@ -1500,7 +1500,37 @@ const Data = (() => {
       await enqueue('addBucketItem', { localId, row: { ...entry, created_by: user?.id } });
     }
     await DB.saveBucket(BUCKET_ITEMS, tripKey('bucketItems'));
+    if (!String(item.id).startsWith('bk_')) resolveBucketLocation(item.id).catch(() => {});
     return item;
+  }
+
+  async function resolveBucketLocation(id) {
+    const item = getBucketItem(id);
+    if (!item || !navigator.onLine || String(id).startsWith('bk_')) return null;
+    const { data, error } = await SB.functions.invoke('resolve-bucket-location', { body: { itemId: id } });
+    if (error || !data?.item) throw error || new Error(data?.error || 'Location resolution failed');
+    Object.assign(item, data.item);
+    await DB.saveBucket(BUCKET_ITEMS, tripKey('bucketItems'));
+    return item;
+  }
+
+  async function resolvePendingBucketLocations() {
+    const pending = BUCKET_ITEMS.filter(item =>
+      item.location_status === 'pending' &&
+      /(?:maps\.app\.goo\.gl|goo\.gl\/maps|maps\.google\.|google\.[^/]+\/maps)/i.test(item.url || '')
+    );
+    let resolved = 0;
+    for (const item of pending) {
+      try {
+        const updated = await resolveBucketLocation(item.id);
+        if (updated?.latitude != null && updated?.longitude != null) resolved += 1;
+      } catch (e) {
+        console.warn('[Data] bucket location resolution failed:', item.id, e?.message || e);
+      }
+      // Respect the public geocoder's one-request-per-second policy.
+      if (pending.length > 1) await new Promise(resolve => setTimeout(resolve, 1100));
+    }
+    return { attempted: pending.length, resolved };
   }
 
   async function updateBucketItem(id, { title, location, category, url } = {}) {
@@ -1511,6 +1541,13 @@ const Data = (() => {
     if (location !== undefined) patch.location = location;
     if (category !== undefined) patch.category = category;
     if (url !== undefined) patch.url = url;
+    const locationChanged = title !== undefined || location !== undefined || url !== undefined;
+    if (locationChanged) {
+      Object.assign(patch, {
+        latitude: null, longitude: null, canonical_maps_url: null,
+        location_label: null, location_status: 'pending', location_resolved_at: null,
+      });
+    }
 
     Object.assign(item, patch);
     await DB.saveBucket(BUCKET_ITEMS, tripKey('bucketItems'));
@@ -1526,6 +1563,7 @@ const Data = (() => {
     } else {
       await enqueue('updateBucketItem', { id, patch });
     }
+    if (locationChanged && navigator.onLine) resolveBucketLocation(id).catch(() => {});
   }
 
   async function deleteBucketItem(id) {
@@ -2557,7 +2595,7 @@ const Data = (() => {
     markStampCollected, unmarkStampCollected, addStampPhoto, removeStampPhoto, getStampPhoto,
     // Bucket List
     getBucketItems, getBucketItem, getBucketCategories, getBucketProgress,
-    addBucketItem, updateBucketItem, deleteBucketItem, toggleBucketDone, addBucketPhoto, removeBucketPhoto, getBucketPhoto,
+    addBucketItem, updateBucketItem, resolveBucketLocation, resolvePendingBucketLocations, deleteBucketItem, toggleBucketDone, addBucketPhoto, removeBucketPhoto, getBucketPhoto,
     // Journal
     getJournalEntries, getJournalEntry, addJournalEntry, updateJournalEntry, deleteJournalEntry,
     addJournalPhoto, setJournalHeroPhoto, removeJournalPhoto, getJournalPhotoUrl, setJournalPhotoFocal, getProfilesByIds,
