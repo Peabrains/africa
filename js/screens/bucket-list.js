@@ -23,6 +23,7 @@ const BucketListScreen = (() => {
   let activeView = 'list'; // 'list' | 'map'
   let bucketMap = null;
   let bucketMapMarkers = null;
+  let bucketMapRequest = 0;
 
   let searchQuery = '';
   const collapsedCategories = new Set(); // category names currently collapsed
@@ -473,31 +474,58 @@ const BucketListScreen = (() => {
     return null;
   }
 
+  function mapsSearchUrl(item) {
+    const query = [item.title, item.location].filter(Boolean).join(', ');
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  }
+
+  async function geocodeBucketItem(item) {
+    const direct = coordinatesFromMapsUrl(item.url);
+    if (direct) return { point: direct, source: 'link', mapsUrl: item.url };
+    const query = [item.title, item.location].filter(Boolean).join(', ').trim();
+    if (!query) return null;
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`, { headers:{ Accept:'application/json' } });
+      const data = await res.json();
+      const hit = data?.[0];
+      if (!hit) return { item, mapsUrl: mapsSearchUrl(item), unresolved:true };
+      return { item, point:{ lat:+hit.lat, lng:+hit.lon }, source:'search', mapsUrl:mapsSearchUrl(item), label:hit.display_name };
+    } catch (_) {
+      return { item, mapsUrl: mapsSearchUrl(item), unresolved:true };
+    }
+  }
+
   function renderMapView() {
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'padding:0 var(--s4) var(--s4);flex:1;min-height:360px;display:flex;flex-direction:column';
-    const items = Data.getBucketItems().map(item => ({ item, point: coordinatesFromMapsUrl(item.url) })).filter(x => x.point);
+    wrap.style.cssText = 'padding:0 var(--s4) var(--s4);flex:1;min-height:0;display:flex;flex-direction:column';
     const mapEl = document.createElement('div');
     mapEl.id = 'bk-map-container';
-    mapEl.style.cssText = 'flex:1;min-height:360px;border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;background:var(--surface-raised)';
+    mapEl.style.cssText = 'flex:1;min-height:420px;border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;background:var(--surface-raised)';
     wrap.appendChild(mapEl);
     const note = document.createElement('div');
     note.style.cssText = 'font-size:10px;color:var(--text-muted);padding:8px 2px 0';
-    note.textContent = items.length ? `${items.length} pinned item${items.length === 1 ? '' : 's'} · Location access is optional` : 'Add a Google Maps link with coordinates to place an item on the map.';
+    note.textContent = 'Loading locations from your bucket list…';
     wrap.appendChild(note);
-    requestAnimationFrame(() => {
+    const requestId = ++bucketMapRequest;
+    requestAnimationFrame(async () => {
       bucketMap = L.map(mapEl, { zoomControl:true }).setView([13.7563, 100.5018], 4);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'© OpenStreetMap', maxZoom:18 }).addTo(bucketMap);
       bucketMapMarkers = L.layerGroup().addTo(bucketMap);
+      const items = (await Promise.all(Data.getBucketItems().map(geocodeBucketItem))).filter(Boolean);
+      if (requestId !== bucketMapRequest || !bucketMap) return;
+      const pinned = items.filter(x => x.point);
+      note.textContent = pinned.length
+        ? `${pinned.length} pinned item${pinned.length === 1 ? '' : 's'} · ${items.filter(x => x.unresolved).length ? `${items.filter(x => x.unresolved).length} need a clearer location` : 'Location access is optional'}`
+        : 'No locations found yet. Add a location or link to a bucket-list item.';
       const bounds = [];
-      items.forEach(({ item, point }) => {
+      pinned.forEach(({ item, point, source, mapsUrl }) => {
         bounds.push([point.lat, point.lng]);
         const marker = L.marker([point.lat, point.lng]).addTo(bucketMapMarkers);
         const popup = document.createElement('div');
         popup.style.cssText = 'min-width:150px';
-        popup.innerHTML = `<strong></strong><div style="font-size:10px;color:#777;margin:4px 0 8px">${item.done ? 'Completed' : 'Not completed'}</div><a target="_blank" rel="noopener" style="font-size:11px;color:var(--accent)">Open directions in Google Maps ↗</a>`;
+        popup.innerHTML = `<strong></strong><div style="font-size:10px;color:#777;margin:4px 0 8px">${item.done ? 'Completed' : 'Not completed'} · ${source === 'link' ? 'From saved link' : 'Located from item text'}</div><a target="_blank" rel="noopener" style="font-size:11px;color:var(--accent)">Open in Google Maps ↗</a>`;
         popup.querySelector('strong').textContent = item.title;
-        popup.querySelector('a').href = `https://www.google.com/maps/dir/?api=1&destination=${point.lat},${point.lng}`;
+        popup.querySelector('a').href = source === 'link' ? `https://www.google.com/maps/dir/?api=1&destination=${point.lat},${point.lng}` : mapsUrl;
         marker.bindPopup(popup);
       });
       if (navigator.geolocation) navigator.geolocation.getCurrentPosition(pos => {
@@ -820,7 +848,7 @@ const BucketListScreen = (() => {
 
     root.appendChild(renderHeader());
     const viewBar = document.createElement('div');
-    viewBar.style.cssText = 'display:flex;gap:6px;padding:10px var(--s4) 0';
+    viewBar.style.cssText = 'display:flex;gap:6px;padding:10px var(--s4) 14px';
     [['list','List'],['map','Map']].forEach(([id,label]) => {
       const btn = document.createElement('button'); btn.className = `pill ${activeView === id ? 'active' : ''}`; btn.textContent = label;
       btn.addEventListener('click', () => { activeView = id; render(); }); viewBar.appendChild(btn);
