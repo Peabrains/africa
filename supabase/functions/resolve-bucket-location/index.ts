@@ -128,19 +128,30 @@ function queryFromGoogleUrl(value: string) {
 
 async function geocode(query: string) {
   if (!query.trim()) return null;
-  const url = new URL("https://nominatim.openstreetmap.org/search");
-  url.searchParams.set("format", "jsonv2");
-  url.searchParams.set("limit", "1");
-  url.searchParams.set("q", query.slice(0, 500));
-  const response = await fetch(url, {
-    headers: { Accept: "application/json", "User-Agent": "TripBucketMap/1.0 (contact: app-owner)" },
-  });
-  if (!response.ok) return null;
-  const hit = (await response.json())?.[0];
-  if (!hit) return null;
-  const lat = Number(hit.lat); const lng = Number(hit.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return { lat, lng, label: String(hit.display_name || query), status: "approximate" };
+  const candidates = [query, query.includes(",") ? query.slice(query.indexOf(",") + 1).trim() : ""].filter(Boolean);
+  for (const candidate of candidates) {
+    try {
+      const url = new URL("https://nominatim.openstreetmap.org/search");
+      url.searchParams.set("format", "jsonv2"); url.searchParams.set("limit", "1"); url.searchParams.set("q", candidate.slice(0, 500));
+      const response = await fetch(url, { headers: { Accept: "application/json", "User-Agent": "TripBucketMap/1.0" } });
+      const hit = response.ok ? (await response.json())?.[0] : null;
+      if (hit && Number.isFinite(+hit.lat) && Number.isFinite(+hit.lon)) {
+        return { lat:+hit.lat, lng:+hit.lon, label:String(hit.display_name || candidate), status:"approximate" };
+      }
+    } catch (_) { /* try Photon */ }
+    try {
+      const url = new URL("https://photon.komoot.io/api/");
+      url.searchParams.set("limit", "1"); url.searchParams.set("q", candidate.slice(0, 500));
+      const response = await fetch(url, { headers: { Accept: "application/json" } });
+      const feature = response.ok ? (await response.json())?.features?.[0] : null;
+      const [lng, lat] = feature?.geometry?.coordinates || [];
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        const p = feature.properties || {};
+        return { lat, lng, label:[p.name, p.street, p.city, p.country].filter(Boolean).join(", ") || candidate, status:"approximate" };
+      }
+    } catch (_) { /* try next query shape */ }
+  }
+  return null;
 }
 
 function json(body: unknown, status = 200) {
