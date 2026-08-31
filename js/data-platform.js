@@ -243,6 +243,16 @@ const Data = (() => {
 
   /* ── Load all trips for the current user ─────────────────── */
   async function loadTrips() {
+    // Offline startup must not wait for SB.auth.getUser(), which performs a
+    // server validation and can only fail or time out without connectivity.
+    // The trip list is already scoped and persisted locally after each
+    // successful online load.
+    if (!navigator.onLine) {
+      const cached = await DB.getMeta(CACHE_KEYS.trips);
+      TRIPS = cached || [];
+      return TRIPS;
+    }
+
     try {
       // Fetch trips where user is owner OR a member
       const { data: ownedTrips, error: e1 } = await SB

@@ -20,6 +20,41 @@ const Auth = (() => {
     if (el) { el.textContent = ''; el.style.display = 'none'; }
   }
 
+  /* Supabase persists the last session in localStorage. When the device is
+     genuinely offline an expired access token cannot be refreshed, but the
+     cached user is still sufficient to unlock data that is already stored on
+     this device. It does not grant server access: Supabase still validates the
+     token before accepting any request once connectivity returns. */
+  function getCachedUser() {
+    try {
+      // GitHub Pages apps share one origin, so never accept an auth record
+      // belonging to a different Supabase project hosted under another path.
+      const key = SB?.auth?.storageKey || 'sb-abycrkrfaocttujzhqhq-auth-token';
+      const stored = JSON.parse(localStorage.getItem(key) || 'null');
+      const session = stored?.currentSession || stored?.session || stored;
+      if (session?.user?.id) return session.user;
+    } catch (error) {
+      console.warn('[Auth] Could not read cached session:', error.message || error);
+    }
+    return null;
+  }
+
+  function renderOfflineScreen() {
+    const overlay = document.createElement('div');
+    overlay.id = 'auth-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:var(--s6)';
+    overlay.innerHTML = `
+      <div style="width:100%;max-width:360px;text-align:center">
+        <div style="font-size:48px;margin-bottom:var(--s2)">🧭</div>
+        <p style="font-size:22px;font-weight:500;color:var(--text-primary)">You’re offline</p>
+        <p style="font-size:var(--text-sm);color:var(--text-muted);margin-top:8px;line-height:1.5">This device has not saved a signed-in session yet. Connect once to sign in, then your cached trips can open without internet.</p>
+        <button id="auth-offline-retry" style="background:var(--accent);color:#fff;border:none;border-radius:var(--r-md);padding:12px 20px;font-size:var(--text-sm);font-weight:500;cursor:pointer;font-family:var(--font);margin-top:var(--s4)">Try again</button>
+      </div>`;
+    document.body.appendChild(overlay);
+    document.getElementById('auth-offline-retry')?.addEventListener('click', () => window.location.reload());
+    window.addEventListener?.('online', () => window.location.reload(), { once: true });
+  }
+
   function setLoading(loading, isSignup) {
     const btn = document.getElementById('auth-submit-btn');
     if (btn) {
@@ -190,9 +225,40 @@ const Auth = (() => {
       return _gatePromise;
     }
 
-    const { data: { session } } = await SB.auth.getSession();
+    const cachedUser = getCachedUser();
+
+    // Do not ask Supabase to refresh a token when there is no network. That
+    // refresh failure used to be mistaken for a real sign-out and replaced
+    // the locally available trip with the login screen.
+    if (!navigator.onLine) {
+      if (cachedUser) {
+        _resolveGate(cachedUser);
+        return _gatePromise;
+      }
+      renderOfflineScreen();
+      return _gatePromise;
+    }
+
+    let session = null;
+    let sessionError = null;
+    try {
+      const result = await SB.auth.getSession();
+      session = result?.data?.session || null;
+      sessionError = result?.error || null;
+    } catch (error) {
+      sessionError = error;
+    }
     if (session) {
       _resolveGate(session.user);
+      return _gatePromise;
+    }
+
+    // navigator.onLine can remain true during a captive portal or brief
+    // outage. Only fall back to the cached identity when session lookup
+    // actually failed; a clean null session still means genuinely signed out.
+    if (sessionError && cachedUser) {
+      console.warn('[Auth] Session refresh unavailable; opening cached trips.');
+      _resolveGate(cachedUser);
       return _gatePromise;
     }
 
