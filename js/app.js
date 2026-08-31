@@ -57,8 +57,9 @@ const App = (() => {
       try {
         const pending = await Data.getPendingCount?.();
         if (pending > 0) {
-          el.className = 'badge badge-pending';
-          el.textContent = `${pending} pending`;
+          const offline = state === 'offline';
+          el.className = `badge ${offline ? 'badge-open' : 'badge-pending'}`;
+          el.textContent = offline ? `Offline · ${pending} pending` : `${pending} pending`;
           return;
         }
       } catch (_) {}
