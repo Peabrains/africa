@@ -186,14 +186,20 @@ const LandingScreen = (() => {
           ${dateRange ? `<p style="font-size:10.5px;color:var(--text-muted);margin-top:2px">${dateRange}</p>` : ''}
           ${progressHtml}
         </div>
-        <button class="trip-del-btn" style="background:none;border:none;color:var(--text-muted);font-size:16px;cursor:pointer;padding:2px 4px;line-height:1;flex-shrink:0">×</button>
+        <button class="trip-copy-btn" aria-label="Duplicate ${t.name}" title="Duplicate trip" style="width:30px;height:30px;background:none;border:none;color:var(--text-muted);cursor:pointer;padding:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${Icons.clipboard('icon-sm')}</button>
+        <button class="trip-del-btn" aria-label="Delete ${t.name}" style="background:none;border:none;color:var(--text-muted);font-size:16px;cursor:pointer;padding:2px 4px;line-height:1;flex-shrink:0">×</button>
         <div style="color:var(--text-muted);font-size:18px;flex-shrink:0">›</div>`;
       row.addEventListener('click', async (e) => {
-        if (e.target.classList.contains('trip-del-btn')) return;
+        if (e.target.closest('.trip-del-btn, .trip-copy-btn')) return;
         if (current?.id === t.id) { App.switchTo('itinerary'); return; }
         Toast.show('Switching trip…', 'info');
         await Data.switchTrip(t.id);
         App.switchTo('itinerary');
+      });
+
+      row.querySelector('.trip-copy-btn').addEventListener('click', e => {
+        e.stopPropagation();
+        renderDuplicateTripForm(t);
       });
 
       let delArmed = false, delTimer = null;
@@ -222,6 +228,49 @@ const LandingScreen = (() => {
         }
       });
       list.appendChild(row);
+    });
+  }
+
+  function renderDuplicateTripForm(trip) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:250;background:rgba(0,0,0,.5);display:flex;align-items:flex-end';
+    overlay.innerHTML = `
+      <div style="background:var(--bg);width:100%;border-radius:20px 20px 0 0;padding:var(--s4);padding-bottom:calc(var(--s4) + env(safe-area-inset-bottom))">
+        <p style="font-size:var(--text-lg);font-weight:600;color:var(--text-primary);margin-bottom:var(--s2)">Duplicate trip</p>
+        <p style="font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:var(--s4)">This creates a complete independent copy. All collaborators retain access, and later changes in either trip will not affect the other.</p>
+        <div class="bs-edit-group"><label class="bs-edit-label">Copy name</label><input id="dt-name" class="bs-input" type="text" maxlength="160"></div>
+        <div style="display:flex;gap:var(--s2);margin-top:var(--s4)">
+          <button id="dt-cancel-btn" class="btn btn-ghost" style="flex:1;min-width:0">Cancel</button>
+          <button id="dt-create-btn" class="btn btn-primary" style="flex:1;min-width:0">Duplicate</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const nameInput = overlay.querySelector('#dt-name');
+    nameInput.value = `${trip.name} — Copy`;
+    nameInput.focus();
+    nameInput.select();
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', event => { if (event.target === overlay) close(); });
+    overlay.querySelector('#dt-cancel-btn').addEventListener('click', close);
+    overlay.querySelector('#dt-create-btn').addEventListener('click', async event => {
+      const button = event.currentTarget;
+      const name = nameInput.value.trim();
+      if (!name) { Toast.show('Copy name is required', 'warning'); return; }
+      if (!navigator.onLine) { Toast.show('Connect to the internet to duplicate this trip', 'warning'); return; }
+      button.disabled = true;
+      button.textContent = 'Duplicating…';
+      try {
+        const copy = await Data.duplicateTrip(trip.id, name);
+        close();
+        Toast.show('Trip duplicated — opening your copy', 'success');
+        await Data.switchTrip(copy.id);
+        App.switchTo('itinerary');
+      } catch (error) {
+        const ownerOnly = /ONLY_TRIP_OWNER_CAN_DUPLICATE/.test(error.message || '');
+        Toast.show(ownerOnly ? 'Only the trip owner can duplicate the full trip' : `Could not duplicate trip: ${error.message}`, 'danger');
+        button.disabled = false;
+        button.textContent = 'Duplicate';
+      }
     });
   }
 

@@ -57,6 +57,26 @@ const Data = (() => {
     return CURRENT_TRIP?.id ? `${base}::${CURRENT_TRIP.id}` : base;
   }
 
+  /* Duplicated trips keep independent photo rows but intentionally reuse the
+     immutable Storage object. Remove the object only after the last database
+     reference is gone; on a lookup error, preserve it rather than risk losing
+     a photo from another trip. */
+  async function removeStorageObjectIfUnused(bucket, table, pathColumn, storagePath) {
+    if (!navigator.onLine || !storagePath) return;
+    const { data, error } = await SB.from(table)
+      .select('id')
+      .eq(pathColumn, storagePath)
+      .limit(1);
+    if (error) {
+      console.warn(`[Data] Could not verify ${bucket} photo references:`, error);
+      return;
+    }
+    if (!(data || []).length) {
+      const { error: removeError } = await SB.storage.from(bucket).remove([storagePath]);
+      if (removeError) console.warn(`[Data] Could not remove unused ${bucket} photo:`, removeError);
+    }
+  }
+
   /* ── Offline write queue ─────────────────────────────────────
      Every mutation applies to local state immediately (optimistic),
      then tries Supabase right away if online. If that attempt fails
@@ -1466,8 +1486,8 @@ const Data = (() => {
 
     const storagePath = DEX_PHOTO_META[photoId]?.storage_path;
     if (navigator.onLine && storagePath) {
-      await SB.storage.from('dex-photos').remove([storagePath]);
-      await SB.from('dex_photos').delete().eq('storage_path', storagePath);
+      await SB.from('dex_photos').delete().eq('id', photoId);
+      await removeStorageObjectIfUnused('dex-photos', 'dex_photos', 'storage_path', storagePath);
       delete DEX_PHOTO_META[photoId];
     }
   }
@@ -1628,7 +1648,7 @@ const Data = (() => {
     if (item?.photo_storage_path) {
       await DB.deleteBucketPhoto(id);
       if (navigator.onLine) {
-        await SB.storage.from('bucket-photos').remove([item.photo_storage_path]);
+        await removeStorageObjectIfUnused('bucket-photos', 'bucket_items', 'photo_storage_path', item.photo_storage_path);
       }
     }
   }
@@ -1710,7 +1730,7 @@ const Data = (() => {
 
     if (navigator.onLine) {
       await SB.from('bucket_items').update({ photo_storage_path: null }).eq('id', id);
-      if (storagePath) await SB.storage.from('bucket-photos').remove([storagePath]);
+      await removeStorageObjectIfUnused('bucket-photos', 'bucket_items', 'photo_storage_path', storagePath);
     }
   }
 
@@ -1795,7 +1815,7 @@ const Data = (() => {
     // Clean up local photo cache + Storage for every photo this entry had.
     for (const p of (entry?.journal_photos || [])) {
       await DB.deleteJournalPhoto(p.id);
-      if (navigator.onLine && p.storage_path) await SB.storage.from('journal-photos').remove([p.storage_path]);
+      await removeStorageObjectIfUnused('journal-photos', 'journal_photos', 'storage_path', p.storage_path);
     }
   }
 
@@ -1871,7 +1891,7 @@ const Data = (() => {
     await DB.setMeta(tripKey(CACHE_KEYS.journal), JOURNAL_ENTRIES);
     if (navigator.onLine) {
       await SB.from('journal_photos').delete().eq('id', photoId);
-      if (photo?.storage_path) await SB.storage.from('journal-photos').remove([photo.storage_path]);
+      await removeStorageObjectIfUnused('journal-photos', 'journal_photos', 'storage_path', photo?.storage_path);
     }
   }
 
@@ -2018,8 +2038,8 @@ const Data = (() => {
 
     const storagePath = FOOD_PHOTO_META[photoId]?.storage_path;
     if (navigator.onLine && storagePath) {
-      await SB.storage.from('food-photos').remove([storagePath]);
-      await SB.from('food_photos').delete().eq('storage_path', storagePath);
+      await SB.from('food_photos').delete().eq('id', photoId);
+      await removeStorageObjectIfUnused('food-photos', 'food_photos', 'storage_path', storagePath);
       delete FOOD_PHOTO_META[photoId];
     }
   }
@@ -2136,8 +2156,8 @@ const Data = (() => {
 
     const storagePath = STAMP_PHOTO_META[photoId]?.storage_path;
     if (navigator.onLine && storagePath) {
-      await SB.storage.from('stamp-photos').remove([storagePath]);
-      await SB.from('stamp_photos').delete().eq('storage_path', storagePath);
+      await SB.from('stamp_photos').delete().eq('id', photoId);
+      await removeStorageObjectIfUnused('stamp-photos', 'stamp_photos', 'storage_path', storagePath);
       delete STAMP_PHOTO_META[photoId];
     }
   }
@@ -2310,6 +2330,57 @@ const Data = (() => {
     TRIPS.sort((a, b) => new Date(a.start_date || 0) - new Date(b.start_date || 0));
     await DB.setMeta(CACHE_KEYS.trips, TRIPS);
     return data;
+  }
+
+  function remapCopiedLocalValue(value, idMap) {
+    if (typeof value === 'string') return idMap[value] || value;
+    if (Array.isArray(value)) return value.map(item => remapCopiedLocalValue(item, idMap));
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value).map(([key, item]) => [key, remapCopiedLocalValue(item, idMap)])
+      );
+    }
+    return value;
+  }
+
+  function duplicatePlannerLocalState(sourceTripId, copyTripId, dayIdMap = {}) {
+    const idMap = { [sourceTripId]: copyTripId, ...dayIdMap };
+    ['africa-ai-planner-draft-v1', 'africa-ai-planner-trending-v1'].forEach(base => {
+      const sourceKey = `${base}:${encodeURIComponent(sourceTripId)}`;
+      const copyKey = `${base}:${encodeURIComponent(copyTripId)}`;
+      try {
+        const raw = localStorage.getItem(sourceKey);
+        if (!raw) return;
+        const copied = remapCopiedLocalValue(JSON.parse(raw), idMap);
+        localStorage.setItem(copyKey, JSON.stringify(copied));
+      } catch (e) {
+        console.warn('[Data] Could not duplicate local planner state:', e.message || e);
+      }
+    });
+  }
+
+  async function duplicateTrip(sourceTripId, copyName) {
+    if (!navigator.onLine) {
+      throw new Error('An internet connection is required to duplicate a trip.');
+    }
+    const source = TRIPS.find(t => t.id === sourceTripId);
+    if (!source) throw new Error('Trip not found');
+    const name = String(copyName || `${source.name} — Copy`).trim();
+    if (!name) throw new Error('Copy name is required');
+
+    const { data, error } = await SB.rpc('duplicate_trip', {
+      p_source_trip_id: sourceTripId,
+      p_copy_name: name,
+    });
+    if (error) { console.error('[Data] duplicateTrip error:', error); throw error; }
+    if (!data?.trip?.id) throw new Error('The duplicated trip could not be loaded.');
+
+    const copy = { ...data.trip, settings: { ...(data.trip.settings || {}) } };
+    duplicatePlannerLocalState(sourceTripId, copy.id, data.day_id_map || {});
+    TRIPS.push(copy);
+    TRIPS.sort((a, b) => new Date(a.start_date || 0) - new Date(b.start_date || 0));
+    await DB.setMeta(CACHE_KEYS.trips, TRIPS);
+    return copy;
   }
 
   async function deleteTrip(tripId) {
@@ -2648,7 +2719,7 @@ const Data = (() => {
     getJrPassLegs, getJrPassLegsForDay,
     applyTripTheme,
     // Trips
-    getTrips, getCurrentTrip, switchTrip, createTrip, updateTripDetails, getTripCurrency, deleteTrip,
+    getTrips, getCurrentTrip, switchTrip, createTrip, duplicateTrip, updateTripDetails, getTripCurrency, deleteTrip,
     getDefaultTimezone, setDefaultTimezone, getBudgetTotal, setBudgetTotal,
     getUserCurrency, setUserCurrency, fetchLiveRate, getCachedLiveRate, hasTriedLiveRate,
     getExchangeRates, setExchangeRate, convertToTripCurrency, getPaymentsSummary,
