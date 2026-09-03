@@ -933,6 +933,38 @@ const Data = (() => {
     if ('date' in changes) await syncTripDateRange();
   }
 
+  /* Move a whole itinerary day as one database transaction. This deliberately
+     has no offline queue: replacing an occupied date must be checked against
+     the latest server state before any destructive change is allowed. */
+  async function moveDay(dayId, targetDate, { override = false } = {}) {
+    if (!navigator.onLine) {
+      throw new Error('An internet connection is required to move a day.');
+    }
+    if (!CURRENT_TRIP) throw new Error('No active trip');
+    const day = DAYS.find(d => d.id === dayId);
+    if (!day) throw new Error('Day not found');
+    if (!targetDate) throw new Error('Choose a new date first.');
+    if (day.date === targetDate) return { moved_day_id: dayId, unchanged: true };
+
+    const { data, error } = await SB.rpc('move_itinerary_day', {
+      p_day_id: dayId,
+      p_target_date: targetDate,
+      p_override: Boolean(override),
+    });
+    if (error) {
+      if (/DATE_ALREADY_EXISTS/.test(error.message || '')) {
+        const conflict = new Error('That date already contains another day.');
+        conflict.code = 'DATE_ALREADY_EXISTS';
+        throw conflict;
+      }
+      console.error('[Data] moveDay error:', error);
+      throw error;
+    }
+
+    await loadTripData(CURRENT_TRIP.id);
+    return data;
+  }
+
   async function updateStory(dayId, { title, paragraphs }) {
     const day = DAYS.find(d => d.id === dayId);
     if (!day) return;
@@ -2584,7 +2616,7 @@ const Data = (() => {
     // Offline write queue
     flushQueue, getPendingCount,
     // Days
-    getDays, updateDay, updateStory, deleteStory, addDay, deleteDay, getDayContents,
+    getDays, updateDay, moveDay, updateStory, deleteStory, addDay, deleteDay, getDayContents,
     getVisitedCountries, toggleVisitedCountry,
     // Stops
     getStops, getStopsByDay, addStop, updateStop, deleteStop,

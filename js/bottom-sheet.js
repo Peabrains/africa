@@ -1086,6 +1086,7 @@ const BottomSheet = (() => {
       <div class="bs-detail">
         <div class="bs-tags"><span class="badge badge-open">${day.label}</span><span class="badge badge-open">${formatDayDate(day.date)}</span></div>
         <p class="bs-name" style="margin-bottom:var(--s4)">Edit day</p>
+        ${field('Date','d-date',day.date,'date')}
         ${field('Title','d-title',day.title||'','text','e.g. Full day Ngorongoro Crater')}
         ${field('Locality','d-locality',day.locality||'','text','e.g. Ngorongoro')}
         ${select('Country','d-segment',day.segment||'transit',COUNTRY_LIST)}
@@ -1098,6 +1099,15 @@ const BottomSheet = (() => {
           ${story ? `<button class="btn btn-ghost bs-full-btn" id="d-story-delete-btn" style="color:var(--danger-text);border-color:var(--danger-text)">Delete story</button>` : ''}
         </div>
 
+        <div id="d-move-conflict" style="display:none;margin-top:var(--s4);padding:var(--s3);background:var(--danger-bg,#FEF2F2);border:1px solid var(--danger-border,#FECACA);border-radius:var(--r-md)">
+          <p class="bs-section-head" id="d-move-conflict-title" style="color:var(--danger-text);margin:0 0 var(--s2)">That date already has a plan</p>
+          <p id="d-move-conflict-copy" style="font-size:var(--text-sm);color:var(--danger-text);margin:0 0 var(--s3)"></p>
+          <div class="bs-actions">
+            <button class="btn btn-primary bs-full-btn" id="d-move-override-btn" style="background:var(--danger-text)">Override this date</button>
+            <button class="btn btn-ghost bs-full-btn" id="d-move-cancel-btn">Cancel override</button>
+          </div>
+        </div>
+
         <p class="bs-section-head" style="margin-top:var(--s5);border-top:1px solid var(--border-subtle);padding-top:var(--s4)">Day management</p>
         <button class="btn btn-ghost bs-full-btn" id="d-delete-day-btn" style="margin-top:var(--s2);color:var(--danger-text);border-color:var(--danger-text)">Delete this day</button>
         <p id="d-delete-warning" style="display:none;font-size:var(--text-xs);color:var(--danger-text);margin-top:var(--s2);padding:var(--s2);background:var(--danger-bg,#FEF2F2);border-radius:var(--r-sm)"></p>
@@ -1106,8 +1116,59 @@ const BottomSheet = (() => {
 
   function wireDay(day) {
     const g = id => body.querySelector('#'+id)?.value?.trim()||'';
-    body.querySelector('#d-save-btn')?.addEventListener('click', async () => {
+    const saveBtn = body.querySelector('#d-save-btn');
+    const dateInput = body.querySelector('#d-date');
+    const conflictPanel = body.querySelector('#d-move-conflict');
+    const conflictTitle = body.querySelector('#d-move-conflict-title');
+    const conflictCopy = body.querySelector('#d-move-conflict-copy');
+    const overrideBtn = body.querySelector('#d-move-override-btn');
+    let overrideStage = 0;
+
+    function resetOverridePrompt() {
+      overrideStage = 0;
+      if (conflictPanel) conflictPanel.style.display = 'none';
+      if (overrideBtn) {
+        overrideBtn.textContent = 'Override this date';
+        overrideBtn.disabled = false;
+      }
+    }
+
+    function showOverridePrompt(targetDay) {
+      const targetDate = g('d-date');
+      const stops = targetDay ? Data.getStopsByDay(targetDay.id).length : null;
+      const overnight = targetDay ? Data.getOvernight(targetDay.id) : null;
+      const details = [];
+      if (stops != null) details.push(`${stops} stop${stops === 1 ? '' : 's'}`);
+      if (overnight) details.push('accommodation');
+      if (conflictTitle) conflictTitle.textContent = `${formatDayDate(targetDate)} already has a plan`;
+      if (conflictCopy) {
+        const targetName = targetDay?.title ? ` “${targetDay.title}”` : '';
+        conflictCopy.textContent = `The existing day${targetName}${details.length ? ` contains ${details.join(' and ')}` : ''}. Overriding permanently deletes that day and its contents.`;
+      }
+      overrideStage = 1;
+      if (overrideBtn) overrideBtn.textContent = 'Override this date';
+      if (conflictPanel) {
+        conflictPanel.style.display = 'block';
+        conflictPanel.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+
+    async function saveDay({ override = false } = {}) {
+      const targetDate = g('d-date');
+      if (!targetDate) { Toast.show('Choose a date', 'warning'); return; }
+      const dateChanged = targetDate !== day.date;
+      if (dateChanged && !navigator.onLine) {
+        Toast.show('Connect to the internet to move this day', 'warning');
+        return;
+      }
+
+      let moved = false;
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = dateChanged ? 'Moving day…' : 'Saving…'; }
       try {
+        if (dateChanged) {
+          await Data.moveDay(day.id, targetDate, { override });
+          moved = true;
+        }
         await Data.updateDay(day.id, {
           title: g('d-title'),
           locality: g('d-locality'),
@@ -1119,10 +1180,40 @@ const BottomSheet = (() => {
         if (storyTitle || paragraphs.length) {
           await Data.updateStory(day.id, { title: storyTitle, paragraphs });
         }
-        Toast.show('Day updated', 'success'); close();
+        Toast.show(dateChanged ? 'Day moved and original date left blank' : 'Day updated', 'success'); close();
         window.ItineraryScreen?.refresh();
       } catch (e) {
-        Toast.show('Could not save — check connection', 'danger');
+        if (e?.code === 'DATE_ALREADY_EXISTS') {
+          showOverridePrompt(Data.getDays().find(d => d.id !== day.id && d.date === targetDate));
+          return;
+        }
+        Toast.show(moved ? 'Day moved, but other edits could not be saved' : `Could not save: ${e.message || 'check connection'}`, 'danger');
+      } finally {
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+      }
+    }
+
+    saveBtn?.addEventListener('click', async () => {
+      const targetDate = g('d-date');
+      const targetDay = targetDate !== day.date
+        ? Data.getDays().find(d => d.id !== day.id && d.date === targetDate)
+        : null;
+      if (targetDay) { showOverridePrompt(targetDay); return; }
+      resetOverridePrompt();
+      await saveDay();
+    });
+    dateInput?.addEventListener('change', resetOverridePrompt);
+    body.querySelector('#d-move-cancel-btn')?.addEventListener('click', resetOverridePrompt);
+    overrideBtn?.addEventListener('click', async () => {
+      if (overrideStage === 1) {
+        overrideStage = 2;
+        if (conflictCopy) conflictCopy.textContent = 'This cannot be undone. Tap once more to permanently replace the existing day.';
+        overrideBtn.textContent = `Permanently override ${formatDayDate(g('d-date'))}`;
+        return;
+      }
+      if (overrideStage === 2) {
+        overrideBtn.disabled = true;
+        await saveDay({ override: true });
       }
     });
     body.querySelector('#d-cancel-btn')?.addEventListener('click', close);
