@@ -544,8 +544,9 @@ const BookingsScreen = (() => {
     const travelers = Data.getTravelers();
     const helper = window.BudgetSharing;
     const isItinerary = item.source === 'itinerary';
-    let shared = isItinerary ? true : (item.splitBetween || []).length > 0;
-    let selected = helper ? helper.normalizeSelection(item.splitBetween || [], travelers) : (item.splitBetween || travelers);
+    let selected = (item.splitBetween || []).length
+      ? [...item.splitBetween]
+      : (isItinerary ? [...travelers] : [item.paidBy || travelers[0]].filter(Boolean));
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;display:flex;align-items:flex-end;justify-content:center;padding:12px';
     const panel = document.createElement('div');
@@ -554,17 +555,17 @@ const BookingsScreen = (() => {
       panel.innerHTML = `<p style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Expense sharing</p>
         <h3 style="margin:4px 0 2px;font-size:20px">${item.name}</h3>
         <p style="color:var(--text-muted);font-size:13px">${item.currency} ${fmtMoney(item.cost)}</p>
-        <label style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 12px;font-weight:500">Shared between travellers <input id="share-toggle" type="checkbox" ${shared?'checked':''}></label>
-        <div id="share-people" style="display:${shared?'flex':'none'};gap:8px;flex-wrap:wrap">${travelers.map(t=>`<button type="button" data-traveler="${t}" style="border:1px solid var(--border);border-radius:999px;padding:8px 12px;background:${selected.includes(t)?'var(--accent)':'var(--surface-raised)'};color:${selected.includes(t)?'white':'var(--text-primary)'}">${t}</button>`).join('')}</div>
-        <p id="share-preview" style="font-size:13px;color:var(--text-muted);margin:14px 0">${shared && selected.length ? `Each person: ${item.currency} ${fmtMoney((Number(item.cost)||0)/selected.length)}` : 'This expense is assigned to one person.'}</p>
+        <p style="font-weight:500;margin:18px 0 10px">Who shares this cost?</p>
+        <div id="share-people" style="display:flex;gap:8px;flex-wrap:wrap">${travelers.map(t=>`<button type="button" data-traveler="${t}" style="border:1px solid var(--border);border-radius:999px;padding:8px 12px;background:${selected.includes(t)?'var(--accent)':'var(--surface-raised)'};color:${selected.includes(t)?'white':'var(--text-primary)'}">${t}</button>`).join('')}</div>
+        <p id="share-preview" style="font-size:13px;color:var(--text-muted);margin:14px 0">${selected.length ? (selected.length === 1 ? `Assigned to ${selected[0]}` : `Each person: ${item.currency} ${fmtMoney((Number(item.cost)||0)/selected.length)}`) : 'Select at least one traveller.'}</p>
         <div style="display:flex;gap:8px"><button id="share-cancel" class="btn btn-ghost" style="flex:1">Cancel</button><button id="share-save" class="btn btn-primary" style="flex:1">Save</button></div>`;
-      panel.querySelector('#share-toggle').addEventListener('change', e => { shared=e.target.checked; renderDrawer(); });
       panel.querySelectorAll('[data-traveler]').forEach(btn => btn.addEventListener('click', () => {
         const name=btn.dataset.traveler; selected=selected.includes(name)?selected.filter(t=>t!==name):[...selected,name]; renderDrawer();
       }));
       panel.querySelector('#share-cancel').addEventListener('click', () => overlay.remove());
       panel.querySelector('#share-save').addEventListener('click', async () => {
-        const names = shared ? (helper ? helper.normalizeSelection(selected, travelers) : selected) : [];
+        if (!selected.length) { Toast.show('Select at least one traveller','warning'); return; }
+        const names = helper ? helper.normalizeSelection(selected, travelers) : selected;
         try {
           if (isItinerary) await Data.updateItinerarySplit(item, names);
           else await Data.updateExpense(item.id, { splitBetween: names });
