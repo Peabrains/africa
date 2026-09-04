@@ -37,3 +37,10 @@ test('budget sharing groups category totals without changing the trip total', ()
   assert.equal(result.Transport.total, 15000);
   assert.equal(sharing.total([{ cost: 18000 }, { cost: 15000 }, { cost: 24000 }]), 57000);
 });
+
+test('cost selector label shows selected traveller initials instead of sharing text', () => {
+  const sharing = loadSharing();
+  assert.equal(sharing.selectionLabel(['VN', 'CK']), 'VN + CK');
+  assert.equal(sharing.selectionLabel(['VN']), 'VN');
+  assert.equal(sharing.selectionLabel([]), 'Select');
+});

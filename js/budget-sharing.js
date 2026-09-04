@@ -27,7 +27,11 @@ const BudgetSharing = (() => {
     return (items || []).reduce((sum, item) => sum + (Number(item.cost) || 0), 0);
   }
 
-  return { normalizeSelection, perPerson, groupByCategory, total };
+  function selectionLabel(selected) {
+    return Array.isArray(selected) && selected.length ? selected.join(' + ') : 'Select';
+  }
+
+  return { normalizeSelection, perPerson, groupByCategory, total, selectionLabel };
 })();
 
 if (typeof window !== 'undefined') window.BudgetSharing = BudgetSharing;

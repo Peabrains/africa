@@ -552,7 +552,7 @@ const BookingsScreen = (() => {
     const panel = document.createElement('div');
     panel.style.cssText = 'width:min(480px,100%);background:var(--surface);border-radius:var(--r-lg);padding:20px;box-shadow:0 -8px 30px rgba(0,0,0,.18)';
     const renderDrawer = () => {
-      panel.innerHTML = `<p style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Expense sharing</p>
+      panel.innerHTML = `<p style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Cost allocation</p>
         <h3 style="margin:4px 0 2px;font-size:20px">${item.name}</h3>
         <p style="color:var(--text-muted);font-size:13px">${item.currency} ${fmtMoney(item.cost)}</p>
         <p style="font-weight:500;margin:18px 0 10px">Who shares this cost?</p>
@@ -569,8 +569,8 @@ const BookingsScreen = (() => {
         try {
           if (isItinerary) await Data.updateItinerarySplit(item, names);
           else await Data.updateExpense(item.id, { splitBetween: names });
-          overlay.remove(); Toast.show('Sharing saved','success'); render();
-        } catch (e) { Toast.show('Could not save sharing','warning'); }
+          overlay.remove(); Toast.show('Cost allocation saved','success'); render();
+        } catch (e) { Toast.show('Could not save cost allocation','warning'); }
       });
     };
     overlay.appendChild(panel); document.body.appendChild(overlay); renderDrawer();
@@ -599,7 +599,8 @@ const BookingsScreen = (() => {
           const row=document.createElement('div'); row.style.cssText='padding:10px 0;border-bottom:1px solid var(--border-subtle);cursor:pointer';
           const selected = it.splitBetween || [];
           const shareText = selected.length ? `${selected.length} travellers · ${it.currency} ${fmtMoney((Number(it.cost)||0)/selected.length)} each` : 'Personal expense';
-          row.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px"><span style="min-width:0"><span style="font-size:11px;color:var(--text-muted)">${it.type==='overnight'?'Accommodation':(it.type==='stop'?'Itinerary':'Manual')}</span><br><span style="font-weight:500">${it.name}</span></span>${formatMoneyAligned(it.currency,it.cost)}</div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px"><span style="font-size:11px;color:var(--text-muted)">${shareText}</span><button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:11px">${selected.length?'Sharing':'Share'}</button></div>`;
+          const selectorLabel = window.BudgetSharing?.selectionLabel(selected) || (selected.length ? selected.join(' + ') : 'Select');
+          row.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px"><span style="min-width:0"><span style="font-size:11px;color:var(--text-muted)">${it.type==='overnight'?'Accommodation':(it.type==='stop'?'Itinerary':'Manual')}</span><br><span style="font-weight:500">${it.name}</span></span>${formatMoneyAligned(it.currency,it.cost)}</div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px"><span style="font-size:11px;color:var(--text-muted)">${shareText}</span><button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:11px">${selectorLabel}</button></div>`;
           row.querySelector('button').addEventListener('click', e => { e.stopPropagation(); openSharingDrawer(it); });
           row.addEventListener('click', () => { if (it.source==='itinerary') { if (it.type==='stop') { const stop=Data.getStops().find(s=>s.id===it.id); const day=Data.getDays().find(d=>d.id===stop?.dayId); if(stop) window.BottomSheet?.openStop(stop,day); } else { const day=Data.getDays().find(d=>d.id===it.dayId); if(day) window.BottomSheet?.openOvernight(day); } } else openSharingDrawer(it); });
           section.appendChild(row);
