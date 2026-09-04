@@ -22,7 +22,7 @@
   <script src="js/supabase.js?v=167"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <!-- Platform data layer + auth + trip switcher -->
-  <script src="js/data-platform.js?v=169"></script>
+  <script src="js/data-platform.js?v=170"></script>
   <script src="js/trip-switcher.js?v=167"></script>
 
   <style>
@@ -126,6 +126,14 @@
     /* Stop rows */
     .tl-row{display:flex;cursor:pointer;padding:0 var(--s4) 0 var(--s3)}
     .tl-row:active{background:rgba(0,0,0,.03)}
+    .tl-row--selectable{padding-left:var(--s2);-webkit-tap-highlight-color:transparent}
+    .tl-row--selected{background:var(--accent-subtle)}
+    .tl-multi-select{width:32px;flex:0 0 32px;display:flex;align-items:flex-start;justify-content:center;padding-top:11px}
+    .tl-multi-check{width:22px;height:22px;border:1.5px solid var(--border);border-radius:50%;background:var(--surface);color:#fff;display:flex;align-items:center;justify-content:center}
+    .tl-row--selected .tl-multi-check{background:var(--accent);border-color:var(--accent)}
+    .tl-day-select-btn{background:none;border:none;color:var(--accent);padding:5px 3px;font:600 var(--text-xs)/1 var(--font);cursor:pointer;white-space:nowrap;flex-shrink:0}
+    .tl-multi-action{position:fixed;left:16px;right:16px;bottom:calc(78px + env(safe-area-inset-bottom));z-index:95;display:grid;grid-template-columns:1fr 1fr;gap:var(--s2);padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:0 8px 24px rgba(28,26,20,.18)}
+    .tl-multi-action .btn{min-width:0;justify-content:center}
     .tl-time{width:44px;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;padding-top:14px;gap:1px}
     .tl-time-val{font-size:var(--text-xs);font-weight:500;color:var(--text-secondary)}
     .tl-time-tz{font-size:8px;color:var(--text-muted)}
@@ -475,7 +483,7 @@
 <!-- design-lab importer deployment 2026-08-18T09:15Z -->
 <script src="js/screens/planner.js?v=212"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="js/screens/itinerary.js?v=167"></script>
+<script src="js/screens/itinerary.js?v=168"></script>
 <script src="js/screens/map.js?v=167"></script>
 <script src="js/screens/dex.js?v=167"></script>
 <script src="js/screens/bookings.js?v=167"></script>

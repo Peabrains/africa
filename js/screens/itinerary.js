@@ -5,6 +5,8 @@ const ItineraryScreen = (() => {
   let root;
   const daysExpanded = {};
   let _toggling = false;
+  let selectingDayId = null;
+  const selectedStopIds = new Set();
 
   // Short display form of a stored timezone value. Handles both real
   // IANA names (current format) and the short abbreviations older
@@ -54,6 +56,27 @@ const ItineraryScreen = (() => {
     daysExpanded[dayId] = !getDayExpanded(dayId);
     render();
     setTimeout(() => { _toggling = false; }, 250);
+  }
+
+  function clearStopSelection() {
+    selectingDayId = null;
+    selectedStopIds.clear();
+  }
+
+  function startStopSelection(dayId) {
+    selectingDayId = dayId;
+    selectedStopIds.clear();
+    daysExpanded[dayId] = true;
+    render();
+  }
+
+  function updateMultiMoveAction() {
+    if (!root) return;
+    const count = selectedStopIds.size;
+    const button = root.querySelector('#tl-move-selected');
+    if (!button) return;
+    button.disabled = count === 0;
+    button.textContent = `Move ${count} stop${count === 1 ? '' : 's'}`;
   }
 
   /* ── Booking badge ──────────────────────────────────────────── */
@@ -240,12 +263,22 @@ const ItineraryScreen = (() => {
         <span class="tl-day-date">${formatDayDate(day.date)}</span>
         <span class="tl-day-title-text">${day.title}</span>
       </div>
+      ${stops.length ? `<button class="tl-day-select-btn" title="Select stops">${selectingDayId === day.id ? 'Cancel' : 'Select'}</button>` : ''}
       <button class="tl-day-edit-btn" style="background:none;border:none;color:var(--text-muted);padding:4px;cursor:pointer;flex-shrink:0" title="Edit day">${Icons.pencil('icon-sm')}</button>
       <span class="tl-chevron">${isOpen ? Icons.chevronUp('icon-sm') : Icons.chevronDown('icon-sm')}</span>`;
     row.addEventListener('click', () => toggleDay(day.id));
     row.querySelector('.tl-day-edit-btn').addEventListener('click', (e) => {
       e.stopPropagation();
       BottomSheet.openDay(day);
+    });
+    row.querySelector('.tl-day-select-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (selectingDayId === day.id) {
+        clearStopSelection();
+        render();
+      } else {
+        startStopSelection(day.id);
+      }
     });
     wrap.appendChild(row);
 
@@ -382,10 +415,13 @@ const ItineraryScreen = (() => {
     const day = Data.getDays().find(d => d.id === stop.dayId);
     const iconKey = stop.transportType || 'walk';
     const isPlane = stop.transportType === 'plane';
+    const isSelecting = selectingDayId === stop.dayId;
+    const isSelected = selectedStopIds.has(stop.id);
 
     const row = document.createElement('div');
-    row.className = 'tl-row';
+    row.className = `tl-row${isSelecting ? ' tl-row--selectable' : ''}${isSelected ? ' tl-row--selected' : ''}`;
     row.innerHTML = `
+      ${isSelecting ? `<div class="tl-multi-select"><span class="tl-multi-check">${isSelected ? Icons.check('icon-sm') : ''}</span></div>` : ''}
       <div class="tl-time">
         <span class="tl-time-val">${stop.time || '—'}</span>
         <span class="tl-time-tz">${tzAbbr(stop.timeZone)}</span>
@@ -399,8 +435,71 @@ const ItineraryScreen = (() => {
       <div class="tl-content">
         ${isPlane ? planeContentHTML(stop) : nonPlaneContentHTML(stop)}
       </div>`;
-    row.addEventListener('click', () => BottomSheet.openStop(stop, day));
+    row.addEventListener('click', () => {
+      if (!isSelecting) { BottomSheet.openStop(stop, day); return; }
+      if (selectedStopIds.has(stop.id)) selectedStopIds.delete(stop.id);
+      else selectedStopIds.add(stop.id);
+      row.classList.toggle('tl-row--selected', selectedStopIds.has(stop.id));
+      row.querySelector('.tl-multi-check').innerHTML = selectedStopIds.has(stop.id) ? Icons.check('icon-sm') : '';
+      updateMultiMoveAction();
+    });
     return row;
+  }
+
+  function openMoveStopsSheet() {
+    const sourceDay = Data.getDays().find(day => day.id === selectingDayId);
+    const targets = Data.getDays().filter(day => day.id !== selectingDayId);
+    if (!sourceDay || !selectedStopIds.size) return;
+    if (!targets.length) { Toast.show('Add another day before moving stops', 'warning'); return; }
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:250;background:rgba(0,0,0,.5);display:flex;align-items:flex-end';
+    overlay.innerHTML = `
+      <div style="background:var(--bg);width:100%;border-radius:20px 20px 0 0;padding:var(--s4);padding-bottom:calc(var(--s4) + env(safe-area-inset-bottom))">
+        <p style="font-size:var(--text-lg);font-weight:600;color:var(--text-primary);margin-bottom:var(--s2)">Move ${selectedStopIds.size} stop${selectedStopIds.size === 1 ? '' : 's'}</p>
+        <p style="font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:var(--s4)">They will be added after the destination day’s existing stops, in their current order.</p>
+        <div class="bs-edit-group">
+          <label class="bs-edit-label" for="tl-move-target">Move from ${sourceDay.label} to</label>
+          <select id="tl-move-target" class="bs-input">${targets.map(day => `<option value="${day.id}">${day.label} · ${formatDayDate(day.date)}${day.title ? ` · ${day.title}` : ''}</option>`).join('')}</select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--s2);margin-top:var(--s4)">
+          <button id="tl-move-cancel" class="btn btn-ghost" style="min-width:0;justify-content:center">Cancel</button>
+          <button id="tl-move-confirm" class="btn btn-primary" style="min-width:0;justify-content:center">Move stops</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', event => { if (event.target === overlay) close(); });
+    overlay.querySelector('#tl-move-cancel').addEventListener('click', close);
+    overlay.querySelector('#tl-move-confirm').addEventListener('click', async event => {
+      if (!navigator.onLine) { Toast.show('Connect to the internet to move multiple stops', 'warning'); return; }
+      const button = event.currentTarget;
+      button.disabled = true;
+      button.textContent = 'Moving…';
+      try {
+        const count = selectedStopIds.size;
+        await Data.moveStops([...selectedStopIds], overlay.querySelector('#tl-move-target').value);
+        close();
+        clearStopSelection();
+        render();
+        Toast.show(`${count} stop${count === 1 ? '' : 's'} moved`, 'success');
+      } catch (error) {
+        Toast.show(`Could not move stops: ${error.message}`, 'danger');
+        button.disabled = false;
+        button.textContent = 'Move stops';
+      }
+    });
+  }
+
+  function multiMoveAction() {
+    const bar = document.createElement('div');
+    bar.className = 'tl-multi-action';
+    bar.innerHTML = `
+      <button id="tl-select-cancel" class="btn btn-ghost">Cancel</button>
+      <button id="tl-move-selected" class="btn btn-primary" disabled>Move 0 stops</button>`;
+    bar.querySelector('#tl-select-cancel').addEventListener('click', () => { clearStopSelection(); render(); });
+    bar.querySelector('#tl-move-selected').addEventListener('click', openMoveStopsSheet);
+    return bar;
   }
 
   /* ── Inclusions / exclusions mini-screen ────────────────────── */
@@ -467,7 +566,11 @@ const ItineraryScreen = (() => {
       const btn = document.createElement('button');
       btn.className = `sub-tab ${activeTab === id ? 'sub-tab--active' : ''}`;
       btn.textContent = label;
-      btn.addEventListener('click', () => { activeTab = id; render(); });
+      btn.addEventListener('click', () => {
+        if (id !== 'itinerary') clearStopSelection();
+        activeTab = id;
+        render();
+      });
       bar.appendChild(btn);
     });
     return bar;
@@ -596,6 +699,7 @@ const ItineraryScreen = (() => {
   function render() {
     if (!root) return;
     root.innerHTML = '';
+    root.style.paddingBottom = selectingDayId ? '86px' : '';
     root.classList.remove('map-active');
 
     root.appendChild(subTabBar());
@@ -696,6 +800,8 @@ const ItineraryScreen = (() => {
         }
       }
     });
+
+    if (selectingDayId) root.appendChild(multiMoveAction());
   }
 
   return {
@@ -703,6 +809,7 @@ const ItineraryScreen = (() => {
     destroy() {
       if (activeTab === 'map') MapScreen.destroy();
       if (activeTab === 'journal') JournalScreen.destroy();
+      clearStopSelection();
       root = null;
     },
     refresh() { render(); },

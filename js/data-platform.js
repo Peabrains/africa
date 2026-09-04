@@ -753,6 +753,34 @@ const Data = (() => {
     }
   }
 
+  /* Move several stops from one source day as one server transaction. The
+     server owns ordering so concurrent clients cannot leave a partial move or
+     duplicate sort positions. Like whole-day moves, this deliberately has no
+     offline queue because the operation must be all-or-nothing. */
+  async function moveStops(stopIds, targetDayId) {
+    if (!navigator.onLine) {
+      throw new Error('An internet connection is required to move multiple stops.');
+    }
+    const ids = [...new Set((stopIds || []).filter(Boolean))];
+    if (!ids.length) throw new Error('Select at least one stop.');
+    const targetDay = DAYS.find(day => day.id === targetDayId);
+    if (!targetDay) throw new Error('Choose a destination day.');
+
+    const selected = ids.map(id => STOPS.find(stop => stop.id === id));
+    if (selected.some(stop => !stop)) throw new Error('One or more selected stops could not be found.');
+    const sourceDayIds = new Set(selected.map(stop => stop.day_id));
+    if (sourceDayIds.size !== 1) throw new Error('Select stops from one source day only.');
+    if (sourceDayIds.has(targetDayId)) throw new Error('Choose another day for these stops.');
+
+    const { data, error } = await SB.rpc('move_stops_to_day', {
+      p_stop_ids: ids,
+      p_target_day_id: targetDayId,
+    });
+    if (error) { console.error('[Data] moveStops error:', error); throw error; }
+    await loadTripData(CURRENT_TRIP.id);
+    return data;
+  }
+
   async function deleteStop(id) {
     STOPS = STOPS.filter(s => s.id !== id);
     if (navigator.onLine) {
@@ -2690,7 +2718,7 @@ const Data = (() => {
     getDays, updateDay, moveDay, updateStory, deleteStory, addDay, deleteDay, getDayContents,
     getVisitedCountries, toggleVisitedCountry,
     // Stops
-    getStops, getStopsByDay, addStop, updateStop, deleteStop,
+    getStops, getStopsByDay, addStop, updateStop, moveStops, deleteStop,
     // Overnight
     getOvernight, updateOvernight, deleteOvernight, getUpcomingDeadlines, getIncomingLuggageForwarding,
     // Expenses
