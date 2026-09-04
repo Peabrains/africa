@@ -585,18 +585,27 @@ const BookingsScreen = (() => {
     const groups = (window.BudgetSharing ? window.BudgetSharing.groupByCategory(items) : {});
     order.forEach(category => {
       const group=groups[category]; if (!group?.items?.length) return;
-      const section=document.createElement('div'); section.style.cssText='margin-bottom:var(--s3)';
-      section.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--border-subtle)"><strong>${category}</strong><span style="color:var(--text-muted);font-size:13px">${summary.tripCurrency} ${fmtMoney(group.total)}</span></div>`;
+      const perTraveller = {};
+      Data.getTravelers().forEach(t => { perTraveller[t] = 0; });
       group.items.forEach(it => {
-        const row=document.createElement('div'); row.style.cssText='padding:10px 0;border-bottom:1px solid var(--border-subtle);cursor:pointer';
         const selected = it.splitBetween || [];
-        const shareText = selected.length ? `${selected.length} travellers · ${it.currency} ${fmtMoney((Number(it.cost)||0)/selected.length)} each` : 'Personal expense';
-        row.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px"><span style="min-width:0"><span style="font-size:11px;color:var(--text-muted)">${it.type==='overnight'?'Accommodation':(it.type==='stop'?'Itinerary':'Manual')}</span><br><span style="font-weight:500">${it.name}</span></span>${formatMoneyAligned(it.currency,it.cost)}</div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px"><span style="font-size:11px;color:var(--text-muted)">${shareText}</span><button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:11px">${selected.length?'Sharing':'Share'}</button></div>`;
-        row.querySelector('button').addEventListener('click', e => { e.stopPropagation(); openSharingDrawer(it); });
-        row.addEventListener('click', () => { if (it.source==='itinerary') { if (it.type==='stop') { const stop=Data.getStops().find(s=>s.id===it.id); const day=Data.getDays().find(d=>d.id===stop?.dayId); if(stop) window.BottomSheet?.openStop(stop,day); } else { const day=Data.getDays().find(d=>d.id===it.dayId); if(day) window.BottomSheet?.openOvernight(day); } } else openSharingDrawer(it); });
-        section.appendChild(row);
+        if (selected.length) selected.forEach(t => { if (t in perTraveller) perTraveller[t] += (Number(it.categoryCost ?? it.cost) || 0) / selected.length; });
       });
-      frag.appendChild(section);
+      const body = () => {
+        const section=document.createElement('div');
+        section.innerHTML=`<div style="padding:4px 0 10px;border-bottom:1px solid var(--border-subtle)"><div style="display:flex;justify-content:space-between"><strong>Full total</strong><strong>${summary.tripCurrency} ${fmtMoney(group.total)}</strong></div>${Object.keys(perTraveller).length ? `<div style="margin-top:8px;display:grid;gap:4px">${Object.entries(perTraveller).map(([t,v])=>`<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted)"><span>${t}</span><span>${summary.tripCurrency} ${fmtMoney(v)}</span></div>`).join('')}</div>` : ''}</div>`;
+        group.items.forEach(it => {
+          const row=document.createElement('div'); row.style.cssText='padding:10px 0;border-bottom:1px solid var(--border-subtle);cursor:pointer';
+          const selected = it.splitBetween || [];
+          const shareText = selected.length ? `${selected.length} travellers · ${it.currency} ${fmtMoney((Number(it.cost)||0)/selected.length)} each` : 'Personal expense';
+          row.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px"><span style="min-width:0"><span style="font-size:11px;color:var(--text-muted)">${it.type==='overnight'?'Accommodation':(it.type==='stop'?'Itinerary':'Manual')}</span><br><span style="font-weight:500">${it.name}</span></span>${formatMoneyAligned(it.currency,it.cost)}</div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px"><span style="font-size:11px;color:var(--text-muted)">${shareText}</span><button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:11px">${selected.length?'Sharing':'Share'}</button></div>`;
+          row.querySelector('button').addEventListener('click', e => { e.stopPropagation(); openSharingDrawer(it); });
+          row.addEventListener('click', () => { if (it.source==='itinerary') { if (it.type==='stop') { const stop=Data.getStops().find(s=>s.id===it.id); const day=Data.getDays().find(d=>d.id===stop?.dayId); if(stop) window.BottomSheet?.openStop(stop,day); } else { const day=Data.getDays().find(d=>d.id===it.dayId); if(day) window.BottomSheet?.openOvernight(day); } } else openSharingDrawer(it); });
+          section.appendChild(row);
+        });
+        return section;
+      };
+      frag.appendChild(accordionSection(`cost${category}`, category, `${summary.tripCurrency} ${fmtMoney(group.total)} full · ${group.items.length} item${group.items.length===1?'':'s'}`, body));
     });
     return frag;
   }
@@ -736,10 +745,18 @@ const BookingsScreen = (() => {
        and everything logged separately (the expense tracker above),
        each its own collapsible section, same accordion pattern as
        Reservations. ── */
+    frag.appendChild(accordionSection('paymentsItinerary',
+      '📋 Itinerary payments',
+      `${paymentsSummary.items.filter(i=>i.status==='paid').length}/${paymentsSummary.items.length} paid`,
+      renderItineraryPaymentsGroups));
+    const costHeading = document.createElement('div');
+    costHeading.style.cssText = 'font-size:var(--text-sm);font-weight:600;color:var(--text-primary);margin:var(--s4) 0 var(--s2)';
+    costHeading.textContent = 'Cost details';
+    frag.appendChild(costHeading);
     const allCostCount = paymentsSummary.items.length + expenses.length;
     frag.appendChild(accordionSection('paymentsCategories',
-      '📋 Costs by category',
-      `${allCostCount} expense${allCostCount === 1 ? '' : 's'}`,
+      'By category',
+      `${allCostCount} expense${allCostCount === 1 ? '' : 's'} · full totals and traveller shares`,
       renderCategoryPaymentsGroups));
     frag.appendChild(accordionSection('paymentsOther',
       '🧾 Other expenses',
