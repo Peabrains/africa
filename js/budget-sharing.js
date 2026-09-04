@@ -56,7 +56,15 @@ const BudgetSharing = (() => {
     return rate > 0 ? (Number(amount) || 0) / rate : null;
   }
 
-  return { normalizeSelection, perPerson, groupByCategory, total, selectionLabel, toggleSelection, convertEstimate, tripAmount, fromTripCurrency };
+  function allocatedTotal(items, traveler) {
+    return (items || []).reduce((sum, item) => {
+      const selected = Array.isArray(item.selected) ? item.selected : [];
+      if (!selected.length || !selected.includes(traveler)) return sum;
+      return sum + (Number(item.amount) || 0) / selected.length;
+    }, 0);
+  }
+
+  return { normalizeSelection, perPerson, groupByCategory, total, selectionLabel, toggleSelection, convertEstimate, tripAmount, fromTripCurrency, allocatedTotal };
 })();
 
 if (typeof window !== 'undefined') window.BudgetSharing = BudgetSharing;

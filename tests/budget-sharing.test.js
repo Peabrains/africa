@@ -74,3 +74,14 @@ test('JPY totals convert back to MYR using the saved MYR-to-JPY trip rate', () =
   assert.equal(Math.round(sharing.fromTripCurrency(3873, 38.73) * 100) / 100, 100);
   assert.equal(sharing.fromTripCurrency(3873, null), null);
 });
+
+test('top spending share follows the active traveller chips', () => {
+  const sharing = loadSharing();
+  const items = [
+    { amount: 1000, selected: ['VN', 'CK'] },
+    { amount: 600, selected: ['VN'] },
+    { amount: 300, selected: ['CK'] },
+  ];
+  assert.equal(sharing.allocatedTotal(items, 'VN'), 1100);
+  assert.equal(sharing.allocatedTotal(items, 'CK'), 800);
+});

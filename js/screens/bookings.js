@@ -692,8 +692,21 @@ const BookingsScreen = (() => {
     const totalSpent = totalUSD + paymentsSummary.totalPaid;
     const totalOutstanding = paymentsSummary.totalOutstanding;
     const travellerCount = Math.max(1, travelers.length);
-    const userSpent = totalSpent / travellerCount;
-    const userOutstanding = totalOutstanding / travellerCount;
+    const currentTraveler = travelers[0] || 'You';
+    const manualAllocations = expenses.map(exp => ({
+      amount: exp.amountJPY,
+      selected: exp.splitBetween?.length ? exp.splitBetween : [exp.paidBy || currentTraveler],
+    }));
+    const paidAllocations = paymentsSummary.items.map(item => ({
+      amount: Data.convertToTripCurrency(item.paidAmount, item.currency) ?? 0,
+      selected: item.splitBetween?.length ? item.splitBetween : travelers,
+    }));
+    const outstandingAllocations = paymentsSummary.items.map(item => ({
+      amount: Data.convertToTripCurrency(item.cost - item.paidAmount, item.currency) ?? 0,
+      selected: item.splitBetween?.length ? item.splitBetween : travelers,
+    }));
+    const userSpent = window.BudgetSharing.allocatedTotal([...manualAllocations, ...paidAllocations], currentTraveler);
+    const userOutstanding = window.BudgetSharing.allocatedTotal(outstandingAllocations, currentTraveler);
     const userBudget = budgetUSD / travellerCount;
     const pctOfBudget = Math.min(100, (userSpent && userBudget) ? Math.round(userSpent/userBudget*100) : 0);
 
@@ -709,7 +722,7 @@ const BookingsScreen = (() => {
     summary.className = 'settlement-card';
     summary.style.marginTop = 'var(--s3)';
     let summaryHTML = `
-      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s2);text-transform:uppercase;letter-spacing:.04em;font-weight:500">Your share of spending</p>
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s2);text-transform:uppercase;letter-spacing:.04em;font-weight:500">Your share of spending · ${currentTraveler}</p>
       <p style="font-size:22px;font-weight:500;color:var(--text-primary)">${cur} ${fmtMoney(userSpent)}</p>
       <p style="font-size:10px;color:var(--text-muted);margin-bottom:4px">Trip total: ${cur} ${fmtMoney(totalSpent)} · split across ${travellerCount} traveller${travellerCount===1?'':'s'}</p>
       ${approxCurrencyLine(userSpent, cur, '13px', 'margin-bottom:4px')}
