@@ -36,7 +36,7 @@ jobs:
       - name: Checkout design-lab into subfolder (experimental UI, isolated from platform)
         uses: actions/checkout@v4
         with:
-          ref: ccb82ee
+          ref: ccb82eebf903a25594b010b224f224cdba0d0f9a
           path: site/lab
 
       - name: Clean git folders
