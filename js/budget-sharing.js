@@ -51,7 +51,12 @@ const BudgetSharing = (() => {
       : { amount: converted, currency: tripCurrency };
   }
 
-  return { normalizeSelection, perPerson, groupByCategory, total, selectionLabel, toggleSelection, convertEstimate, tripAmount };
+  function fromTripCurrency(amount, unitsToTripRate) {
+    const rate = Number(unitsToTripRate);
+    return rate > 0 ? (Number(amount) || 0) / rate : null;
+  }
+
+  return { normalizeSelection, perPerson, groupByCategory, total, selectionLabel, toggleSelection, convertEstimate, tripAmount, fromTripCurrency };
 })();
 
 if (typeof window !== 'undefined') window.BudgetSharing = BudgetSharing;

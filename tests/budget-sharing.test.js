@@ -68,3 +68,9 @@ test('budget rows normalize foreign source amounts into the JPY trip currency', 
     { amount: 1000, currency: 'JPY' }
   );
 });
+
+test('JPY totals convert back to MYR using the saved MYR-to-JPY trip rate', () => {
+  const sharing = loadSharing();
+  assert.equal(Math.round(sharing.fromTripCurrency(3873, 38.73) * 100) / 100, 100);
+  assert.equal(sharing.fromTripCurrency(3873, null), null);
+});

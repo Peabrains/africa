@@ -52,17 +52,18 @@ const BookingsScreen = (() => {
   // nothing rather than a stale guess — the Budget tab dispatcher
   // re-renders once the rate comes in, so it appears a beat later.
   function approxCurrencyLine(amount, fromCurrency, size='13px', margin='margin-top:1px') {
-    const userCur = Data.getUserCurrency?.();
-    if (!userCur || userCur === fromCurrency) return '';
-    const rate = Data.getCachedLiveRate?.(fromCurrency, userCur);
-    if (!rate) return '';
-    return `<p style="font-size:${size};color:var(--text-muted);${margin}">≈ ${userCur} ${fmtMoney(amount*rate)}</p>`;
+    const estimate = userEstimateText(amount, fromCurrency);
+    return estimate ? `<p style="font-size:${size};color:var(--text-muted);${margin}">${estimate}</p>` : '';
   }
 
   function userEstimateText(amount, fromCurrency) {
-    const userCur = Data.getUserCurrency?.();
+    const savedRates = Data.getExchangeRates?.() || {};
+    const userCur = Data.getUserCurrency?.() || (savedRates.MYR ? 'MYR' : null);
     if (!userCur || userCur === fromCurrency) return '';
-    const estimate = window.BudgetSharing?.convertEstimate(amount, Data.getCachedLiveRate?.(fromCurrency, userCur));
+    const savedUnitsToTripRate = savedRates[userCur];
+    const estimate = savedUnitsToTripRate
+      ? window.BudgetSharing?.fromTripCurrency(amount, savedUnitsToTripRate)
+      : window.BudgetSharing?.convertEstimate(amount, Data.getCachedLiveRate?.(fromCurrency, userCur));
     return estimate == null ? '' : `≈ ${userCur} ${fmtMoney(estimate)}`;
   }
 
