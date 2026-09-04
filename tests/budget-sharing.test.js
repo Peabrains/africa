@@ -51,3 +51,9 @@ test('inline traveller chips toggle shares but never leave a cost unassigned', (
   assert.deepEqual(Array.from(sharing.toggleSelection(['VN'], 'VN')), ['VN']);
   assert.deepEqual(Array.from(sharing.toggleSelection(['VN'], 'CK')), ['VN', 'CK']);
 });
+
+test('MYR estimates convert totals using the cached live rate', () => {
+  const sharing = loadSharing();
+  assert.equal(sharing.convertEstimate(10000, 0.0295), 295);
+  assert.equal(sharing.convertEstimate(10000, null), null);
+});

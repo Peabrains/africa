@@ -37,7 +37,12 @@ const BudgetSharing = (() => {
     return current.length === 1 ? current : current.filter(name => name !== traveler);
   }
 
-  return { normalizeSelection, perPerson, groupByCategory, total, selectionLabel, toggleSelection };
+  function convertEstimate(amount, rate) {
+    if (rate == null || !Number.isFinite(Number(rate))) return null;
+    return (Number(amount) || 0) * Number(rate);
+  }
+
+  return { normalizeSelection, perPerson, groupByCategory, total, selectionLabel, toggleSelection, convertEstimate };
 })();
 
 if (typeof window !== 'undefined') window.BudgetSharing = BudgetSharing;

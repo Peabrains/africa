@@ -59,6 +59,13 @@ const BookingsScreen = (() => {
     return `<p style="font-size:${size};color:var(--text-muted);${margin}">≈ ${userCur} ${fmtMoney(amount*rate)}</p>`;
   }
 
+  function userEstimateText(amount, fromCurrency) {
+    const userCur = Data.getUserCurrency?.();
+    if (!userCur || userCur === fromCurrency) return '';
+    const estimate = window.BudgetSharing?.convertEstimate(amount, Data.getCachedLiveRate?.(fromCurrency, userCur));
+    return estimate == null ? '' : `≈ ${userCur} ${fmtMoney(estimate)}`;
+  }
+
   // Currency code fixed-width + left-aligned, amount right-aligned with
   // tabular-nums (equal-width digits) — so "TWD" starts at the same X
   // position on every row and the numbers line up on their digits like
@@ -566,7 +573,8 @@ const BookingsScreen = (() => {
       });
       const body = () => {
         const section=document.createElement('div');
-        section.innerHTML=`<div style="padding:4px 0 10px;border-bottom:1px solid var(--border-subtle)"><div style="display:flex;justify-content:space-between"><strong>Full total</strong><strong>${summary.tripCurrency} ${fmtMoney(group.total)}</strong></div>${Object.keys(perTraveller).length ? `<div style="margin-top:8px;display:grid;gap:4px">${Object.entries(perTraveller).map(([t,v])=>`<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted)"><span>${t}</span><span>${summary.tripCurrency} ${fmtMoney(v)}</span></div>`).join('')}</div>` : ''}</div>`;
+        const fullEstimate = userEstimateText(group.total, summary.tripCurrency);
+        section.innerHTML=`<div style="padding:4px 0 10px;border-bottom:1px solid var(--border-subtle)"><div style="display:flex;justify-content:space-between;align-items:flex-start"><strong>Full total</strong><span style="text-align:right"><strong style="display:block">${summary.tripCurrency} ${fmtMoney(group.total)}</strong>${fullEstimate?`<span style="display:block;font-size:11px;color:var(--text-muted)">${fullEstimate}</span>`:''}</span></div>${Object.keys(perTraveller).length ? `<div style="margin-top:8px;display:grid;gap:4px">${Object.entries(perTraveller).map(([t,v])=>{const estimate=userEstimateText(v,summary.tripCurrency);return `<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted)"><span>${t}</span><span style="text-align:right"><span style="display:block">${summary.tripCurrency} ${fmtMoney(v)}</span>${estimate?`<span style="display:block;font-size:10px">${estimate}</span>`:''}</span></div>`;}).join('')}</div>` : ''}</div>`;
         group.items.forEach(it => {
           const row=document.createElement('div'); row.style.cssText='padding:10px 0;border-bottom:1px solid var(--border-subtle);cursor:pointer';
           const selected = allocationFor(it);
@@ -597,7 +605,8 @@ const BookingsScreen = (() => {
         });
         return section;
       };
-      frag.appendChild(accordionSection(`cost${category}`, category, `${summary.tripCurrency} ${fmtMoney(group.total)} full · ${group.items.length} item${group.items.length===1?'':'s'}`, body));
+      const categoryEstimate = userEstimateText(group.total, summary.tripCurrency);
+      frag.appendChild(accordionSection(`cost${category}`, category, `${summary.tripCurrency} ${fmtMoney(group.total)} full${categoryEstimate?` · ${categoryEstimate}`:''} · ${group.items.length} item${group.items.length===1?'':'s'}`, body));
     });
     return frag;
   }
