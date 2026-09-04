@@ -682,8 +682,8 @@ const BookingsScreen = (() => {
     addForm.querySelector('#exp-cancel')?.addEventListener('click', () => { addForm.style.display='none'; addBtn.style.display='block'; });
 
     /* ── Payments — computed early since the summary card above needs
-       it too (itinerary costs are part of "what's actually been paid",
-       not just what's logged in the expense tracker). ── */
+       it too. The top share uses the same full-cost dataset as Cost
+       details; paid and outstanding portions remain shown separately. ── */
     const paymentsSummary = Data.getPaymentsSummary();
     // "Total spent" = real money out the door: logged expenses (always
     // already paid) + whatever's been paid on itinerary bookings so far.
@@ -697,15 +697,15 @@ const BookingsScreen = (() => {
       amount: exp.amountJPY,
       selected: exp.splitBetween?.length ? exp.splitBetween : [exp.paidBy || currentTraveler],
     }));
-    const paidAllocations = paymentsSummary.items.map(item => ({
-      amount: Data.convertToTripCurrency(item.paidAmount, item.currency) ?? 0,
+    const itineraryAllocations = paymentsSummary.items.map(item => ({
+      amount: Data.convertToTripCurrency(item.cost, item.currency) ?? 0,
       selected: item.splitBetween?.length ? item.splitBetween : travelers,
     }));
     const outstandingAllocations = paymentsSummary.items.map(item => ({
       amount: Data.convertToTripCurrency(item.cost - item.paidAmount, item.currency) ?? 0,
       selected: item.splitBetween?.length ? item.splitBetween : travelers,
     }));
-    const userSpent = window.BudgetSharing.allocatedTotal([...manualAllocations, ...paidAllocations], currentTraveler);
+    const userSpent = window.BudgetSharing.allocatedTotal([...manualAllocations, ...itineraryAllocations], currentTraveler);
     const userOutstanding = window.BudgetSharing.allocatedTotal(outstandingAllocations, currentTraveler);
     const userBudget = budgetUSD / travellerCount;
     const pctOfBudget = Math.min(100, (userSpent && userBudget) ? Math.round(userSpent/userBudget*100) : 0);
@@ -722,11 +722,11 @@ const BookingsScreen = (() => {
     summary.className = 'settlement-card';
     summary.style.marginTop = 'var(--s3)';
     let summaryHTML = `
-      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s2);text-transform:uppercase;letter-spacing:.04em;font-weight:500">Your share of spending · ${currentTraveler}</p>
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s2);text-transform:uppercase;letter-spacing:.04em;font-weight:500">Your share of trip costs · ${currentTraveler}</p>
       <p style="font-size:22px;font-weight:500;color:var(--text-primary)">${cur} ${fmtMoney(userSpent)}</p>
       <p style="font-size:10px;color:var(--text-muted);margin-bottom:4px">Trip total: ${cur} ${fmtMoney(totalSpent)} · split across ${travellerCount} traveller${travellerCount===1?'':'s'}</p>
       ${approxCurrencyLine(userSpent, cur, '13px', 'margin-bottom:4px')}
-      ${userOutstanding>0?`<p style="font-size:var(--text-xs);color:var(--warning-text);margin-bottom:2px">+ ${cur} ${fmtMoney(userOutstanding)} outstanding share</p>`:''}
+      ${userOutstanding>0?`<p style="font-size:var(--text-xs);color:var(--warning-text);margin-bottom:2px">${cur} ${fmtMoney(userOutstanding)} outstanding share</p>`:''}
       <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:6px">Your budget share: ${cur} ${fmtMoney(userBudget)}</p>
       <div class="budget-bar"><div class="budget-fill" style="width:${pctOfBudget}%;background:${pctOfBudget>90?'var(--danger-text)':pctOfBudget>70?'var(--warning-text)':'var(--accent)'}"></div></div>
       <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">${cur} ${fmtMoney(Math.max(0,userBudget-userSpent))} remaining</p>`;

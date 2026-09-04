@@ -85,3 +85,12 @@ test('top spending share follows the active traveller chips', () => {
   assert.equal(sharing.allocatedTotal(items, 'VN'), 1100);
   assert.equal(sharing.allocatedTotal(items, 'CK'), 800);
 });
+
+test('top trip-cost share includes unpaid itinerary costs', () => {
+  const sharing = loadSharing();
+  const items = [
+    { amount: 250000, selected: ['VN', 'CK'] },
+    { amount: 260000, selected: ['VN', 'CK'] },
+  ];
+  assert.equal(sharing.allocatedTotal(items, 'VN'), 255000);
+});
