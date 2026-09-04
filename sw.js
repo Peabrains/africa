@@ -3,7 +3,7 @@
    Cache version bumped manually alongside APP_VERSION.
    BUILD: 202609041038
    ============================================================ */
-const CACHE   = 'africa-safari-design-lab-202609041038';
+const CACHE   = 'africa-safari-design-lab-202609041500';
 const VERSION = '202609041038';
 
 const PRECACHE = [
@@ -18,7 +18,7 @@ const PRECACHE = [
   './js/weather.js', './js/flight-price.js', './js/ai/planner-service.js', './js/app.js',
   './js/screens/planner.js',
   './js/screens/itinerary.js', './js/screens/map.js', './js/screens/dex.js',
-  './js/screens/bookings.js', './js/screens/sos.js', './js/screens/stamps.js',
+  './js/screens/bookings.js', './js/budget-sharing.js', './js/screens/sos.js', './js/screens/stamps.js',
   './js/screens/food.js', './js/screens/landing.js', './js/screens/bucket-list.js',
   './js/screens/journal.js',
   './js/screens/account.js',

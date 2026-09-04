@@ -219,6 +219,7 @@ create table if not exists public.overnights (
   cost        numeric,
   ref         text,
   notes       text,
+  split_between text[] not null default '{}'::text[],
   lat         double precision,
   lng         double precision,
   created_at  timestamptz default now()

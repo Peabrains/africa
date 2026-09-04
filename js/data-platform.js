@@ -549,7 +549,10 @@ const Data = (() => {
         cost:   fd?.cost ?? null,
         costCurrency: fd?.costCurrency || null,
         deadline: fd?.deadline || null,
-        payment: fd?.payment || null,
+        payment: fd?.payment ? {
+          ...fd.payment,
+          splitBetween: Array.isArray(fd.payment.splitBetween) ? fd.payment.splitBetween : [],
+        } : null,
       },
       // flight detail fields itinerary.js uses
       ...(fd ? {
@@ -708,6 +711,10 @@ const Data = (() => {
         if ('deadline' in changes.booking) { if (changes.booking.deadline) merged.deadline = changes.booking.deadline; else delete merged.deadline; }
         // Payment is independent of booking status — see bottom-sheet.js note.
         if ('payment'  in changes.booking) { if (changes.booking.payment)  merged.payment  = changes.booking.payment;  else delete merged.payment; }
+        if ('splitBetween' in changes.booking) {
+          const split = Array.isArray(changes.booking.splitBetween) ? changes.booking.splitBetween : [];
+          merged.payment = { ...(merged.payment || {}), splitBetween: split };
+        }
       }
       if ('trainDetail' in changes) {
         if (changes.trainDetail) merged.trainDetail = changes.trainDetail;
@@ -2669,6 +2676,8 @@ const Data = (() => {
         id: s.id, name: s.name, type: 'stop', dayId: s.dayId,
         cost: s.booking.cost, currency: cur,
         status: payment.status || 'unpaid', paidAmount: paidAmt,
+        category: s.category === 'transport' ? 'Transport' : s.category === 'activity' ? 'Activities' : 'Other',
+        splitBetween: Array.isArray(payment.splitBetween) ? payment.splitBetween : [],
       });
     });
 
@@ -2681,6 +2690,8 @@ const Data = (() => {
         id: o.id, name: o.name, type: 'overnight', dayId,
         cost: o.cost, currency: cur,
         status, paidAmount: paidAmt,
+        category: 'Accommodation',
+        splitBetween: Array.isArray(o.split_between) ? o.split_between : [],
       });
     });
 
@@ -2705,6 +2716,17 @@ const Data = (() => {
       totalOutstanding: totalOutstandingConverted,
       hasUnconvertible, // true if some item's currency has no exchange rate set yet
     };
+  }
+
+  async function updateItinerarySplit(item, names) {
+    const travelers = getTravelers();
+    const helper = window.BudgetSharing;
+    const selected = helper ? helper.normalizeSelection(names, travelers) : (Array.isArray(names) ? names : travelers);
+    if (item?.type === 'overnight') return updateOvernight(item.dayId, { split_between: selected });
+    if (item?.type === 'stop') {
+      const stop = getStops().find(s => s.id === item.id);
+      return updateStop(item.id, { booking: { status: stop?.booking?.status || '', splitBetween: selected } });
+    }
   }
 
   async function updateTripDetails(changes) {
@@ -2772,7 +2794,7 @@ const Data = (() => {
     getTrips, getCurrentTrip, switchTrip, createTrip, duplicateTrip, updateTripDetails, getTripCurrency, deleteTrip,
     getDefaultTimezone, setDefaultTimezone, getBudgetTotal, setBudgetTotal,
     getUserCurrency, setUserCurrency, fetchLiveRate, getCachedLiveRate, hasTriedLiveRate,
-    getExchangeRates, setExchangeRate, convertToTripCurrency, getPaymentsSummary,
+    getExchangeRates, setExchangeRate, convertToTripCurrency, getPaymentsSummary, updateItinerarySplit,
     getTripMembers, inviteMember, removeMember,
     // Trip info
     getTripName, setTripName,

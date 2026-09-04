@@ -8,7 +8,7 @@ const BookingsScreen = (() => {
     // Payments (Budget tab) — itinerary/other split, plus per-status
     // sub-groups inside itinerary. Paid starts collapsed (least urgent
     // to look at); unpaid/partial start open (actionable).
-    paymentsItinerary: true, paymentsOther: true,
+    paymentsItinerary: true, paymentsOther: false, paymentsCategories: true,
     payUnpaid: true, payPartial: true, payPaid: false,
   };
   const EXPENSE_CATS = ['Food','Transport','Accommodation','Activities','Shopping','Other'];
@@ -540,6 +540,67 @@ const BookingsScreen = (() => {
     return frag;
   }
 
+  function openSharingDrawer(item) {
+    const travelers = Data.getTravelers();
+    const helper = window.BudgetSharing;
+    const isItinerary = item.source === 'itinerary';
+    let shared = isItinerary ? true : (item.splitBetween || []).length > 0;
+    let selected = helper ? helper.normalizeSelection(item.splitBetween || [], travelers) : (item.splitBetween || travelers);
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;display:flex;align-items:flex-end;justify-content:center;padding:12px';
+    const panel = document.createElement('div');
+    panel.style.cssText = 'width:min(480px,100%);background:var(--surface);border-radius:var(--r-lg);padding:20px;box-shadow:0 -8px 30px rgba(0,0,0,.18)';
+    const render = () => {
+      panel.innerHTML = `<p style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Expense sharing</p>
+        <h3 style="margin:4px 0 2px;font-size:20px">${item.name}</h3>
+        <p style="color:var(--text-muted);font-size:13px">${item.currency} ${fmtMoney(item.cost)}</p>
+        <label style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 12px;font-weight:500">Shared between travellers <input id="share-toggle" type="checkbox" ${shared?'checked':''}></label>
+        <div id="share-people" style="display:${shared?'flex':'none'};gap:8px;flex-wrap:wrap">${travelers.map(t=>`<button type="button" data-traveler="${t}" style="border:1px solid var(--border);border-radius:999px;padding:8px 12px;background:${selected.includes(t)?'var(--accent)':'var(--surface-raised)'};color:${selected.includes(t)?'white':'var(--text-primary)'}">${t}</button>`).join('')}</div>
+        <p id="share-preview" style="font-size:13px;color:var(--text-muted);margin:14px 0">${shared && selected.length ? `Each person: ${item.currency} ${fmtMoney((Number(item.cost)||0)/selected.length)}` : 'This expense is assigned to one person.'}</p>
+        <div style="display:flex;gap:8px"><button id="share-cancel" class="btn btn-ghost" style="flex:1">Cancel</button><button id="share-save" class="btn btn-primary" style="flex:1">Save</button></div>`;
+      panel.querySelector('#share-toggle').addEventListener('change', e => { shared=e.target.checked; render(); });
+      panel.querySelectorAll('[data-traveler]').forEach(btn => btn.addEventListener('click', () => {
+        const name=btn.dataset.traveler; selected=selected.includes(name)?selected.filter(t=>t!==name):[...selected,name]; render();
+      }));
+      panel.querySelector('#share-cancel').addEventListener('click', () => overlay.remove());
+      panel.querySelector('#share-save').addEventListener('click', async () => {
+        const names = shared ? (helper ? helper.normalizeSelection(selected, travelers) : selected) : [];
+        try {
+          if (isItinerary) await Data.updateItinerarySplit(item, names);
+          else await Data.updateExpense(item.id, { splitBetween: names });
+          overlay.remove(); Toast.show('Sharing saved','success'); render();
+        } catch (e) { Toast.show('Could not save sharing','warning'); }
+      });
+    };
+    overlay.appendChild(panel); document.body.appendChild(overlay); render();
+  }
+
+  function renderCategoryPaymentsGroups() {
+    const frag = document.createDocumentFragment();
+    const summary = Data.getPaymentsSummary();
+    const expenses = Data.getExpenses().map(e => ({ ...e, source:'expense', name:e.description, cost:e.amountJPY, currency:Data.getTripCurrency(), category:e.category || 'Other', splitBetween:e.splitBetween || [], categoryCost:e.amountJPY }));
+    const items = [...summary.items.map(i => ({...i, source:'itinerary', categoryCost: Data.convertToTripCurrency(i.cost, i.currency) ?? i.cost})), ...expenses];
+    if (!items.length) { const p=document.createElement('p'); p.style.cssText='font-size:var(--text-sm);color:var(--text-muted)'; p.textContent='No costs logged yet.'; frag.appendChild(p); return frag; }
+    const order=['Accommodation','Transport','Activities','Food','Shopping','Other'];
+    const groups = (window.BudgetSharing ? window.BudgetSharing.groupByCategory(items) : {});
+    order.forEach(category => {
+      const group=groups[category]; if (!group?.items?.length) return;
+      const section=document.createElement('div'); section.style.cssText='margin-bottom:var(--s3)';
+      section.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--border-subtle)"><strong>${category}</strong><span style="color:var(--text-muted);font-size:13px">${summary.tripCurrency} ${fmtMoney(group.total)}</span></div>`;
+      group.items.forEach(it => {
+        const row=document.createElement('div'); row.style.cssText='padding:10px 0;border-bottom:1px solid var(--border-subtle);cursor:pointer';
+        const selected = it.splitBetween || [];
+        const shareText = selected.length ? `${selected.length} travellers · ${it.currency} ${fmtMoney((Number(it.cost)||0)/selected.length)} each` : 'Personal expense';
+        row.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px"><span style="min-width:0"><span style="font-size:11px;color:var(--text-muted)">${it.type==='overnight'?'Accommodation':(it.type==='stop'?'Itinerary':'Manual')}</span><br><span style="font-weight:500">${it.name}</span></span>${formatMoneyAligned(it.currency,it.cost)}</div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px"><span style="font-size:11px;color:var(--text-muted)">${shareText}</span><button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:11px">${selected.length?'Sharing':'Share'}</button></div>`;
+        row.querySelector('button').addEventListener('click', e => { e.stopPropagation(); openSharingDrawer(it); });
+        row.addEventListener('click', () => { if (it.source==='itinerary') { if (it.type==='stop') { const stop=Data.getStops().find(s=>s.id===it.id); const day=Data.getDays().find(d=>d.id===stop?.dayId); if(stop) window.BottomSheet?.openStop(stop,day); } else { const day=Data.getDays().find(d=>d.id===it.dayId); if(day) window.BottomSheet?.openOvernight(day); } } else openSharingDrawer(it); });
+        section.appendChild(row);
+      });
+      frag.appendChild(section);
+    });
+    return frag;
+  }
+
   function renderBudget() {
     const frag = document.createDocumentFragment();
     const travelers = Data.getTravelers();
@@ -647,7 +708,7 @@ const BookingsScreen = (() => {
         }
       });
       summaryHTML += `<div style="margin-top:var(--s3);padding-top:var(--s3);border-top:1px solid var(--border-subtle)">`;
-      summaryHTML += `<p style="font-size:10px;color:var(--text-muted);margin-bottom:var(--s2)">Split below covers logged expenses only — itinerary bookings aren't split between travelers yet</p>`;
+      summaryHTML += `<p style="font-size:10px;color:var(--text-muted);margin-bottom:var(--s2)">Split below covers logged expenses. Use “Costs by category” below to share itinerary bookings too.</p>`;
       travelers.forEach(t => {
         summaryHTML += `<div class="settlement-row"><span style="font-weight:500">${t}</span><span style="color:var(--text-muted)">paid ${cur} ${fmtMoney(paid[t]||0)} · share ${cur} ${fmtMoney(share[t]||0)}</span></div>`;
       });
@@ -675,10 +736,11 @@ const BookingsScreen = (() => {
        and everything logged separately (the expense tracker above),
        each its own collapsible section, same accordion pattern as
        Reservations. ── */
-    frag.appendChild(accordionSection('paymentsItinerary',
-      '📋 Itinerary payments',
-      `${paymentsSummary.items.filter(i=>i.status==='paid').length}/${paymentsSummary.items.length} paid`,
-      renderItineraryPaymentsGroups));
+    const allCostCount = paymentsSummary.items.length + expenses.length;
+    frag.appendChild(accordionSection('paymentsCategories',
+      '📋 Costs by category',
+      `${allCostCount} expense${allCostCount === 1 ? '' : 's'}`,
+      renderCategoryPaymentsGroups));
     frag.appendChild(accordionSection('paymentsOther',
       '🧾 Other expenses',
       `${expenses.length} logged`,
