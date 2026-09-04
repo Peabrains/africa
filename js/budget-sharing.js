@@ -31,7 +31,13 @@ const BudgetSharing = (() => {
     return Array.isArray(selected) && selected.length ? selected.join(' + ') : 'Select';
   }
 
-  return { normalizeSelection, perPerson, groupByCategory, total, selectionLabel };
+  function toggleSelection(selected, traveler) {
+    const current = Array.isArray(selected) ? [...selected] : [];
+    if (!current.includes(traveler)) return [...current, traveler];
+    return current.length === 1 ? current : current.filter(name => name !== traveler);
+  }
+
+  return { normalizeSelection, perPerson, groupByCategory, total, selectionLabel, toggleSelection };
 })();
 
 if (typeof window !== 'undefined') window.BudgetSharing = BudgetSharing;

@@ -44,3 +44,10 @@ test('cost selector label shows selected traveller initials instead of sharing t
   assert.equal(sharing.selectionLabel(['VN']), 'VN');
   assert.equal(sharing.selectionLabel([]), 'Select');
 });
+
+test('inline traveller chips toggle shares but never leave a cost unassigned', () => {
+  const sharing = loadSharing();
+  assert.deepEqual(Array.from(sharing.toggleSelection(['VN', 'CK'], 'VN')), ['CK']);
+  assert.deepEqual(Array.from(sharing.toggleSelection(['VN'], 'VN')), ['VN']);
+  assert.deepEqual(Array.from(sharing.toggleSelection(['VN'], 'CK')), ['VN', 'CK']);
+});

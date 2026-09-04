@@ -540,40 +540,9 @@ const BookingsScreen = (() => {
     return frag;
   }
 
-  function openSharingDrawer(item) {
-    const travelers = Data.getTravelers();
-    const helper = window.BudgetSharing;
-    const isItinerary = item.source === 'itinerary';
-    let selected = (item.splitBetween || []).length
-      ? [...item.splitBetween]
-      : (isItinerary ? [...travelers] : [item.paidBy || travelers[0]].filter(Boolean));
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;display:flex;align-items:flex-end;justify-content:center;padding:12px';
-    const panel = document.createElement('div');
-    panel.style.cssText = 'width:min(480px,100%);background:var(--surface);border-radius:var(--r-lg);padding:20px;box-shadow:0 -8px 30px rgba(0,0,0,.18)';
-    const renderDrawer = () => {
-      panel.innerHTML = `<p style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Cost allocation</p>
-        <h3 style="margin:4px 0 2px;font-size:20px">${item.name}</h3>
-        <p style="color:var(--text-muted);font-size:13px">${item.currency} ${fmtMoney(item.cost)}</p>
-        <p style="font-weight:500;margin:18px 0 10px">Who shares this cost?</p>
-        <div id="share-people" style="display:flex;gap:8px;flex-wrap:wrap">${travelers.map(t=>`<button type="button" data-traveler="${t}" style="border:1px solid var(--border);border-radius:999px;padding:8px 12px;background:${selected.includes(t)?'var(--accent)':'var(--surface-raised)'};color:${selected.includes(t)?'white':'var(--text-primary)'}">${t}</button>`).join('')}</div>
-        <p id="share-preview" style="font-size:13px;color:var(--text-muted);margin:14px 0">${selected.length ? (selected.length === 1 ? `Assigned to ${selected[0]}` : `Each person: ${item.currency} ${fmtMoney((Number(item.cost)||0)/selected.length)}`) : 'Select at least one traveller.'}</p>
-        <div style="display:flex;gap:8px"><button id="share-cancel" class="btn btn-ghost" style="flex:1">Cancel</button><button id="share-save" class="btn btn-primary" style="flex:1">Save</button></div>`;
-      panel.querySelectorAll('[data-traveler]').forEach(btn => btn.addEventListener('click', () => {
-        const name=btn.dataset.traveler; selected=selected.includes(name)?selected.filter(t=>t!==name):[...selected,name]; renderDrawer();
-      }));
-      panel.querySelector('#share-cancel').addEventListener('click', () => overlay.remove());
-      panel.querySelector('#share-save').addEventListener('click', async () => {
-        if (!selected.length) { Toast.show('Select at least one traveller','warning'); return; }
-        const names = helper ? helper.normalizeSelection(selected, travelers) : selected;
-        try {
-          if (isItinerary) await Data.updateItinerarySplit(item, names);
-          else await Data.updateExpense(item.id, { splitBetween: names });
-          overlay.remove(); Toast.show('Cost allocation saved','success'); render();
-        } catch (e) { Toast.show('Could not save cost allocation','warning'); }
-      });
-    };
-    overlay.appendChild(panel); document.body.appendChild(overlay); renderDrawer();
+  async function saveCostAllocation(item, selected) {
+    if (item.source === 'itinerary') await Data.updateItinerarySplit(item, selected);
+    else await Data.updateExpense(item.id, { splitBetween: selected });
   }
 
   function renderCategoryPaymentsGroups() {
@@ -584,12 +553,15 @@ const BookingsScreen = (() => {
     if (!items.length) { const p=document.createElement('p'); p.style.cssText='font-size:var(--text-sm);color:var(--text-muted)'; p.textContent='No costs logged yet.'; frag.appendChild(p); return frag; }
     const order=['Accommodation','Transport','Activities','Food','Shopping','Other'];
     const groups = (window.BudgetSharing ? window.BudgetSharing.groupByCategory(items) : {});
+    const allocationFor = it => (it.splitBetween || []).length
+      ? [...it.splitBetween]
+      : (it.source === 'itinerary' ? [...Data.getTravelers()] : [it.paidBy || Data.getTravelers()[0]].filter(Boolean));
     order.forEach(category => {
       const group=groups[category]; if (!group?.items?.length) return;
       const perTraveller = {};
       Data.getTravelers().forEach(t => { perTraveller[t] = 0; });
       group.items.forEach(it => {
-        const selected = it.splitBetween || [];
+        const selected = allocationFor(it);
         if (selected.length) selected.forEach(t => { if (t in perTraveller) perTraveller[t] += (Number(it.categoryCost ?? it.cost) || 0) / selected.length; });
       });
       const body = () => {
@@ -597,12 +569,30 @@ const BookingsScreen = (() => {
         section.innerHTML=`<div style="padding:4px 0 10px;border-bottom:1px solid var(--border-subtle)"><div style="display:flex;justify-content:space-between"><strong>Full total</strong><strong>${summary.tripCurrency} ${fmtMoney(group.total)}</strong></div>${Object.keys(perTraveller).length ? `<div style="margin-top:8px;display:grid;gap:4px">${Object.entries(perTraveller).map(([t,v])=>`<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted)"><span>${t}</span><span>${summary.tripCurrency} ${fmtMoney(v)}</span></div>`).join('')}</div>` : ''}</div>`;
         group.items.forEach(it => {
           const row=document.createElement('div'); row.style.cssText='padding:10px 0;border-bottom:1px solid var(--border-subtle);cursor:pointer';
-          const selected = it.splitBetween || [];
-          const shareText = selected.length ? `${selected.length} travellers · ${it.currency} ${fmtMoney((Number(it.cost)||0)/selected.length)} each` : 'Personal expense';
-          const selectorLabel = window.BudgetSharing?.selectionLabel(selected) || (selected.length ? selected.join(' + ') : 'Select');
-          row.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px"><span style="min-width:0"><span style="font-size:11px;color:var(--text-muted)">${it.type==='overnight'?'Accommodation':(it.type==='stop'?'Itinerary':'Manual')}</span><br><span style="font-weight:500">${it.name}</span></span>${formatMoneyAligned(it.currency,it.cost)}</div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px"><span style="font-size:11px;color:var(--text-muted)">${shareText}</span><button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:11px">${selectorLabel}</button></div>`;
-          row.querySelector('button').addEventListener('click', e => { e.stopPropagation(); openSharingDrawer(it); });
-          row.addEventListener('click', () => { if (it.source==='itinerary') { if (it.type==='stop') { const stop=Data.getStops().find(s=>s.id===it.id); const day=Data.getDays().find(d=>d.id===stop?.dayId); if(stop) window.BottomSheet?.openStop(stop,day); } else { const day=Data.getDays().find(d=>d.id===it.dayId); if(day) window.BottomSheet?.openOvernight(day); } } else openSharingDrawer(it); });
+          const selected = allocationFor(it);
+          const shareText = selected.length === 1 ? `${it.currency} ${fmtMoney(Number(it.cost)||0)} · ${selected[0]}` : `${it.currency} ${fmtMoney((Number(it.cost)||0)/selected.length)} each`;
+          row.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px"><span style="min-width:0"><span style="font-size:11px;color:var(--text-muted)">${it.type==='overnight'?'Accommodation':(it.type==='stop'?'Itinerary':'Manual')}</span><br><span style="font-weight:500">${it.name}</span></span>${formatMoneyAligned(it.currency,it.cost)}</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px">${shareText}</div>`;
+          const pillRow = document.createElement('div');
+          pillRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:7px';
+          Data.getTravelers().forEach(name => {
+            const checked = selected.includes(name);
+            const pill = document.createElement('button');
+            const initials = name.slice(0,2).toUpperCase();
+            const tColor = travelerColor(name);
+            pill.style.cssText = `display:flex;align-items:center;gap:3px;border:1.5px solid ${checked?tColor:'var(--border)'};background:${checked?tColor:'var(--surface)'};color:${checked?'#fff':'var(--text-muted)'};border-radius:var(--r-pill);padding:3px 10px;font-size:10.5px;font-weight:600;cursor:pointer`;
+            pill.innerHTML = `${checked?'✓ ':''}${initials}`;
+            pill.title = name;
+            pill.addEventListener('click', async e => {
+              e.stopPropagation();
+              const next = window.BudgetSharing.toggleSelection(selected, name);
+              if (next.length === selected.length && next.every((n,i)=>n===selected[i])) { Toast.show('At least one traveller must be selected','warning'); return; }
+              await saveCostAllocation(it, next);
+              render();
+            });
+            pillRow.appendChild(pill);
+          });
+          row.appendChild(pillRow);
+          row.addEventListener('click', () => { if (it.source==='itinerary') { if (it.type==='stop') { const stop=Data.getStops().find(s=>s.id===it.id); const day=Data.getDays().find(d=>d.id===stop?.dayId); if(stop) window.BottomSheet?.openStop(stop,day); } else { const day=Data.getDays().find(d=>d.id===it.dayId); if(day) window.BottomSheet?.openOvernight(day); } } });
           section.appendChild(row);
         });
         return section;
