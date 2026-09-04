@@ -606,7 +606,24 @@ const BottomSheet = (() => {
         <div class="bs-actions" style="margin-top:var(--s4)">
           <button class="btn btn-primary bs-full-btn" id="o-save-btn">Save</button>
           <button class="btn btn-ghost bs-full-btn" id="o-cancel-btn">Cancel</button>
+          ${o.id ? `<button class="btn btn-ghost bs-full-btn" id="o-move-btn">Move to another day</button>` : ''}
           ${o.id ? `<button class="btn btn-ghost bs-full-btn" id="o-delete-btn" style="color:var(--danger-text);border-color:var(--danger-text)">Clear accommodation</button>` : ''}
+        </div>
+      </div>`;
+  }
+
+  function overnightMoveHTML(day) {
+    const stay = Data.getOvernight(day.id);
+    const targets = Data.getDays().filter(candidate => candidate.id !== day.id && !Data.getOvernight(candidate.id));
+    return `
+      <div class="bs-detail">
+        <div class="bs-tags"><span class="badge badge-open">${day.label}</span><span class="badge badge-open">${formatDayDate(day.date)}</span></div>
+        <p class="bs-name">Move ${stay?.name || 'accommodation'}</p>
+        <p class="bs-activity" style="margin-bottom:var(--s4)">The complete stay, including booking, payment, location and luggage-forwarding details, will move. ${day.label} will be left without accommodation.</p>
+        ${targets.length ? select('Destination day','o-move-target',targets[0].id,targets.map(candidate => ({ v:candidate.id, l:`${candidate.label} · ${formatDayDate(candidate.date)}${candidate.title ? ` · ${candidate.title}` : ''}` }))) : '<p class="bs-activity" style="padding:var(--s3);background:var(--surface-raised);border-radius:var(--r-md)">Every other day already has accommodation. Clear or move one of those stays first.</p>'}
+        <div class="bs-actions" style="margin-top:var(--s4)">
+          <button class="btn btn-ghost bs-full-btn" id="o-move-back">Back</button>
+          <button class="btn btn-primary bs-full-btn" id="o-move-confirm" ${targets.length ? '' : 'disabled'}>Move accommodation</button>
         </div>
       </div>`;
   }
@@ -931,6 +948,10 @@ const BottomSheet = (() => {
       window.ItineraryScreen?.refresh(); window.BookingsScreen?.refresh?.();
     });
     body.querySelector('#o-cancel-btn')?.addEventListener('click', close);
+    body.querySelector('#o-move-btn')?.addEventListener('click', () => {
+      body.innerHTML = overnightMoveHTML(day);
+      wireOvernightMove(day);
+    });
 
     let deleteArmed = false;
     let deleteResetTimer = null;
@@ -953,6 +974,32 @@ const BottomSheet = (() => {
       await Data.deleteOvernight(day.id);
       Toast.show('Accommodation cleared', 'info'); close();
       window.ItineraryScreen?.refresh(); window.BookingsScreen?.refresh?.();
+    });
+  }
+
+  function wireOvernightMove(day) {
+    body.querySelector('#o-move-back')?.addEventListener('click', () => {
+      body.innerHTML = overnightHTML(day);
+      wireOvernight(day);
+    });
+    body.querySelector('#o-move-confirm')?.addEventListener('click', async event => {
+      if (!navigator.onLine) { Toast.show('Connect to the internet to move accommodation', 'warning'); return; }
+      const targetDayId = body.querySelector('#o-move-target')?.value;
+      if (!targetDayId) { Toast.show('Choose an empty destination day', 'warning'); return; }
+      const button = event.currentTarget;
+      button.disabled = true;
+      button.textContent = 'Moving…';
+      try {
+        await Data.moveOvernight(day.id, targetDayId);
+        Toast.show('Accommodation moved', 'success');
+        close();
+        window.ItineraryScreen?.refresh();
+        window.BookingsScreen?.refresh?.();
+      } catch (error) {
+        Toast.show(`Could not move accommodation: ${error.message}`, 'danger');
+        button.disabled = false;
+        button.textContent = 'Move accommodation';
+      }
     });
   }
 

@@ -892,6 +892,28 @@ const Data = (() => {
     await DB.setMeta(tripKey(CACHE_KEYS.overnight), OVERNIGHTS);
   }
 
+  /* Move one complete accommodation record without reconstructing it in the
+     client. The server locks both days and refuses an occupied destination,
+     preventing collaborators from accidentally creating two stays there. */
+  async function moveOvernight(sourceDayId, targetDayId) {
+    if (!navigator.onLine) {
+      throw new Error('An internet connection is required to move accommodation.');
+    }
+    const stay = OVERNIGHTS[sourceDayId];
+    if (!stay) throw new Error('No accommodation was found on the source day.');
+    if (!DAYS.some(day => day.id === targetDayId)) throw new Error('Choose a destination day.');
+    if (sourceDayId === targetDayId) throw new Error('Choose another day for this accommodation.');
+    if (OVERNIGHTS[targetDayId]) throw new Error('That day already has accommodation.');
+
+    const { data, error } = await SB.rpc('move_overnight_to_day', {
+      p_source_day_id: sourceDayId,
+      p_target_day_id: targetDayId,
+    });
+    if (error) { console.error('[Data] moveOvernight error:', error); throw error; }
+    await loadTripData(CURRENT_TRIP.id);
+    return data;
+  }
+
   async function deleteOvernight(dayId) {
     const o = OVERNIGHTS[dayId];
     if (!o) return;
@@ -2720,7 +2742,7 @@ const Data = (() => {
     // Stops
     getStops, getStopsByDay, addStop, updateStop, moveStops, deleteStop,
     // Overnight
-    getOvernight, updateOvernight, deleteOvernight, getUpcomingDeadlines, getIncomingLuggageForwarding,
+    getOvernight, updateOvernight, moveOvernight, deleteOvernight, getUpcomingDeadlines, getIncomingLuggageForwarding,
     // Expenses
     getExpenses, addExpense, updateExpense, deleteExpense, getTotalSpentJPY,
     getTravelers, updateTravelers, calcSettlement, getBalances, setExpenses,
