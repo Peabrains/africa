@@ -7,7 +7,8 @@ const PlannerScreen = (() => {
   let importReview = null, importEditor = null;
   let mapInstance = null, loadedTripKey = '';
   const DRAFT_KEY = 'africa-ai-planner-draft-v1';
-  const TRENDING_KEY = 'africa-ai-planner-trending-v1';
+  // Invalidate older discovery results that may contain generic fallback photos.
+  const TRENDING_KEY = 'africa-ai-planner-trending-v2';
   const QUICK_PROMPTS = [
     ['Slow day', 'Plan a relaxed day with minimal travel and plenty of downtime.'],
     ['Local food', 'Suggest a local food experience that fits naturally around what is already planned.'],
