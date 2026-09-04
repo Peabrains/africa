@@ -39,9 +39,11 @@ Deno.serve(async (req) => {
     const parsed = JSON.parse(text);
     const imageResults = await searchImages(key, parsed.places);
     console.log("trending image search result", { requested: parsed.places?.length || 0, returned: imageResults.length });
+    // Only show images that can be tied to the complete place name. A source
+    // page's og:image is often a generic city/editorial image, so it is not a
+    // safe fallback for a place card.
     const matched = attachImages(parsed.places, imageResults);
-    const sourceMatched = matched ? 0 : await attachSourceImages(parsed.places);
-    return json({ result: parsed, usage: result.usage || {}, imageDiagnostics: { requested: parsed.places?.length || 0, returned: imageResults.length, matched: matched + sourceMatched, sourceMatched } });
+    return json({ result: parsed, usage: result.usage || {}, imageDiagnostics: { requested: parsed.places?.length || 0, returned: imageResults.length, matched, sourceMatched: 0 } });
   } catch (error) { return json({ error: error instanceof Error ? error.message : "Trending search failed" }, 502); }
 });
 
@@ -49,11 +51,19 @@ function attachImages(places: any[], images: any[]) {
   if (!Array.isArray(places) || !Array.isArray(images)) return 0;
   let matched = 0;
   for (const place of places) {
-    const tokens = imageTokens(place?.name);
+    const name = String(place?.name || '');
+    const tokens = imageTokens(name);
+    const normalizedName = normalizeImageText(name);
     const matches = images
       .filter((image: any) => /^https:\/\//i.test(image?.image_url || ""))
-      .map((image: any) => ({ image, score: imageScore(tokens, `${image.title || ""} ${image.origin_url || ""}`) }))
-      .filter(({ score }) => score > 0)
+      .map((image: any) => {
+        const haystack = normalizeImageText(`${image.title || ""} ${image.origin_url || ""}`);
+        const score = imageScore(tokens, haystack);
+        const completeName = normalizedName.length > 0 && haystack.includes(normalizedName);
+        const strictMatch = completeName || (tokens.size >= 2 && score === tokens.size);
+        return { image, score, strictMatch };
+      })
+      .filter(({ strictMatch }) => strictMatch)
       .sort((a, b) => b.score - a.score)
       .slice(0, 5)
       .map(({ image }) => image.image_url);
@@ -64,6 +74,10 @@ function attachImages(places: any[], images: any[]) {
 
 function imageTokens(value: string) {
   return new Set(String(value || "").toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 2 && !["the", "and", "market", "museum", "park"].includes(token)));
+}
+
+function normalizeImageText(value: string) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function imageScore(tokens: Set<string>, haystack: string) {
@@ -82,7 +96,7 @@ async function searchImages(key: string, places: any[]) {
         model: "perplexity/sonar",
         max_tokens: 64,
         return_images: true,
-        messages: [{ role: "user", content: `Find representative, publicly accessible photos for these exact travel places. Search only these names and return image results: ${names.join(" | ")}` }],
+        messages: [{ role: "user", content: `Find representative, publicly accessible photos for these exact travel places. Return only images that visibly or editorially correspond to the full place name; do not return generic city, country, stock, map, food, or unrelated images. Search only these exact names: ${names.join(" | ")}` }],
       }),
     });
     if (!response.ok) return [];
@@ -91,36 +105,6 @@ async function searchImages(key: string, places: any[]) {
   } catch (_) {
     return [];
   }
-}
-
-async function attachSourceImages(places: any[]) {
-  if (!Array.isArray(places)) return 0;
-  const results = await Promise.all(places.map(async (place) => {
-    const source = safeUrl(place?.sourceUrl || place?.officialUrl);
-    const imageUrl = source ? await fetchOgImage(source) : '';
-    if (imageUrl) { place.imageUrls = [imageUrl]; return 1; }
-    return 0;
-  }));
-  return results.reduce((total, value) => total + value, 0);
-}
-
-function safeUrl(value: string) {
-  try {
-    const url = new URL(String(value || ''));
-    if (url.protocol !== 'https:') return '';
-    if (/^(localhost|127\.|0\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.|169\.254\.)/i.test(url.hostname)) return '';
-    return url.toString();
-  } catch (_) { return ''; }
-}
-
-async function fetchOgImage(source: string) {
-  try {
-    const response = await fetch(source, { headers: { 'User-Agent': 'AfricaTripCompanion/1.0' }, redirect: 'follow' });
-    if (!response.ok) return '';
-    const html = (await response.text()).slice(0, 600000);
-    const match = html.match(/<meta[^>]+property=[\"']og:image[\"'][^>]+content=[\"']([^\"']+)/i) || html.match(/<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+property=[\"']og:image[\"']/i);
-    return match?.[1] ? new URL(match[1], response.url).toString() : '';
-  } catch (_) { return ''; }
 }
 
 function json(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
