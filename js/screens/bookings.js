@@ -550,7 +550,7 @@ const BookingsScreen = (() => {
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;display:flex;align-items:flex-end;justify-content:center;padding:12px';
     const panel = document.createElement('div');
     panel.style.cssText = 'width:min(480px,100%);background:var(--surface);border-radius:var(--r-lg);padding:20px;box-shadow:0 -8px 30px rgba(0,0,0,.18)';
-    const render = () => {
+    const renderDrawer = () => {
       panel.innerHTML = `<p style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Expense sharing</p>
         <h3 style="margin:4px 0 2px;font-size:20px">${item.name}</h3>
         <p style="color:var(--text-muted);font-size:13px">${item.currency} ${fmtMoney(item.cost)}</p>
@@ -558,9 +558,9 @@ const BookingsScreen = (() => {
         <div id="share-people" style="display:${shared?'flex':'none'};gap:8px;flex-wrap:wrap">${travelers.map(t=>`<button type="button" data-traveler="${t}" style="border:1px solid var(--border);border-radius:999px;padding:8px 12px;background:${selected.includes(t)?'var(--accent)':'var(--surface-raised)'};color:${selected.includes(t)?'white':'var(--text-primary)'}">${t}</button>`).join('')}</div>
         <p id="share-preview" style="font-size:13px;color:var(--text-muted);margin:14px 0">${shared && selected.length ? `Each person: ${item.currency} ${fmtMoney((Number(item.cost)||0)/selected.length)}` : 'This expense is assigned to one person.'}</p>
         <div style="display:flex;gap:8px"><button id="share-cancel" class="btn btn-ghost" style="flex:1">Cancel</button><button id="share-save" class="btn btn-primary" style="flex:1">Save</button></div>`;
-      panel.querySelector('#share-toggle').addEventListener('change', e => { shared=e.target.checked; render(); });
+      panel.querySelector('#share-toggle').addEventListener('change', e => { shared=e.target.checked; renderDrawer(); });
       panel.querySelectorAll('[data-traveler]').forEach(btn => btn.addEventListener('click', () => {
-        const name=btn.dataset.traveler; selected=selected.includes(name)?selected.filter(t=>t!==name):[...selected,name]; render();
+        const name=btn.dataset.traveler; selected=selected.includes(name)?selected.filter(t=>t!==name):[...selected,name]; renderDrawer();
       }));
       panel.querySelector('#share-cancel').addEventListener('click', () => overlay.remove());
       panel.querySelector('#share-save').addEventListener('click', async () => {
@@ -572,7 +572,7 @@ const BookingsScreen = (() => {
         } catch (e) { Toast.show('Could not save sharing','warning'); }
       });
     };
-    overlay.appendChild(panel); document.body.appendChild(overlay); render();
+    overlay.appendChild(panel); document.body.appendChild(overlay); renderDrawer();
   }
 
   function renderCategoryPaymentsGroups() {
@@ -684,7 +684,11 @@ const BookingsScreen = (() => {
     // as "spent" yet since the money hasn't actually moved.
     const totalSpent = totalUSD + paymentsSummary.totalPaid;
     const totalOutstanding = paymentsSummary.totalOutstanding;
-    const pctOfBudget = Math.min(100, (totalSpent && budgetUSD) ? Math.round(totalSpent/budgetUSD*100) : 0);
+    const travellerCount = Math.max(1, travelers.length);
+    const userSpent = totalSpent / travellerCount;
+    const userOutstanding = totalOutstanding / travellerCount;
+    const userBudget = budgetUSD / travellerCount;
+    const pctOfBudget = Math.min(100, (userSpent && userBudget) ? Math.round(userSpent/userBudget*100) : 0);
 
     if (!travelers.length) {
       const notice = document.createElement('div');
@@ -698,13 +702,14 @@ const BookingsScreen = (() => {
     summary.className = 'settlement-card';
     summary.style.marginTop = 'var(--s3)';
     let summaryHTML = `
-      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s2);text-transform:uppercase;letter-spacing:.04em;font-weight:500">Total spent</p>
-      <p style="font-size:22px;font-weight:500;color:var(--text-primary)">${cur} ${fmtMoney(totalSpent)}</p>
-      ${approxCurrencyLine(totalSpent, cur, '13px', 'margin-bottom:4px')}
-      ${totalOutstanding>0?`<p style="font-size:var(--text-xs);color:var(--warning-text);margin-bottom:2px">+ ${cur} ${fmtMoney(totalOutstanding)} outstanding on itinerary bookings</p>`:''}
-      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:6px">Budget: ${cur} ${fmtMoney(budgetUSD)}</p>
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s2);text-transform:uppercase;letter-spacing:.04em;font-weight:500">Your share of spending</p>
+      <p style="font-size:22px;font-weight:500;color:var(--text-primary)">${cur} ${fmtMoney(userSpent)}</p>
+      <p style="font-size:10px;color:var(--text-muted);margin-bottom:4px">Trip total: ${cur} ${fmtMoney(totalSpent)} · split across ${travellerCount} traveller${travellerCount===1?'':'s'}</p>
+      ${approxCurrencyLine(userSpent, cur, '13px', 'margin-bottom:4px')}
+      ${userOutstanding>0?`<p style="font-size:var(--text-xs);color:var(--warning-text);margin-bottom:2px">+ ${cur} ${fmtMoney(userOutstanding)} outstanding share</p>`:''}
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:6px">Your budget share: ${cur} ${fmtMoney(userBudget)}</p>
       <div class="budget-bar"><div class="budget-fill" style="width:${pctOfBudget}%;background:${pctOfBudget>90?'var(--danger-text)':pctOfBudget>70?'var(--warning-text)':'var(--accent)'}"></div></div>
-      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">${cur} ${fmtMoney(Math.max(0,budgetUSD-totalSpent))} remaining</p>`;
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">${cur} ${fmtMoney(Math.max(0,userBudget-userSpent))} remaining</p>`;
 
     if (travelers.length && expenses.length) {
       const paid = {}; const share = {};
@@ -717,7 +722,7 @@ const BookingsScreen = (() => {
         }
       });
       summaryHTML += `<div style="margin-top:var(--s3);padding-top:var(--s3);border-top:1px solid var(--border-subtle)">`;
-      summaryHTML += `<p style="font-size:10px;color:var(--text-muted);margin-bottom:var(--s2)">Split below covers logged expenses. Use “Costs by category” below to share itinerary bookings too.</p>`;
+      summaryHTML += `<p style="font-size:10px;color:var(--text-muted);margin-bottom:var(--s2)">Split below covers logged expenses. Use “Cost details” below to share itinerary bookings too.</p>`;
       travelers.forEach(t => {
         summaryHTML += `<div class="settlement-row"><span style="font-weight:500">${t}</span><span style="color:var(--text-muted)">paid ${cur} ${fmtMoney(paid[t]||0)} · share ${cur} ${fmtMoney(share[t]||0)}</span></div>`;
       });
