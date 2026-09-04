@@ -3,6 +3,7 @@
 const BookingsScreen = (() => {
   let root;
   let activeTab = 'reservations';
+  let shareTraveler = null;
   const sectionsOpen = {
     accommodation: true, transport: true, activities: true,
     // Payments (Budget tab) — itinerary/other split, plus per-status
@@ -689,10 +690,10 @@ const BookingsScreen = (() => {
     // already paid) + whatever's been paid on itinerary bookings so far.
     // Outstanding itinerary bookings are shown separately, not counted
     // as "spent" yet since the money hasn't actually moved.
-    const totalSpent = totalUSD + paymentsSummary.totalPaid;
+    const totalSpent = totalUSD + paymentsSummary.totalPaid + paymentsSummary.totalOutstanding;
     const totalOutstanding = paymentsSummary.totalOutstanding;
     const travellerCount = Math.max(1, travelers.length);
-    const currentTraveler = travelers[0] || 'You';
+    const currentTraveler = travelers.includes(shareTraveler) ? shareTraveler : (travelers[0] || 'You');
     const manualAllocations = expenses.map(exp => ({
       amount: exp.amountJPY,
       selected: exp.splitBetween?.length ? exp.splitBetween : [exp.paidBy || currentTraveler],
@@ -723,6 +724,7 @@ const BookingsScreen = (() => {
     summary.style.marginTop = 'var(--s3)';
     let summaryHTML = `
       <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--s2);text-transform:uppercase;letter-spacing:.04em;font-weight:500">Your share of trip costs · ${currentTraveler}</p>
+      ${travelers.length > 1 ? `<div class="split-chips" style="margin-bottom:var(--s2)">${travelers.map(t => `<button type="button" class="traveler-chip share-traveler-chip ${t===currentTraveler?'traveler-chip--active':''}" data-name="${t}">${t}</button>`).join('')}</div>` : ''}
       <p style="font-size:22px;font-weight:500;color:var(--text-primary)">${cur} ${fmtMoney(userSpent)}</p>
       <p style="font-size:10px;color:var(--text-muted);margin-bottom:4px">Trip total: ${cur} ${fmtMoney(totalSpent)} · split across ${travellerCount} traveller${travellerCount===1?'':'s'}</p>
       ${approxCurrencyLine(userSpent, cur, '13px', 'margin-bottom:4px')}
@@ -764,6 +766,12 @@ const BookingsScreen = (() => {
       summaryHTML += `</div>`;
     }
     summary.innerHTML = summaryHTML;
+    summary.querySelectorAll('.share-traveler-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        shareTraveler = chip.dataset.name;
+        render();
+      });
+    });
     frag.appendChild(summary);
 
     /* ── Payments — split into itinerary-linked costs (stops/overnights)
