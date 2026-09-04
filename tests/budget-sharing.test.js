@@ -57,3 +57,14 @@ test('MYR estimates convert totals using the cached live rate', () => {
   assert.equal(sharing.convertEstimate(10000, 0.0295), 295);
   assert.equal(sharing.convertEstimate(10000, null), null);
 });
+
+test('budget rows normalize foreign source amounts into the JPY trip currency', () => {
+  const sharing = loadSharing();
+  const converted = sharing.tripAmount({ cost: 100, currency: 'MYR' }, 'JPY', amount => amount * 38.73);
+  assert.equal(Math.round(converted.amount), 3873);
+  assert.equal(converted.currency, 'JPY');
+  assert.deepEqual(
+    { ...sharing.tripAmount({ cost: 1000, currency: 'JPY' }, 'JPY', amount => amount) },
+    { amount: 1000, currency: 'JPY' }
+  );
+});

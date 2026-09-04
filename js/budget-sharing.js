@@ -42,7 +42,16 @@ const BudgetSharing = (() => {
     return (Number(amount) || 0) * Number(rate);
   }
 
-  return { normalizeSelection, perPerson, groupByCategory, total, selectionLabel, toggleSelection, convertEstimate };
+  function tripAmount(item, tripCurrency, converter) {
+    const amount = Number(item?.cost) || 0;
+    if (!item?.currency || item.currency === tripCurrency) return { amount, currency: tripCurrency };
+    const converted = typeof converter === 'function' ? converter(amount, item.currency) : null;
+    return converted == null
+      ? { amount, currency: item.currency, unconverted: true }
+      : { amount: converted, currency: tripCurrency };
+  }
+
+  return { normalizeSelection, perPerson, groupByCategory, total, selectionLabel, toggleSelection, convertEstimate, tripAmount };
 })();
 
 if (typeof window !== 'undefined') window.BudgetSharing = BudgetSharing;

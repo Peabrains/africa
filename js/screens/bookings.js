@@ -455,6 +455,8 @@ const BookingsScreen = (() => {
         const wrap = document.createElement('div');
         wrap.style.cssText = 'display:flex;flex-direction:column;padding:5px 0;cursor:pointer';
         const pct = it.cost ? Math.min(100, Math.max(0, (it.paidAmount/it.cost)*100)) : 0;
+        const tripCost = window.BudgetSharing.tripAmount(it, cur, (amount, currency) => Data.convertToTripCurrency(amount, currency));
+        const tripPaid = window.BudgetSharing.tripAmount({ cost:it.paidAmount, currency:it.currency }, cur, (amount, currency) => Data.convertToTripCurrency(amount, currency));
         // Partial rows: the main row keeps a single plain amount (no
         // overflow risk, unlike the old paid/total fraction which had a
         // fixed-width box that clipped for large numbers — see note
@@ -467,7 +469,7 @@ const BookingsScreen = (() => {
               <span>${it.name}</span>
             </span>
             <span style="display:flex;align-items:center;flex-shrink:0">
-              ${formatMoneyAligned(it.currency, it.cost)}
+              ${formatMoneyAligned(tripCost.currency, tripCost.amount)}
             </span>
           </div>
           ${it.status === 'partial' ? `
@@ -479,7 +481,7 @@ const BookingsScreen = (() => {
             </div>
             <span style="font-size:9.5px;color:var(--text-muted);flex-shrink:0">${Math.round(pct)}%</span>
             <span style="display:flex;align-items:center;flex-shrink:0">
-              ${formatMoneyAligned(it.currency, it.paidAmount)}
+              ${formatMoneyAligned(tripPaid.currency, tripPaid.amount)}
             </span>
           </div>` : ''}`;
         wrap.addEventListener('click', () => {
@@ -555,8 +557,11 @@ const BookingsScreen = (() => {
   function renderCategoryPaymentsGroups() {
     const frag = document.createDocumentFragment();
     const summary = Data.getPaymentsSummary();
-    const expenses = Data.getExpenses().map(e => ({ ...e, source:'expense', name:e.description, cost:e.amountJPY, currency:Data.getTripCurrency(), category:e.category || 'Other', splitBetween:e.splitBetween || [], categoryCost:e.amountJPY }));
-    const items = [...summary.items.map(i => ({...i, source:'itinerary', categoryCost: Data.convertToTripCurrency(i.cost, i.currency) ?? i.cost})), ...expenses];
+    const expenses = Data.getExpenses().map(e => ({ ...e, source:'expense', name:e.description, cost:e.amountJPY, currency:Data.getTripCurrency(), category:e.category || 'Other', splitBetween:e.splitBetween || [], categoryCost:e.amountJPY, displayCost:e.amountJPY, displayCurrency:Data.getTripCurrency() }));
+    const items = [...summary.items.map(i => {
+      const tripValue = window.BudgetSharing.tripAmount(i, summary.tripCurrency, (amount, currency) => Data.convertToTripCurrency(amount, currency));
+      return {...i, source:'itinerary', categoryCost:tripValue.amount, displayCost:tripValue.amount, displayCurrency:tripValue.currency};
+    }), ...expenses];
     if (!items.length) { const p=document.createElement('p'); p.style.cssText='font-size:var(--text-sm);color:var(--text-muted)'; p.textContent='No costs logged yet.'; frag.appendChild(p); return frag; }
     const order=['Accommodation','Transport','Activities','Food','Shopping','Other'];
     const groups = (window.BudgetSharing ? window.BudgetSharing.groupByCategory(items) : {});
@@ -578,8 +583,8 @@ const BookingsScreen = (() => {
         group.items.forEach(it => {
           const row=document.createElement('div'); row.style.cssText='padding:10px 0;border-bottom:1px solid var(--border-subtle);cursor:pointer';
           const selected = allocationFor(it);
-          const shareText = selected.length === 1 ? `${it.currency} ${fmtMoney(Number(it.cost)||0)} · ${selected[0]}` : `${it.currency} ${fmtMoney((Number(it.cost)||0)/selected.length)} each`;
-          row.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px"><span style="min-width:0"><span style="font-size:11px;color:var(--text-muted)">${it.type==='overnight'?'Accommodation':(it.type==='stop'?'Itinerary':'Manual')}</span><br><span style="font-weight:500">${it.name}</span></span>${formatMoneyAligned(it.currency,it.cost)}</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px">${shareText}</div>`;
+          const shareText = selected.length === 1 ? `${it.displayCurrency} ${fmtMoney(Number(it.displayCost)||0)} · ${selected[0]}` : `${it.displayCurrency} ${fmtMoney((Number(it.displayCost)||0)/selected.length)} each`;
+          row.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px"><span style="min-width:0"><span style="font-size:11px;color:var(--text-muted)">${it.type==='overnight'?'Accommodation':(it.type==='stop'?'Itinerary':'Manual')}</span><br><span style="font-weight:500">${it.name}</span></span>${formatMoneyAligned(it.displayCurrency,it.displayCost)}</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px">${shareText}</div>`;
           const pillRow = document.createElement('div');
           pillRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:7px';
           Data.getTravelers().forEach(name => {
