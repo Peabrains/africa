@@ -827,8 +827,24 @@ const BucketListScreen = (() => {
     '2b3c82f2-040f-4f2a-9d01-579129d1203b': { screen: () => window.FoodScreen,   label: 'Food',   icon: 'bowl' },
   };
   function currentCollection() {
-    const tripId = Data.getCurrentTrip?.()?.id;
-    return COLLECTION_BY_TRIP[tripId] || null;
+    const trip = Data.getCurrentTrip?.();
+    if (!trip) return null;
+    const tripId = trip.id;
+    if (COLLECTION_BY_TRIP[tripId]) return COLLECTION_BY_TRIP[tripId];
+    // Duplicated trips receive a new ID. Infer the curated collection from
+    // the trip's country/name so Japan copies retain Pilgrim Stamps too.
+    const countries = Array.isArray(trip.countries) ? trip.countries.join(' ') : (trip.countries || '');
+    const identity = `${trip.name || ''} ${countries}`.toLowerCase();
+    if (identity.includes('japan') || identity.includes('kumano')) {
+      return { screen: () => window.StampsScreen, label: 'Stamps', icon: 'stamp' };
+    }
+    if (identity.includes('thailand') || identity.includes('bangkok')) {
+      return { screen: () => window.FoodScreen, label: 'Food', icon: 'bowl' };
+    }
+    if (identity.includes('africa') || identity.includes('migration')) {
+      return { screen: () => window.DexScreen, label: 'Dex', icon: 'paw' };
+    }
+    return null;
   }
 
   function subTabBar() {
