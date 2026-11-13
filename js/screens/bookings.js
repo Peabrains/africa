@@ -699,7 +699,7 @@ const BookingsScreen = (() => {
       selected: exp.splitBetween?.length ? exp.splitBetween : [exp.paidBy || currentTraveler],
     }));
     const itineraryAllocations = paymentsSummary.items.map(item => ({
-      amount: Data.convertToTripCurrency(item.cost, item.currency) ?? 0,
+      amount: Data.convertToTripCurrency(item.paidAmount, item.currency) ?? 0,
       selected: item.splitBetween?.length ? item.splitBetween : (item.paidBy ? [item.paidBy] : travelers),
     }));
     const outstandingAllocations = paymentsSummary.items.map(item => ({
@@ -744,8 +744,9 @@ const BookingsScreen = (() => {
         }
       });
       paymentsSummary.items.forEach(item => {
-        const amount = Data.convertToTripCurrency(item.cost, item.currency) ?? 0;
-        if (item.paidBy && paid[item.paidBy] !== undefined) paid[item.paidBy] += amount;
+        const amount = Data.convertToTripCurrency(item.paidAmount, item.currency) ?? 0;
+        if (!item.paidBy || paid[item.paidBy] === undefined) return;
+        paid[item.paidBy] += amount;
         const selected = item.splitBetween?.length ? item.splitBetween : (item.paidBy ? [item.paidBy] : []);
         if (selected.length) {
           const perHead = amount / selected.length;
@@ -753,7 +754,7 @@ const BookingsScreen = (() => {
         }
       });
       summaryHTML += `<div style="margin-top:var(--s3);padding-top:var(--s3);border-top:1px solid var(--border-subtle)">`;
-      summaryHTML += `<p style="font-size:10px;color:var(--text-muted);margin-bottom:var(--s2)">Includes logged expenses and accommodation costs with a selected payer.</p>`;
+      summaryHTML += `<p style="font-size:10px;color:var(--text-muted);margin-bottom:var(--s2)">Includes logged expenses and paid itinerary costs with a selected payer.</p>`;
       travelers.forEach(t => {
         summaryHTML += `<div class="settlement-row"><span style="font-weight:500">${t}</span><span style="color:var(--text-muted)">paid ${cur} ${fmtMoney(paid[t]||0)} · share ${cur} ${fmtMoney(share[t]||0)}</span></div>`;
       });
@@ -768,6 +769,7 @@ const BookingsScreen = (() => {
         negatives.forEach(debtor => {
           positives.forEach(creditor => {
             const amt = Math.min(Math.abs(balances[debtor]), balances[creditor]);
+            if (amt>0) { balances[debtor] += amt; balances[creditor] -= amt; }
             if (amt>0) summaryHTML += `<p class="settlement-owed">💸 ${debtor} owes ${creditor} ${cur} ${fmtMoney(amt)}</p>`;
           });
         });
