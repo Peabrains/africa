@@ -562,14 +562,14 @@ const BookingsScreen = (() => {
     const expenses = Data.getExpenses().map(e => ({ ...e, source:'expense', name:e.description, cost:e.amountJPY, currency:Data.getTripCurrency(), category:e.category || 'Other', splitBetween:e.splitBetween || [], categoryCost:e.amountJPY, displayCost:e.amountJPY, displayCurrency:Data.getTripCurrency() }));
     const items = [...summary.items.map(i => {
       const tripValue = window.BudgetSharing.tripAmount(i, summary.tripCurrency, (amount, currency) => Data.convertToTripCurrency(amount, currency));
-      return {...i, source:'itinerary', categoryCost:tripValue.amount, displayCost:tripValue.amount, displayCurrency:tripValue.currency};
+      return {...i, source:'itinerary', categoryCost:tripValue.amount, displayCost:tripValue.amount, displayCurrency:tripValue.currency, splitBetween:i.splitBetween?.length ? i.splitBetween : (i.paidBy ? [i.paidBy] : Data.getTravelers())};
     }), ...expenses];
     if (!items.length) { const p=document.createElement('p'); p.style.cssText='font-size:var(--text-sm);color:var(--text-muted)'; p.textContent='No costs logged yet.'; frag.appendChild(p); return frag; }
     const order=['Accommodation','Transport','Activities','Food','Shopping','Other'];
     const groups = (window.BudgetSharing ? window.BudgetSharing.groupByCategory(items) : {});
     const allocationFor = it => (it.splitBetween || []).length
       ? [...it.splitBetween]
-      : (it.source === 'itinerary' ? [...Data.getTravelers()] : [it.paidBy || Data.getTravelers()[0]].filter(Boolean));
+      : (it.source === 'itinerary' ? (it.paidBy ? [it.paidBy] : [...Data.getTravelers()]) : [it.paidBy || Data.getTravelers()[0]].filter(Boolean));
     order.forEach(category => {
       const group=groups[category]; if (!group?.items?.length) return;
       const perTraveller = {};
@@ -700,11 +700,11 @@ const BookingsScreen = (() => {
     }));
     const itineraryAllocations = paymentsSummary.items.map(item => ({
       amount: Data.convertToTripCurrency(item.cost, item.currency) ?? 0,
-      selected: item.splitBetween?.length ? item.splitBetween : travelers,
+      selected: item.splitBetween?.length ? item.splitBetween : (item.paidBy ? [item.paidBy] : travelers),
     }));
     const outstandingAllocations = paymentsSummary.items.map(item => ({
       amount: Data.convertToTripCurrency(item.cost - item.paidAmount, item.currency) ?? 0,
-      selected: item.splitBetween?.length ? item.splitBetween : travelers,
+      selected: item.splitBetween?.length ? item.splitBetween : (item.paidBy ? [item.paidBy] : travelers),
     }));
     const userSpent = window.BudgetSharing.allocatedTotal([...manualAllocations, ...itineraryAllocations], currentTraveler);
     const userOutstanding = window.BudgetSharing.allocatedTotal(outstandingAllocations, currentTraveler);
@@ -733,7 +733,7 @@ const BookingsScreen = (() => {
       <div class="budget-bar"><div class="budget-fill" style="width:${pctOfBudget}%;background:${pctOfBudget>90?'var(--danger-text)':pctOfBudget>70?'var(--warning-text)':'var(--accent)'}"></div></div>
       <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">${cur} ${fmtMoney(Math.max(0,userBudget-userSpent))} remaining</p>`;
 
-    if (travelers.length && expenses.length) {
+    if (travelers.length && (expenses.length || paymentsSummary.items.some(item => item.paidBy))) {
       const paid = {}; const share = {};
       travelers.forEach(t => { paid[t]=0; share[t]=0; });
       expenses.forEach(exp => {
@@ -743,8 +743,17 @@ const BookingsScreen = (() => {
           exp.splitBetween.forEach(t => { if (share[t]!==undefined) share[t] += perHead; });
         }
       });
+      paymentsSummary.items.forEach(item => {
+        const amount = Data.convertToTripCurrency(item.cost, item.currency) ?? 0;
+        if (item.paidBy && paid[item.paidBy] !== undefined) paid[item.paidBy] += amount;
+        const selected = item.splitBetween?.length ? item.splitBetween : (item.paidBy ? [item.paidBy] : []);
+        if (selected.length) {
+          const perHead = amount / selected.length;
+          selected.forEach(name => { if (share[name] !== undefined) share[name] += perHead; });
+        }
+      });
       summaryHTML += `<div style="margin-top:var(--s3);padding-top:var(--s3);border-top:1px solid var(--border-subtle)">`;
-      summaryHTML += `<p style="font-size:10px;color:var(--text-muted);margin-bottom:var(--s2)">Split below covers logged expenses. Use “Cost details” below to share itinerary bookings too.</p>`;
+      summaryHTML += `<p style="font-size:10px;color:var(--text-muted);margin-bottom:var(--s2)">Includes logged expenses and accommodation costs with a selected payer.</p>`;
       travelers.forEach(t => {
         summaryHTML += `<div class="settlement-row"><span style="font-weight:500">${t}</span><span style="color:var(--text-muted)">paid ${cur} ${fmtMoney(paid[t]||0)} · share ${cur} ${fmtMoney(share[t]||0)}</span></div>`;
       });
