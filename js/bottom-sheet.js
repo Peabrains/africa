@@ -365,6 +365,29 @@ const BottomSheet = (() => {
         ${field('Amount paid so far', `${prefix}-paidamt`, p.amountPaid||'', 'number', 'e.g. 5000', '0.01')}
       </div>`;
   }
+
+  function overnightSharingHTML(o) {
+    const travelers = Data.getTravelers?.() || [];
+    if (!travelers.length) return '';
+    const payer = o.paid_by || '';
+    const split = Array.isArray(o.split_between) && o.split_between.length
+      ? o.split_between : travelers;
+    return `
+      <div class="bs-edit-group">
+        <label class="bs-edit-label">Paid by</label>
+        <div class="split-chips" id="o-paid-by-chips">${travelers.map(name =>
+          `<button type="button" class="traveler-chip o-paid-chip ${name===payer?'traveler-chip--active':''}" data-name="${name}">${name}</button>`
+        ).join('')}</div>
+      </div>
+      <div class="bs-edit-group">
+        <label class="bs-edit-label">Split cost between</label>
+        <div class="split-chips" id="o-split-chips">${travelers.map(name =>
+          `<button type="button" class="traveler-chip o-split-chip ${split.includes(name)?'traveler-chip--active':''}" data-name="${name}">${name}</button>`
+        ).join('')}</div>
+        <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">Select everyone sharing this stay. The total is divided equally in the trip budget.</p>
+        <p id="o-split-error" style="display:none;font-size:var(--text-xs);color:var(--danger-text);margin-top:4px">Select at least one traveller to share this cost.</p>
+      </div>`;
+  }
   // Toggle the "amount paid" field's visibility as the payment status
   // select changes, same show/hide pattern already used for luggage
   // forwarding's conditional fields.
@@ -586,6 +609,7 @@ const BottomSheet = (() => {
         ${field('Booking reference','o-ref',o.ref||'','text','e.g. HTL-20270412')}
         ${costWithCurrency('o-cost','o-cost-cur',o.cost,o.cost_currency)}
         ${paymentFieldsHTML('o', { status: o.payment_status, amountPaid: o.amount_paid })}
+        ${overnightSharingHTML(o)}
         ${field('Book by (deadline)','o-deadline',o.deadline||'','date')}
 
         <label style="display:flex;align-items:center;gap:8px;margin:var(--s4) 0 var(--s2);cursor:pointer">
@@ -918,9 +942,25 @@ const BottomSheet = (() => {
     });
     wireCurrencyCombobox('o-cost-cur');
     wirePaymentStatusToggle('o');
+    body.querySelectorAll('.o-paid-chip').forEach(chip => chip.addEventListener('click', () => {
+      body.querySelectorAll('.o-paid-chip').forEach(other => other.classList.remove('traveler-chip--active'));
+      chip.classList.add('traveler-chip--active');
+    }));
+    body.querySelectorAll('.o-split-chip').forEach(chip => chip.addEventListener('click', () => {
+      chip.classList.toggle('traveler-chip--active');
+      const error = body.querySelector('#o-split-error');
+      if (error && body.querySelector('.o-split-chip.traveler-chip--active')) error.style.display = 'none';
+    }));
 
     body.querySelector('#o-save-btn')?.addEventListener('click', async () => {
       const paystatus = g('o-paystatus') || 'unpaid';
+      const selectedSplit = [...body.querySelectorAll('.o-split-chip.traveler-chip--active')].map(chip => chip.dataset.name);
+      const splitError = body.querySelector('#o-split-error');
+      if ((parseFloat(g('o-cost')) || 0) > 0 && Data.getTravelers?.()?.length && !selectedSplit.length) {
+        if (splitError) splitError.style.display = 'block';
+        body.querySelector('#o-split-chips')?.scrollIntoView({ behavior:'smooth', block:'center' });
+        return;
+      }
       const patch = {
         name:            g('o-name'),
         address:         g('o-address'),
@@ -930,6 +970,8 @@ const BottomSheet = (() => {
         cost_currency:   body.querySelector('#o-cost-cur')?.value || Data.getTripCurrency?.() || 'USD',
         payment_status:  paystatus,
         amount_paid:     paystatus === 'partial' ? (parseFloat(g('o-paidamt'))||0) : null,
+        paid_by:         body.querySelector('.o-paid-chip.traveler-chip--active')?.dataset.name || null,
+        split_between:   selectedSplit,
         deadline:        g('o-deadline')||null,
       };
       patch.luggage_forwarding = lfToggle?.checked ? {
