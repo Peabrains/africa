@@ -1203,6 +1203,16 @@ const Data = (() => {
       if (balances[exp.paidBy] !== undefined) balances[exp.paidBy] += exp.amountJPY;
       validSplit.forEach(name => { balances[name] -= share; });
     });
+    getPaymentsSummary().items.forEach(item => {
+      if (balances[item.paidBy] === undefined) return;
+      const amount = convertToTripCurrency(item.paidAmount, item.currency);
+      if (amount == null || amount <= 0) return;
+      const selected = (item.splitBetween?.length ? item.splitBetween : [item.paidBy])
+        .filter(name => balances[name] !== undefined);
+      if (!selected.length) return;
+      balances[item.paidBy] += amount;
+      selected.forEach(name => { balances[name] -= amount / selected.length; });
+    });
     return balances;
   }
   function calcSettlement() { return getBalances(); }
@@ -2678,6 +2688,7 @@ const Data = (() => {
         status: payment.status || 'unpaid', paidAmount: paidAmt,
         category: s.category === 'transport' ? 'Transport' : s.category === 'activity' ? 'Activities' : 'Other',
         splitBetween: Array.isArray(payment.splitBetween) ? payment.splitBetween : [],
+        paidBy: payment.paidBy || '',
       });
     });
 
