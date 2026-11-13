@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 31850)
+Total output lines: 2810
+
 'use strict';
 
 /* ============================================================
@@ -1398,132 +1401,7 @@ const Data = (() => {
         const { error } = await SB.from('packing_items').update(patch).eq('id', id);
         if (error) throw error;
       } catch (e) {
-        console.warn('[Data] updatePackingItem server write failed, queued for retry:', e.message || e);
-        await enqueue('updatePacking', { id, patch });
-      }
-    } else {
-      await enqueue('updatePacking', { id, patch });
-    }
-    await DB.setMeta(tripKey(CACHE_KEYS.packing), PACKING);
-  }
-
-  async function deletePacking(id) {
-    PACKING = PACKING.filter(p => p.id !== id);
-    if (navigator.onLine) {
-      try {
-        const { error } = await SB.from('packing_items').delete().eq('id', id);
-        if (error) throw error;
-      } catch (e) {
-        console.warn('[Data] deletePacking server write failed, queued for retry:', e.message || e);
-        await enqueue('deletePacking', { id });
-      }
-    } else {
-      await enqueue('deletePacking', { id });
-    }
-    await DB.setMeta(tripKey(CACHE_KEYS.packing), PACKING);
-  }
-
-  /* ── DEX API ─────────────────────────────────────────────── */
-  // ANIMALS list stays in code (not personal data)
-  const ANIMALS = [
-    {id:'lion',      name:'Lion',             tier:'common',    emoji:'🦁', big5:true,  fact:'Only cats that live in social prides. Males roar to mark territory up to 8km away.'},
-    {id:'elephant',  name:'African Elephant', tier:'common',    emoji:'🐘', big5:true,  fact:'Largest land mammal. Can detect water sources up to 19km away by smell.'},
-    {id:'buffalo',   name:'Cape Buffalo',     tier:'common',    emoji:'🐃', big5:true,  fact:'Considered the most dangerous of the Big Five — unpredictable and powerful.'},
-    {id:'leopard',   name:'Leopard',          tier:'rare',      emoji:'🐆', big5:true,  fact:'Solitary and mostly nocturnal. Can drag prey twice its body weight up a tree.'},
-    {id:'rhino',     name:'Black Rhino',      tier:'legendary', emoji:'🦏', big5:true,  fact:'Critically endangered — fewer than 6,500 left in the wild today.'},
-    {id:'zebra',     name:'Zebra',            tier:'common',    emoji:'🦓', big5:false, fact:'Every zebra\'s stripe pattern is unique — like a fingerprint.'},
-    {id:'giraffe',   name:'Giraffe',          tier:'common',    emoji:'🦒', big5:false, fact:'Tallest land animal. Its heart weighs about 11kg to pump blood up that neck.'},
-    {id:'wildebeest',name:'Wildebeest',       tier:'common',    emoji:'🐂', big5:false, fact:'Stars of the Great Migration — over 1.5 million cross the Serengeti-Mara yearly.'},
-    {id:'hippo',     name:'Hippopotamus',     tier:'common',    emoji:'🦛', big5:false, fact:'Kill more people in Africa each year than lions, despite being herbivores.'},
-    {id:'impala',    name:'Impala',           tier:'common',    emoji:'🦌', big5:false, fact:'Can leap up to 3m high and 10m in a single bound to escape predators.'},
-    {id:'baboon',    name:'Baboon',           tier:'common',    emoji:'🐒', big5:false, fact:'Live in troops of up to 150, with a strict social hierarchy.'},
-    {id:'warthog',   name:'Warthog',          tier:'common',    emoji:'🐗', big5:false, fact:'Often share burrows with other warthogs — and sometimes mongooses too.'},
-    {id:'cheetah',   name:'Cheetah',          tier:'rare',      emoji:'🐆', big5:false, fact:'Fastest land animal — 0 to 100km/h in about 3 seconds.'},
-    {id:'hyena',     name:'Spotted Hyena',    tier:'rare',      emoji:'🐕', big5:false, fact:'Far better hunters than scavengers — they kill most of their own food.'},
-    {id:'crocodile', name:'Nile Crocodile',   tier:'rare',      emoji:'🐊', big5:false, fact:'Ambush predators in the Mara River during wildebeest crossings.'},
-    {id:'ostrich',   name:'Ostrich',          tier:'rare',      emoji:'🦤', big5:false, fact:'Largest living bird. Can run at 70km/h — faster than most predators.'},
-    {id:'flamingo',  name:'Flamingo',         tier:'rare',      emoji:'🦩', big5:false, fact:'Their pink colour comes entirely from the algae and shrimp they eat.'},
-    {id:'serval',    name:'Serval',           tier:'rare',      emoji:'🐈', big5:false, fact:'Has the largest ears relative to body size of any cat — incredible hearing.'},
-    {id:'gorilla',   name:'Mountain Gorilla', tier:'legendary', emoji:'🦍', big5:false, fact:'Fewer than 1,100 left in the wild — Bwindi is home to nearly half of them.'},
-    {id:'aardvark',  name:'Aardvark',         tier:'legendary', emoji:'🐾', big5:false, fact:'Nocturnal and rarely seen — most safari guides go years without a sighting.'},
-  ];
-
-  function getAnimals()   { return ANIMALS; }
-  function getAnimal(id)  { return ANIMALS.find(a => a.id === id); }
-  function getDexState()  { return DEX_CATCHES; }
-  function isCaught(id)   { return !!DEX_CATCHES[id]; }
-
-  function getDexProgress() {
-    const caught     = ANIMALS.filter(a => DEX_CATCHES[a.id]);
-    const big5       = ANIMALS.filter(a => a.big5);
-    const big5Caught = big5.filter(a => DEX_CATCHES[a.id]);
-    return {
-      total: ANIMALS.length, caught: caught.length,
-      big5Total: big5.length, big5Caught: big5Caught.length,
-      big5Complete: big5Caught.length === big5.length,
-    };
-  }
-
-  async function markCaught(animalId, { note = '', dayId = null } = {}) {
-    const entry = {
-      trip_id:  CURRENT_TRIP.id,
-      animal_id: animalId,
-      note,
-      day_label: dayId,
-    };
-
-    DEX_CATCHES[animalId] = { ...entry, photoIds: [], caught_at: new Date().toISOString() };
-
-    if (navigator.onLine) {
-      const user = (await SB.auth.getUser()).data.user;
-      const { data, error } = await SB.from('dex_catches')
-        .insert({ ...entry, user_id: user?.id })
-        .select().single();
-      if (!error && data) {
-        DEX_CATCHES[animalId] = { ...data, photoIds: [] };
-      }
-    }
-    await DB.setMeta(tripKey(CACHE_KEYS.dex), DEX_CATCHES);
-    return DEX_CATCHES[animalId];
-  }
-
-  async function unmarkCaught(animalId) {
-    const catchId = DEX_CATCHES[animalId]?.id;
-    delete DEX_CATCHES[animalId];
-    if (navigator.onLine && catchId) {
-      await SB.from('dex_catches').delete().eq('id', catchId);
-    }
-    await DB.setMeta(tripKey(CACHE_KEYS.dex), DEX_CATCHES);
-  }
-
-  async function addDexPhoto(animalId, fileDataUrl) {
-    if (!DEX_CATCHES[animalId]) await markCaught(animalId, {});
-    const photoId = 'ph_' + Date.now();
-
-    // Save locally first — always works offline, and is the fast-path source
-    // for photos taken on this device.
-    await DB.saveDexPhoto(photoId, fileDataUrl);
-    if (!DEX_CATCHES[animalId].photoIds) DEX_CATCHES[animalId].photoIds = [];
-    DEX_CATCHES[animalId].photoIds.push(photoId);
-    await DB.setMeta(tripKey(CACHE_KEYS.dex), DEX_CATCHES);
-
-    // Sync to Supabase Storage so other devices can see it too.
-    // Photo arrives here already compressed (see dex.js compressImage()).
-    if (navigator.onLine && CURRENT_TRIP) {
-      try {
-        const blob = await (await fetch(fileDataUrl)).blob();
-        const storagePath = `${CURRENT_TRIP.id}/${photoId}.jpg`;
-        const { error: upErr } = await SB.storage.from('dex-photos')
-          .upload(storagePath, blob, { contentType: 'image/jpeg', upsert: true });
-        if (!upErr) {
-          const catchId = DEX_CATCHES[animalId].id;
-          await SB.from('dex_photos').insert({
-            trip_id: CURRENT_TRIP.id,
-            catch_id: catchId,
-            animal_id: animalId,
-            storage_path: storagePath,
-          });
-          DEX_PHOTO_META[photoId] = { storage_path: storagePath };
+        console.warn('[Data] updatePacki…1850 tokens truncated…ETA[photoId] = { storage_path: storagePath };
         } else {
           console.error('[Data] dex photo upload error:', upErr);
         }
@@ -2692,6 +2570,7 @@ const Data = (() => {
         status, paidAmount: paidAmt,
         category: 'Accommodation',
         splitBetween: Array.isArray(o.split_between) ? o.split_between : [],
+        paidBy: o.paid_by || '',
       });
     });
 
