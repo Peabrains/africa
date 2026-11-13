@@ -220,6 +220,7 @@ create table if not exists public.overnights (
   ref         text,
   notes       text,
   split_between text[] not null default '{}'::text[],
+  paid_by     text,
   lat         double precision,
   lng         double precision,
   created_at  timestamptz default now()
